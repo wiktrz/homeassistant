@@ -3,8 +3,6 @@
   entities: {}
   icon: mdi:account-plus
   metadata: {}
-<<<<<<< HEAD
-=======
 - id: '1748461021528'
   name: Zmierzch
   entities: {}
@@ -31,4 +29,3 @@
       state: 'on'
   icon: mdi:account-group
   metadata: {}
->>>>>>> a515bf3 (A new start)

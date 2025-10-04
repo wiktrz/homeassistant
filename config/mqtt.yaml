@@ -21,9 +21,6 @@
 
     # Local 01
     # Local 01
-<<<<<<< HEAD
-
-=======
   - light:
     # schema: template
       unique_id: salon_mqtt
@@ -72,8 +69,8 @@
     # effect_list:
     #   - "color"
     # effect_list:
->>>>>>> a515bf3 (A new start)
     #HOME
+    #klatki
   - sensor:
       name: "local00 Klatka1P Setpoint"
       state_topic: "local00/Klatka1P/details"
@@ -162,9 +159,36 @@
        - 'off'
        - 'heat'
 
+#PARTER
+  - sensor:
+      name: "local00 Kuchnia Setpoint"
+      state_topic: "local00/Kuchnia/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local00/Glowny/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local00 Kuchnia Temperature"
+      state_topic: "local00/Kuchnia/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.temperature }}"
+      json_attributes_topic: "local00/Kuchnia/details"
+      json_attributes_template: "{{ value_json.temperature | tojson }}"
+  - sensor:
+      name: "local00 Kuchnia Pressure"
+      state_topic: "local00/Kuchnia/details"
+      # unit_of_measurement: "°C"
+      value_template: "{{ value_json.pressure }}"
+      json_attributes_topic: "local00/Kuchnia/details"
+      json_attributes_template: "{{ value_json.pressure | tojson }}"
+      device_class: "pressure"
+  - sensor:
+      name: "local00 Kuchnia Temperature Controller"
+      state_topic: "room00_kitchen/sensor/temperature/state"
+      unit_of_measurement: "°C"
 
 
-
+### WYNAJEM ###
     # -------- Glowny -------
   - sensor:
       name: "local01 Glowny Setpoint"

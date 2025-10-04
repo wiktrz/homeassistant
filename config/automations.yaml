@@ -452,22 +452,6 @@
       payload: '{"mode":"color","red": 0,"green":0,"blue": 0,"gain": 0,"white": 100,"effect":
         0,"turn":"on"}'
   id: d31bdcaa032d42628e404ca935baa872
-<<<<<<< HEAD
-- alias: Dimming Lights Up when morning outside
-  trigger:
-  - platform: numeric_state
-    entity_id: sun.sun
-    attribute: elevation
-    above: 0.0
-  action:
-  - service: mqtt.publish
-    data:
-      topic: shellies/shellyrgbw2-814843/color/0/set
-      retain: true
-      payload: '{"mode":"color","red": 0,"green":0,"blue": 0,"gain": 100,"white":
-        255,"effect": 0,"turn":"on"}'
-  id: 9c3c8f9c510041ec87050e35fc301091
-=======
 - id: 9c3c8f9c510041ec87050e35fc301091
   alias: Dimming Lights Up when morning outside
   triggers:
@@ -481,7 +465,6 @@
       payload: '{"mode":"color","red": 0,"green":0,"blue": 0,"gain": 100,"white":
         255,"effect": 0,"turn":"on"}'
     action: mqtt.publish
->>>>>>> a515bf3 (A new start)
 - id: '16232672390029'
   description: FrontCameraMotionDetection
   triggers:
@@ -509,11 +492,7 @@
     for:
       hours: 0
       minutes: 0
-<<<<<<< HEAD
-      seconds: 1
-=======
       seconds: 0
->>>>>>> a515bf3 (A new start)
   conditions:
   - condition: time
     after: input_datetime.pora_zmroku_na_zewnatrz
@@ -544,11 +523,7 @@
     for:
       hours: 0
       minutes: 0
-<<<<<<< HEAD
-      seconds: 1
-=======
       seconds: 30
->>>>>>> a515bf3 (A new start)
   conditions:
   - condition: state
     entity_id: light.boneio_32_l_07_new_light_12
@@ -560,10 +535,7 @@
       minutes: 0
       seconds: 30
       milliseconds: 0
-<<<<<<< HEAD
-=======
     enabled: false
->>>>>>> a515bf3 (A new start)
   - if:
     - condition: state
       entity_id: binary_sensor.rlc_822a_osoba
@@ -573,11 +545,7 @@
       device_id: e15a1fb7435cfe16a86b0f58812a81c7
       entity_id: 46a6c2c4ae66c9f10410eef7e0b6b57e
       domain: light
-<<<<<<< HEAD
-  mode: single
-=======
   mode: restart
->>>>>>> a515bf3 (A new start)
 - id: fea47ee8984d471185eb3ae01189a632
   alias: Light 13 motion on
   description: ''
@@ -608,11 +576,7 @@
     device_id: e15a1fb7435cfe16a86b0f58812a81c7
     entity_id: 46a6c2c4ae66c9f10410eef7e0b6b57e
     domain: light
-<<<<<<< HEAD
-  mode: single
-=======
   mode: restart
->>>>>>> a515bf3 (A new start)
 - id: '1729967740252'
   alias: light 13 on new
   description: ''
@@ -653,11 +617,7 @@
     entity_id: 1896766d22d6ef986f4eeb5fd4ee3a4f
     domain: light
     brightness_pct: 50
-<<<<<<< HEAD
-  mode: single
-=======
   mode: restart
->>>>>>> a515bf3 (A new start)
 - id: '1740228697228'
   alias: PIR Bathroom Small Off
   description: ''
@@ -970,11 +930,7 @@
     entity_id: 2f3141edc754045dfb69248f7596beb1
     domain: light
     brightness_pct: 25
-<<<<<<< HEAD
-  mode: single
-=======
   mode: restart
->>>>>>> a515bf3 (A new start)
 - id: '1744478561326'
   alias: PIR Livingroom ON
   description: ''
@@ -1052,14 +1008,10 @@
     entity_id: beb4bc2be45c01f0c2da53f8c3837f94
     domain: binary_sensor
     trigger: device
-<<<<<<< HEAD
-  conditions: []
-=======
   conditions:
   - condition: time
     before: input_datetime.pora_switu
     after: input_datetime.pora_zmroku
->>>>>>> a515bf3 (A new start)
   actions:
   - type: turn_on
     device_id: e15a1fb7435cfe16a86b0f58812a81c7
@@ -1129,8 +1081,6 @@
         minutes: 5
         seconds: 0
         milliseconds: 0
-<<<<<<< HEAD
-=======
     enabled: false
   - type: turn_off
     device_id: e15a1fb7435cfe16a86b0f58812a81c7
@@ -1140,7 +1090,6 @@
     device_id: e15a1fb7435cfe16a86b0f58812a81c7
     entity_id: 1dba2d456aa145c36960959d0d36f1fe
     domain: light
->>>>>>> a515bf3 (A new start)
   mode: single
 - id: '1746291017080'
   alias: PIR Entrance ON
@@ -1279,22 +1228,10 @@
       seconds: 30
       milliseconds: 0
     enabled: false
-<<<<<<< HEAD
-  - if:
-    - condition: state
-      entity_id: binary_sensor.reolink_duo_floodlight_poe_osoba
-      state: 'off'
-    then:
-    - type: turn_off
-      device_id: e15a1fb7435cfe16a86b0f58812a81c7
-      entity_id: f1aa382edce4de5ebf1e072a5981d25f
-      domain: light
-=======
   - type: turn_off
     device_id: e15a1fb7435cfe16a86b0f58812a81c7
     entity_id: f1aa382edce4de5ebf1e072a5981d25f
     domain: light
->>>>>>> a515bf3 (A new start)
   mode: single
 - id: '1746367485059'
   alias: BTN Entrance Door Trigger
@@ -1431,11 +1368,7 @@
     for:
       hours: 0
       minutes: 0
-<<<<<<< HEAD
-      seconds: 1
-=======
       seconds: 30
->>>>>>> a515bf3 (A new start)
   conditions: []
   actions:
   - delay:
@@ -1586,8 +1519,6 @@
     target:
       entity_id: alarm_control_panel.alarm
   mode: single
-<<<<<<< HEAD
-=======
 - id: '1748448370119'
   alias: BTN_PRESS_ROLLER_BEDROOM_UP
   description: ''
@@ -2132,4 +2063,3 @@
     data:
       message: est
   mode: single
->>>>>>> a515bf3 (A new start)

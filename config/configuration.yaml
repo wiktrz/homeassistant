@@ -2,10 +2,7 @@
 default_config:
 
 homeassistant:
-<<<<<<< HEAD
-=======
   # server_port: 8124
->>>>>>> a515bf3 (A new start)
   # Name of the location where Home Assistant is running
   name: Dom
   legacy_templates: true
@@ -45,11 +42,8 @@ automation: !include automations.yaml
 # automations: !include automations.yaml
 
 mqtt: !include mqtt.yaml
-<<<<<<< HEAD
-=======
 scene: !include scenes.yaml
 script: !include scripts.yaml
->>>>>>> a515bf3 (A new start)
 
 api:
 

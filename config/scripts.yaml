@@ -1,34 +1,3 @@
-<<<<<<< HEAD
-parking_screenshot:
-  alias: Parking screenshot
-  sequence:
-  - action: camera.snapshot
-    metadata: {}
-    data:
-      filename: Parking
-    target:
-      device_id: 91d2e38b1f538e39d124502873965058
-  description: ''
-test:
-  alias: Test
-  sequence: []
-  description: ''
-nowy_skrypt:
-  alias: Nowy skrypt
-  sequence: []
-  description: ''
-nowy_skryptd:
-  alias: Nowy skryptd
-  sequence:
-  - action: light.turn_off
-    metadata: {}
-    data: {}
-    target:
-      label_id: swiatlo
-  description: ''
-roller_bedroom_on:
-  alias: Roller Bedroom ON
-=======
 test:
   alias: LIGHT_SALON_WHITE_ON_50
   sequence:
@@ -55,7 +24,6 @@ test:
   description: ''
   icon: mdi:globe-light
 roller_bedroom_on:
->>>>>>> a515bf3 (A new start)
   sequence:
   - type: turn_on
     device_id: ffbfc79a8746e627343698b0cecbdf88
@@ -64,19 +32,13 @@ roller_bedroom_on:
   - delay:
       hours: 0
       minutes: 0
-<<<<<<< HEAD
-      seconds: 10
-=======
       seconds: 35
->>>>>>> a515bf3 (A new start)
       milliseconds: 0
   - type: turn_off
     device_id: ffbfc79a8746e627343698b0cecbdf88
     entity_id: 61a94e2cc0792d6f9b6b66b4815e6c8d
     domain: switch
   description: ''
-<<<<<<< HEAD
-=======
   alias: Roller Bedroom UP
 roller_bedroom_down:
   alias: Roller Bedroom DOWN
@@ -394,4 +356,3 @@ run_next_script_in_sequence:
     data:
       cycle: true
     action: input_select.select_next
->>>>>>> a515bf3 (A new start)
