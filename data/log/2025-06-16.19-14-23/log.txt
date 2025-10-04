@@ -1,0 +1,14 @@
+info  2025-06-16 19:14:23: Logging to console and directory: '/app/data/log/2025-06-16.19-14-23' filename: log.txt
+info  2025-06-16 19:14:23: Starting Zigbee2MQTT version 1.36.1 (commit #ffc2ff1)
+info  2025-06-16 19:14:23: Starting zigbee-herdsman (0.40.3)
+error 2025-06-16 19:14:36: Error while starting zigbee-herdsman
+error 2025-06-16 19:14:36: Failed to start zigbee
+error 2025-06-16 19:14:36: Check https://www.zigbee2mqtt.io/guide/installation/20_zigbee2mqtt-fails-to-start.html for possible solutions
+error 2025-06-16 19:14:36: Exiting...
+error 2025-06-16 19:14:36: Error: Failed to start EZSP layer with status=HOST_FATAL_ERROR.
+    at EmberAdapter.initEzsp (/app/node_modules/zigbee-herdsman/src/adapter/ember/adapter/emberAdapter.ts:804:19)
+    at EmberAdapter.start (/app/node_modules/zigbee-herdsman/src/adapter/ember/adapter/emberAdapter.ts:2661:24)
+    at Controller.start (/app/node_modules/zigbee-herdsman/src/controller/controller.ts:132:29)
+    at Zigbee.start (/app/lib/zigbee.ts:62:27)
+    at Controller.start (/app/lib/controller.ts:109:27)
+    at start (/app/index.js:107:5)

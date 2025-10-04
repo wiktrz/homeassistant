@@ -1,0 +1,34 @@
+- id: '1743342489130'
+  name: Nowa scena
+  entities: {}
+  icon: mdi:account-plus
+  metadata: {}
+<<<<<<< HEAD
+=======
+- id: '1748461021528'
+  name: Zmierzch
+  entities: {}
+  icon: mdi:lightbulb-night
+  metadata: {}
+- id: '1749931382004'
+  name: Salon Kino 1
+  entities:
+    media_player.salon_2:
+      assumed_state: true
+      device_class: tv
+      friendly_name: Salon 2
+      supported_features: 153529
+      volume_level: 0.2
+      is_volume_muted: false
+      app_id: com.tcl.tv
+      app_name: com.tcl.tv
+      state: 'on'
+    remote.salon_2:
+      activity_list: []
+      current_activity: com.tcl.tv
+      friendly_name: Salon 2
+      supported_features: 4
+      state: 'on'
+  icon: mdi:account-group
+  metadata: {}
+>>>>>>> a515bf3 (A new start)

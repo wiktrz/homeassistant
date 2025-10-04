@@ -1,0 +1,47 @@
+version: 4
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://localhost:1883
+  user: mqtt
+  password: waders
+serial:
+  port: /dev/ttyUSB0
+  adapter: ember
+  baudrate: 115200
+  rtscts: true
+advanced:
+  log_level: info
+  channel: 11
+  network_key:
+    - 236
+    - 211
+    - 207
+    - 15
+    - 57
+    - 53
+    - 190
+    - 47
+    - 24
+    - 110
+    - 203
+    - 11
+    - 212
+    - 113
+    - 89
+    - 46
+  pan_id: 4516
+  ext_pan_id:
+    - 50
+    - 3
+    - 89
+    - 209
+    - 122
+    - 113
+    - 133
+    - 117
+frontend:
+  enabled: true
+  port: 8124
+homeassistant:
+  enabled: false
+onboarding: true

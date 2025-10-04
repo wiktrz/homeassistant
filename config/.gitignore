@@ -1,0 +1,11 @@
+backups
+zigbee.*
+tts
+custom_components
+.storage
+.cloud
+blueprints
+image
+home-assistant.log*
+home-assistant_*
+mqtt_dump.txt

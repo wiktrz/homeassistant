@@ -1,0 +1,40 @@
+views:
+
+  - title: Lokal 02
+    path: lokale
+    panel: false
+    badges: []
+    cards:
+      - type: entities
+        entities:
+          - entity: climate.lokal02_glowny_termostat
+            name: Ciśnienie
+          - entity: sensor.local02_glowny_temperature
+            name: Temperatura
+          - entity: input_select.local02_main_heating_routine
+            name: Heating Routine
+          - entity: sensor.local02_glowny_heating_state
+            name: Heating State
+        state_color: true
+        title: Główny
+      - type: entities
+        entities:
+          - entity: climate.lokal02_lazienka_termostat
+            name: Termostat
+          - entity: sensor.local02_lazienka_temperature
+            name: Temperatura
+          - entity: sensor.local02_lazienka_heating_state
+            name: Heating Controller State
+          - entity: input_select.local02_bathroom_heating_routine
+        title: Łazienka
+      - type: entities
+        entities:
+          - entity: climate.lokal02_sypialnia_termostat
+            name: Thermostat
+          - entity: sensor.local02_sypialnia_temperature
+            name: Temperature
+          - entity: sensor.local02_sypialnia_heating_state
+            name: Heating State
+          - entity: input_select.local02_bedroom_heating_routine
+        title: Sypialnia
+        state_color: true

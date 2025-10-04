@@ -1,0 +1,5 @@
+
+climate.downstairs:
+  friendly_name: Downstairs
+  entity_picture: /local/icons/Ecobee.png
+

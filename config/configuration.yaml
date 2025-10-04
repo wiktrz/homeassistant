@@ -1,0 +1,723 @@
+# Configure a default setup of Home Assistant (frontend, api, etc)
+default_config:
+
+homeassistant:
+<<<<<<< HEAD
+=======
+  # server_port: 8124
+>>>>>>> a515bf3 (A new start)
+  # Name of the location where Home Assistant is running
+  name: Dom
+  legacy_templates: true
+  # external_url: https://w6w7009jc5z6slxn1p84j4a2u3mf4dy1.ui.nabu.casa/
+  auth_providers:
+    - type: homeassistant
+    # - type: trusted_networks
+      # trusted_networks:
+      #   - 10.20.2.0/24
+    #     - 131.96.253.0/24
+    # - type: legacy_api_password
+    #   api_password: !secret http_password
+  # Omitted values in this section will be auto detected using freegeoip.io
+
+  # Location required to calculate the time the sun rises and sets
+  latitude: !secret latitude_home
+  longitude: !secret longitude_home
+  elevation: 322
+  # C for Celcius, F for Fahrenheit
+  temperature_unit: C
+  # Pick yours from here: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+  time_zone: Europe/Warsaw
+  unit_system: metric
+  customize: !include customize.yaml
+  # customize_glob: !include customize_glob.yaml
+  # packages: !include_dir_named packages
+  allowlist_external_dirs:
+    # - /home/homeAssistant/.homeAssistant/downloads
+    - /tmp
+    # - /home/homeAssistant/.homeAssistant/downloads/camera/
+  media_dirs:
+    local: /media
+    # recording: /mnt/recordings
+  
+# sensor: !include sensor.yaml
+automation: !include automations.yaml
+# automations: !include automations.yaml
+
+mqtt: !include mqtt.yaml
+<<<<<<< HEAD
+=======
+scene: !include scenes.yaml
+script: !include scripts.yaml
+>>>>>>> a515bf3 (A new start)
+
+api:
+
+system_log:
+  max_entries: 400
+
+sensor:
+  - platform: group
+    name: Local 01 Sensors
+    type: mean
+    entities:
+      # - climate.local01_glowny_termostat
+      # - input_select.local01_main_heating_routine
+      - sensor.local01_glowny_temperature_controller
+      - sensor.local01_glowny_heating_state
+      - sensor.local01_glowny_setpoint
+      - sensor.local01_glowny_temperature
+#       - climate.local01_sypialnia_termostat
+#       - input_select.local01_bedroom_heating_routine
+      - sensor.local01_sypialnia_heating_state
+      - sensor.local01_sypialnia_setpoint
+      - sensor.local01_sypialnia_temperature
+#       - climate.local01_lazienka_termostat
+#       - input_select.local01_bathroom_heating_routine
+      - sensor.local01_lazienka_heating_state
+      - sensor.local01_lazienka_setpoint
+      - sensor.local01_lazienka_temperature
+# group:
+#   # home_kitchen:
+#   #   name: "Kuchnia"
+#   #   entities:
+#   #     - sensor.test
+
+#   halls_upstairs:
+#     name: "Klatki wynajem"
+#     entities:
+#       - sensor.local00_klatka1p_heating_state
+#       - sensor.local00_klatka1p_setpoint
+#       - sensor.local00_klatka1p_temperature
+#       # - sensor.local00_klatka1p_routine
+#       - sensor.local00_klatka2p_heating_state
+#       - sensor.local00_klatka2p_setpoint
+#       - sensor.local00_klatka2p_temperature
+#       # - sensor.local00_klatka2p_routine
+#       - sensor.local00_klatka1p_controler_temperature
+#       - sensor.local00_klatka2p_controler_temperature
+#       - climate.klatka1p_termostat
+#       - climate.klatka2p_termostat
+#   local01_main:
+#     name: "Lokal 1 Glowny"
+#     entities:
+#       - climate.local01_glowny_termostat
+#       - input_select.local01_main_heating_routine
+#       - sensor.local01_glowny_temperature_controller
+#       - sensor.local01_glowny_heating_state
+#       - sensor.local01_glowny_setpoint
+#       - sensor.local01_glowny_temperature
+#   local01_bedroom:
+#     name: "Lokal 1 Sypialnia"
+#     entities:
+#       - climate.local01_sypialnia_termostat
+#       - input_select.local01_bedroom_heating_routine
+#       - sensor.local01_sypialnia_heating_state
+#       - sensor.local01_sypialnia_setpoint
+#       - sensor.local01_sypialnia_temperature
+#   local01_bathroom:
+#     name: "Lokal 1 Lazienka"
+#     entities:
+#       - climate.local01_lazienka_termostat
+#       - input_select.local01_bathroom_heating_routine
+#       - sensor.local01_lazienka_heating_state
+#       - sensor.local01_lazienka_setpoint
+#       - sensor.local01_lazienka_temperature
+#   local02:
+#     name: "Lokal 2"
+#     entities:
+#       - climate.local02_glowny_termostat
+#       - climate.local02_lazienka_termostat
+#       - climate.local02_sypialnia_termostat
+#       - sensor.local02_glowny_temperature_controller
+#       - sensor.local02_glowny_heating_state
+#       - sensor.local02_glowny_setpoint
+#       - sensor.local02_glowny_temperature
+#       - sensor.local02_lazienka_heating_state
+#       - sensor.local02_lazienka_setpoint
+#       - sensor.local02_lazienka_temperature
+#       - sensor.local02_sypialnia_setpoint
+#       - sensor.local02_sypialnia_heating_state
+#       - sensor.local02_sypialnia_temperature
+#   local03:
+#     name: "Lokal 3"
+#     entities:
+#       - climate.local03_glowny_termostat
+#       - climate.local03_lazienka_termostat
+#       - climate.local03_sypialnia_termostat
+#       - sensor.local03_glowny_temperature_controller
+#       - sensor.local03_glowny_heating_state
+#       - sensor.local03_glowny_setpoint
+#       - sensor.local03_glowny_temperature
+#       - sensor.local03_lazienka_heating_state
+#       - sensor.local03_lazienka_setpoint
+#       - sensor.local03_lazienka_temperature
+#       - sensor.local03_sypialnia_heating_state
+#       - sensor.local03_sypialnia_setpoint
+#       - sensor.local03_sypialnia_temperature
+#   local04:
+#     name: "Lokal 4"
+#     entities:
+#       - climate.local04_glowny_termostat
+#       - climate.local04_lazienka_termostat
+#       - climate.local04_sypialnia_termostat
+#       - sensor.local04_glowny_temperature_controller
+#       - sensor.local04_glowny_heating_state
+#       - sensor.local04_glowny_setpoint
+#       - sensor.local04_glowny_temperature
+#       - sensor.local04_lazienka_heating_state
+#       - sensor.local04_lazienka_setpoint
+#       - sensor.local04_lazienka_temperature
+#       - sensor.local04_sypialnia_heating_state
+#       - sensor.local04_sypialnia_setpoint
+#       - sensor.local04_sypialnia_temperature
+#   local05:
+#     name: "Lokal 5"
+#     entities:
+#       - climate.local05_glowny_termostat
+#       - climate.local05_lazienka_termostat
+#       - climate.local05_sypialnia_termostat
+#       - sensor.local05_glowny_temperature_controller
+#       - sensor.local05_glowny_heating_state
+#       - sensor.local05_glowny_setpoint
+#       - sensor.local05_glowny_temperature
+#       - sensor.local05_lazienka_heating_state
+#       - sensor.local05_lazienka_setpoint
+#       - sensor.local05_lazienka_temperature
+#       - sensor.local05_sypialnia_heating_state
+#       - sensor.local05_sypialnia_setpoint
+#       - sensor.local05_sypialnia_temperature
+#   local06:
+#     name: "Lokal 6"
+#     entities:
+#       - climate.local06_glowny_termostat
+#       - climate.local06_lazienka_termostat
+#       - climate.local06_sypialnia_termostat
+#       - sensor.local06_glowny_temperature_controller
+#       - sensor.local06_glowny_heating_state
+#       - sensor.local06_glowny_setpoint
+#       - sensor.local06_glowny_temperature
+#       - sensor.local06_lazienka_heating_state
+#       - sensor.local06_lazienka_setpoint
+#       - sensor.local06_lazienka_temperature
+#       - sensor.local06_sypialnia_heating_state
+#       - sensor.local06_sypialnia_setpoint
+#       - sensor.local06_sypialnia_temperature
+
+# light:
+#   - platform: mqtt
+#     name: global
+#     command_topic: "room01-global/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+#   - platform: mqtt
+#     name: kitchen_day
+#     state_topic: "room01-kitchen/day/power"
+#     command_topic: "room01-kitchen/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+#   - platform: mqtt
+#     name: kitchen_night
+#     state_topic: "room01-kitchen/night/power"
+#     command_topic: "room01-kitchen/night/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+#   - platform: mqtt
+#     name: kitchen_table
+#     state_topic: "room01-kitchentable/day/power"
+#     command_topic: "room01-kitchentable/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+#   - platform: mqtt
+#     name: room_klara_day
+#     state_topic: "room01-roomklara/day/power"
+#     command_topic: "room01-roomklara/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+#   - platform: mqtt
+#     name: room_klara_night
+#     state_topic: "room01-roomklara/night/power"
+#     command_topic: "room01-roomklara/night/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: entrance-indoor
+#     state_topic: "room01-entranceindoor/day/power"
+#     command_topic: "room01-entranceindoor/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: entrance-outdoor
+#     state_topic: "room01-entranceoutdoor/day/power"
+#     command_topic: "room01-entranceoutdoor/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: garden
+#     state_topic: "room01-garden/day/power"
+#     command_topic: "room01-garden/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: elevation-garden
+#     state_topic: "room01-elevationgarden/day/power"
+#     command_topic: "room01-elevationgarden/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: elevation-backyard
+#     state_topic: "room01-elevationbackyard/day/power"
+#     command_topic: "room01-elevationbackyard/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: office-day
+#     state_topic: "room01-office/day/power"
+#     command_topic: "room01-office/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: office-night
+#     state_topic: "room01-office/night/power"
+#     command_topic: "room01-office/night/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: hallway-entrance-day
+#     state_topic: "room01-hallwayentrance/day/power"
+#     command_topic: "room01-hallwayentrance/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+
+#   - platform: mqtt
+#     name: room-nikola-day
+#     state_topic: "room01-roomnikola/day/power"
+#     command_topic: "room01-roomnikola/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: room-nikola-night
+#     state_topic: "room01-roomnikola/night/power"
+#     command_topic: "room01-roomnikola/night/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+
+#   - platform: mqtt
+#     name: bathroom-small-day
+#     state_topic: "room01-bathroomsmall/day/power"
+#     command_topic: "room01-bathroomsmall/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: bathroom-small-night
+#     state_topic: "room01-bathroomsmall/night/power"
+#     command_topic: "room01-bathroomsmall/night/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: hallway-bedroom-day
+#     state_topic: "room01-hallwaybedroom/day/power"
+#     command_topic: "room01-hallwaybedroom/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: bathroom-large-day
+#     state_topic: "room01-bathroomlarge/day/power"
+#     command_topic: "room01-bathroomlarge/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: bathroom-large-night
+#     state_topic: "room01-bathroomlarge/night/power"
+#     command_topic: "room01-bathroomlarge/night/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: utility-room
+#     state_topic: "room01-utilityroom/day/power"
+#     command_topic: "room01-utilityroom/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: bedroom-day
+#     state_topic: "room01-bedroom/day/power"
+#     command_topic: "room01-bedroom/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: bedroom-night
+#     state_topic: "room01-bedroom/night/power"
+#     command_topic: "room01-bedroom/night/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: bedroom-wardrobe
+#     state_topic: "room01-bedroomwardrobe/day/power"
+#     command_topic: "room01-bedroomwardrobe/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: tarrace
+#     state_topic: "room01-tarrace/day/power"
+#     command_topic: "room01-tarrace/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   # - platform: mqtt
+#   #   name: tarrace-night
+#   #   state_topic: "room01-tarrace/night/power"
+#   #   command_topic: "room01-tarrace/night/power/update"
+#   #   payload_on: "1"
+#   #   payload_off: "0"
+
+#   - platform: mqtt
+#     name: living-room-day
+#     state_topic: "room01-livingroom/day/power"
+#     command_topic: "room01-livingroom/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: living-room-night
+#     state_topic: "room01-livingroom/night/power"
+#     command_topic: "room01-livingroom/night/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: dining-room
+#     state_topic: "room01-diningroom/day/power"
+#     command_topic: "room01-diningroom/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: bathroom-large-sink-day
+#     state_topic: "room01-bathroomlargesink/day/power"
+#     command_topic: "room01-bathroomlargesink/day/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+#   - platform: mqtt
+#     name: bathroom-large-sink-night
+#     state_topic: "room01-bathroomlargesink/night/power"
+#     command_topic: "room01-bathroomlargesink/night/power/update"
+#     payload_on: "1"
+#     payload_off: "0"
+
+
+  # Example configuration.yaml entry
+  # - platform: mqtt
+  #   schema: json
+  #   name: mqtt_json_light_1
+  #   state_topic: "shellies/shellyrgbw2-814843"
+  #   command_topic: "shellies/shellyrgbw2-814843/set"
+  #   brightness: true
+  #   # color_mode: true
+  #   # supported_color_modes: ["rgbw"]
+
+# aws:
+#   credentials:
+#     - name: ipada_homeAssistant
+#       aws_access_key_id:  
+#       aws_secret_access_key: 
+#   notify:
+#     # use the first credential defined in aws integration by default
+#     # - service: lambda
+#     #   name: aws_lambda
+#     #   region_name: us-west-1
+#     # - service: sns
+#     #   name: aws_sns
+#     #   region_name: us-west-1
+#     - service: sqs
+#       name: aws_sqs
+#       region_name: us-west-1
+
+
+
+notify:
+  - name: ALL_DEVICES
+    platform: group
+    services:
+      # - service: mobile_app_sm_g980f
+      # - service: mobile_app_iphone_two
+      # - service: mobile_app_ipad_one
+      # - service: mobile_app_pixel_4_xl
+
+
+input_select:
+  local01_main_heating_routine:
+    name: Heating Routine Local01 Main
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local01_bathroom_heating_routine:
+    name: Heating Routine Local01 Bathroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local01_bedroom_heating_routine:
+    name: Heating Routine Local01 Bedroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local02_main_heating_routine:
+    name: Heating Routine Local02 Main
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local02_bathroom_heating_routine:
+    name: Heating Routine Local02 Bathroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local02_bedroom_heating_routine:
+    name: Heating Routine Local02 Bedroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+
+  local03_main_heating_routine:
+    name: Heating Routine Local03 Main
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local03_bathroom_heating_routine:
+    name: Heating Routine Local03 Bathroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local03_bedroom_heating_routine:
+    name: Heating Routine Local03 Bedroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local04_main_heating_routine:
+    name: Heating Routine Local04 Main
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local04_bathroom_heating_routine:
+    name: Heating Routine Local04 Bathroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local04_bedroom_heating_routine:
+    name: Heating Routine Local04 Bedroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local05_main_heating_routine:
+    name: Heating Routine Local05 Main
+    options:
+      - default
+      - 'off'
+      - offWinter
+    initial: 'off'
+  local05_bathroom_heating_routine:
+    name: Heating Routine Local05 Bathroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local05_bedroom_heating_routine:
+    name: Heating Routine Local05 Bedroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local06_main_heating_routine:
+    name: Heating Routine Local06 Main
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local06_bathroom_heating_routine:
+    name: Heating Routine Local06 Bathroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+  local06_bedroom_heating_routine:
+    name: Heating Routine Local06 Bedroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+    initial: 'off'
+
+
+camera:
+  - platform: mjpeg
+    name: Sance Camera
+    # still_image_url: http://10.20.100.245:18706/snapshot.htm
+    mjpeg_url: http://100.100.10.180:18706/videostream.cgi?loginuse=WktrAdmin&loginpas=Boryson68
+
+  # - platform: onvif
+  #   host: 100.100.10.194
+  #   username: admin
+  #   password: L25CD6A5
+  #   name: "Wejście"
+  #   port: 80
+  
+  # - platform: generic
+  #   name: Wejście2
+  #   still_image_url: http://admin:L25CD6A5@100.100.10.195/cgi-bin/snapshot.cgi?1
+  #   stream_source: rtsp://admin:L25CD6A5@100.100.10.195/cam/realmonitor?channel=1&subtype=00&authbasic=YWRtaW46TDI1Q0Q2QTU=
+    # verify_ssl: true
+
+  # - platform: generic
+  #   scan_interval: 1
+  #   name: Front-Reolink520A
+  #   still_image_url: !secret Camera_URL
+  #   stream_source: !secret CameraFront_Source 

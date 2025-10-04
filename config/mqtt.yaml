@@ -1,0 +1,918 @@
+#   - sensor:
+#       name: "Test"
+#       state_topic: "home/bedroom/temperature"
+#       unit_of_measurement: "°C"    
+#       device_class: "temperature"
+
+
+
+    # Lokale na wynajem
+
+    # # Local 02
+    # - platform: mqtt
+    #   name: "Local02 Glowny"
+    #   state_topic: "local02/Glowny/temperature/state"
+    #   unit_of_measurement: "°C"    
+    #   device_class: "temperature"
+
+    # - platform: mqtt
+    #   name: "Local02 Heating State"
+    #   state_topic: "heating_controller/+/local02/Glowny/state"
+
+    # Local 01
+    # Local 01
+<<<<<<< HEAD
+
+=======
+  - light:
+    # schema: template
+      unique_id: salon_mqtt
+      name: "Salon MQTT"
+    #   command_topic: "shellies/shellyrgbw2-814843/color/0/command"
+      qos: 2
+      rgbw_command_topic: "shellies/shellyrgbw2-814843/color/0/set"
+      rgbw_state_topic: "shellies/shellyrgbw2-814843/color/0/status"
+      rgbw_command_template: >
+        {"red": {{ red }}, "green": {{ green }}, "blue": {{ blue }}, "white": {{ white }} }
+      rgbw_value_template: > 
+        {{value_json.red|int}},{{value_json.green|int}},{{value_json.blue|int}},{{value_json.white|int}}
+      brightness_scale: 100
+      brightness_command_topic: "shellies/shellyrgbw2-814843/color/0/set"
+      brightness_state_topic: "shellies/shellyrgbw2-814843/color/0/status"
+      brightness_command_template: >
+        {%- if value == 1 -%}
+          { "gain": 0 }
+        {%- else -%}
+          { "gain": {{ value }} }
+        {%- endif -%}
+      brightness_value_template: "{{ value_json.gain }}"
+      command_topic: "shellies/shellyrgbw2-814843/color/0/command"
+      state_topic: "shellies/shellyrgbw2-814843/color/0/status"
+      payload_on: "on"
+      payload_off: "off"
+      state_value_template: >
+        {%- if value_json.ison -%}
+          on
+        {%- else -%}
+          off
+        {%- endif -%}
+      effect_list:
+        - 0
+        - 1
+        - 2
+        - 3
+        # - 4
+        # - 5
+        # - 6
+      effect_command_topic: "shellies/shellyrgbw2-814843/color/0/set"
+      effect_state_topic: "shellies/shellyrgbw2-814843/color/0/status"
+      effect_command_template: >
+        {"effect": {{ value }} }
+      effect_value_template: "{{ value_json.effect }}"
+    # effect_list:
+    #   - "color"
+    # effect_list:
+>>>>>>> a515bf3 (A new start)
+    #HOME
+  - sensor:
+      name: "local00 Klatka1P Setpoint"
+      state_topic: "local00/Klatka1P/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local00/Klatka1P/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local00 Klatka1P Temperature"
+      state_topic: "local00/Klatka1P/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.temperature }}"
+      json_attributes_topic: "local00/Klatka1P/details"
+      json_attributes_template: "{{ value_json.temperature | tojson }}"
+    # Heating States
+  - sensor:
+      name: "local00 Klatka1P Heating State"
+      state_topic: "heating_controller/+/local00/Klatka1P/state"
+      # RoutineNames
+  - sensor:
+      name: "local00 Klatka1P Controler Temperature"
+      state_topic: "room00_staircase_1/sensor/temperature/state"
+      unit_of_measurement: "°C"
+      
+  - sensor:
+      name: "local00 Klatka1P Routine"
+      state_topic: "local00/Klatka1P/details"
+      value_template: "{{ value_json.routineName }}"
+  - climate:
+      unique_id: local00_klatka1p_termostat
+      name: Klatka1P Termostat
+      # send_if_off: false
+      mode_state_topic: "local00/Klatka1P/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local00/Klatka1P/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local00/Klatka1P/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local00/thermostat/Klatka1P/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+    #   Klatka 2p
+  - sensor:
+      name: "local00 Klatka2P Setpoint"
+      state_topic: "local00/Klatka2P/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local00/Klatka2P/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local00 Klatka2P Temperature"
+      state_topic: "local00/Klatka2P/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.temperature }}"
+      json_attributes_topic: "local00/Klatka2P/details"
+      json_attributes_template: "{{ value_json.temperature | tojson }}"
+    # Heating States
+  - sensor:
+      name: "local00 Klatka2P Heating State"
+      state_topic: "heating_controller/+/local00/Klatka2P/state"
+  - sensor:
+      name: "local00 Klatka2P Controler Temperature"
+      state_topic: "room00_staircase_2/sensor/temperature/state"
+      unit_of_measurement: "°C"
+    # RoutineNames
+  - sensor:
+      name: "local00 Klatka2P Routine"
+      state_topic: "local00/Klatka2P/details"
+      value_template: "{{ value_json.routineName }}"
+  - climate:
+      unique_id: local00_klatka2p_termostat
+      name: Klatka2P Termostat
+      # send_if_off: false
+      mode_state_topic: "local00/Klatka2P/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local00/Klatka2P/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local00/Klatka2P/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local00/thermostat/Klatka2P/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+
+
+
+    # -------- Glowny -------
+  - sensor:
+      name: "local01 Glowny Setpoint"
+      state_topic: "local01/Glowny/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local01/Glowny/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local01 Glowny Temperature"
+      state_topic: "local01/Glowny/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.temperature }}"
+      json_attributes_topic: "local01/Glowny/details"
+      json_attributes_template: "{{ value_json.temperature | tojson }}"
+  - sensor:
+      name: "local01 Glowny Pressure"
+      state_topic: "local01/Glowny/details"
+      # unit_of_measurement: "°C"
+      value_template: "{{ value_json.pressure }}"
+      json_attributes_topic: "local01/Glowny/details"
+      json_attributes_template: "{{ value_json.pressure | tojson }}"
+      device_class: "pressure"
+  - sensor:
+      name: "local01 Glowny Temperature Controller"
+      state_topic: "room01_main/sensor/temperature/state"
+      unit_of_measurement: "°C"
+      
+    # -------- Lazienka -------
+  - sensor:
+      name: "local01 Lazienka Setpoint"
+      state_topic: "local01/Lazienka/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local01/Lazienka/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local01 Lazienka Temperature"
+      state_topic: "room01_bathroom/sensor/temperature/state"
+      unit_of_measurement: "°C"
+
+      # -------- Sypialnia -------
+  - sensor:
+      name: "local01 Sypialnia Setpoint"
+      state_topic: "local01/Sypialnia/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local01/Sypialnia/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local01 Sypialnia Temperature"
+      state_topic: "room01_bedroom/sensor/temperature/state"
+      unit_of_measurement: "°C"
+
+    # Heating States
+  - sensor:
+      name: "local01 Glowny Heating State"
+      state_topic: "heating_controller/+/local01/Glowny/state"
+  - sensor:
+      name: "local01 Lazienka Heating State"
+      state_topic: "heating_controller/+/local01/Lazienka/state"
+  - sensor:
+      name: "local01 Sypialnia Heating State"
+      state_topic: "heating_controller/+/local01/Sypialnia/state"
+      # RoutineNames
+  - sensor:
+      name: "local01 Main Routine"
+      state_topic: "local01/Glowny/details"
+      value_template: "{{ value_json.routineName }}"
+  - sensor:
+      name: "local01 Bedroom Routine"
+      state_topic: "local01/Sypialnia/details"
+      value_template: "{{ value_json.routineName }}"
+  - sensor:
+      name: "local01 Bathroom Routine"
+      state_topic: "local01/Lazienka/details"
+      value_template: "{{ value_json.routineName }}"
+
+    # Local 02
+    # -------- Glowny -------
+  - sensor:
+      name: "Local02 Glowny Setpoint"
+      state_topic: "local02/Glowny/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local02/Glowny/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local02 Glowny Temperature"
+      state_topic: "local02/Glowny/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.temperature }}"
+      json_attributes_topic: "local02/Glowny/details"
+      json_attributes_template: "{{ value_json.temperature | tojson }}"
+  - sensor:
+      name: "local02 Glowny Pressure"
+      state_topic: "local02/Glowny/details"
+      # unit_of_measurement: "°C"
+      value_template: "{{ value_json.pressure }}"
+      json_attributes_topic: "local02/Glowny/details"
+      json_attributes_template: "{{ value_json.pressure | tojson }}"
+      device_class: "pressure"
+  - sensor:
+      name: "local02 Glowny Temperature Controller"
+      state_topic: "room02_main/sensor/temperature/state"
+      unit_of_measurement: "°C"
+      
+    # -------- Lazienka -------
+  - sensor:
+      name: "Local02 Lazienka Setpoint"
+      state_topic: "local02/Lazienka/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local02/Lazienka/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local02 Lazienka Temperature"
+      state_topic: "room02_bathroom/sensor/temperature/state"
+      unit_of_measurement: "°C"
+
+      # -------- Sypialnia -------
+  - sensor:
+      name: "Local02 Sypialnia Setpoint"
+      state_topic: "local02/Sypialnia/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local02/Sypialnia/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local02 Sypialnia Temperature"
+      state_topic: "room02_bedroom/sensor/temperature/state"
+      unit_of_measurement: "°C"
+
+    # Heating States
+  - sensor:
+      name: "local02 Glowny Heating State"
+      state_topic: "heating_controller/+/local02/Glowny/state"
+  - sensor:
+      name: "local02 Lazienka Heating State"
+      state_topic: "heating_controller/+/local02/Lazienka/state"
+  - sensor:
+      name: "local02 Sypialnia Heating State"
+      state_topic: "heating_controller/+/local02/Sypialnia/state"
+      # RoutineNames
+  - sensor:
+      name: "local02 Main Routine"
+      state_topic: "local02/Glowny/details"
+      value_template: "{{ value_json.routineName }}"
+  - sensor:
+      name: "local02 Bedroom Routine"
+      state_topic: "local02/Sypialnia/details"
+      value_template: "{{ value_json.routineName }}"
+  - sensor:
+      name: "local02 Bathroom Routine"
+      state_topic: "local02/Lazienka/details"
+      value_template: "{{ value_json.routineName }}"
+
+    # Local 03
+    # Local 03
+    # -------- Glowny -------
+  - sensor:
+      name: "local03 Glowny Setpoint"
+      state_topic: "local03/Glowny/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local03/Glowny/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local03 Glowny Temperature"
+      state_topic: "local03/Glowny/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.temperature }}"
+      json_attributes_topic: "local03/Glowny/details"
+      json_attributes_template: "{{ value_json.temperature | tojson }}"
+  - sensor:
+      name: "local03 Glowny Pressure"
+      state_topic: "local03/Glowny/details"
+      # unit_of_measurement: "°C"
+      value_template: "{{ value_json.pressure }}"
+      json_attributes_topic: "local03/Glowny/details"
+      json_attributes_template: "{{ value_json.pressure | tojson }}"
+      device_class: "pressure"
+  - sensor:
+      name: "local03 Glowny Temperature Controller"
+      state_topic: "room03_main/sensor/temperature/state"
+      unit_of_measurement: "°C"
+      
+    # -------- Lazienka -------
+  - sensor:
+      name: "local03 Lazienka Setpoint"
+      state_topic: "local03/Lazienka/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local03/Lazienka/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local03 Lazienka Temperature"
+      state_topic: "room03_bathroom/sensor/temperature/state"
+      unit_of_measurement: "°C"
+
+      # -------- Sypialnia -------
+  - sensor:
+      name: "local03 Sypialnia Setpoint"
+      state_topic: "local03/Sypialnia/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local03/Sypialnia/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local03 Sypialnia Temperature"
+      state_topic: "room03_bedroom/sensor/temperature/state"
+      unit_of_measurement: "°C"
+
+    # Heating States
+  - sensor:
+      name: "local03 Glowny Heating State"
+      state_topic: "heating_controller/+/local03/Glowny/state"
+  - sensor:
+      name: "local03 Lazienka Heating State"
+      state_topic: "heating_controller/+/local03/Lazienka/state"
+  - sensor:
+      name: "local03 Sypialnia Heating State"
+      state_topic: "heating_controller/+/local03/Sypialnia/state"
+      # RoutineNames
+  - sensor:
+      name: "local03 Main Routine"
+      state_topic: "local03/Glowny/details"
+      value_template: "{{ value_json.routineName }}"
+  - sensor:
+      name: "local03 Bedroom Routine"
+      state_topic: "local03/Sypialnia/details"
+      value_template: "{{ value_json.routineName }}"
+  - sensor:
+      name: "local03 Bathroom Routine"
+      state_topic: "local03/Lazienka/details"
+      value_template: "{{ value_json.routineName }}"
+
+    # Local 04
+    # -------- Glowny -------
+  - sensor:
+      name: "local04 Glowny Setpoint"
+      state_topic: "local04/Glowny/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local04/Glowny/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local04 Glowny Temperature"
+      state_topic: "local04/Glowny/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.temperature }}"
+      json_attributes_topic: "local04/Glowny/details"
+      json_attributes_template: "{{ value_json.temperature | tojson }}"
+  - sensor:
+      name: "local04 Glowny Pressure"
+      state_topic: "local04/Glowny/details"
+      # unit_of_measurement: "°C"
+      value_template: "{{ value_json.pressure }}"
+      json_attributes_topic: "local04/Glowny/details"
+      json_attributes_template: "{{ value_json.pressure | tojson }}"
+      device_class: "pressure"
+  - sensor:
+      name: "local04 Glowny Temperature Controller"
+      state_topic: "room04_main/sensor/temperature/state"
+      unit_of_measurement: "°C"
+      
+    # -------- Lazienka -------
+  - sensor:
+      name: "local04 Lazienka Setpoint"
+      state_topic: "local04/Lazienka/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local04/Lazienka/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local04 Lazienka Temperature"
+      state_topic: "room04_bathroom/sensor/temperature/state"
+      unit_of_measurement: "°C"
+
+      # -------- Sypialnia -------
+  - sensor:
+      name: "local04 Sypialnia Setpoint"
+      state_topic: "local04/Sypialnia/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local04/Sypialnia/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local04 Sypialnia Temperature"
+      state_topic: "room04_bedroom/sensor/temperature/state"
+      unit_of_measurement: "°C"
+
+    # Heating States
+  - sensor:
+      name: "local04 Glowny Heating State"
+      state_topic: "heating_controller/+/local04/Glowny/state"
+  - sensor:
+      name: "local04 Lazienka Heating State"
+      state_topic: "heating_controller/+/local04/Lazienka/state"
+  - sensor:
+      name: "local04 Sypialnia Heating State"
+      state_topic: "heating_controller/+/local04/Sypialnia/state"
+      # RoutineNames
+  - sensor:
+      name: "local04 Main Routine"
+      state_topic: "local04/Glowny/details"
+      value_template: "{{ value_json.routineName }}"
+  - sensor:
+      name: "local04 Bedroom Routine"
+      state_topic: "local04/Sypialnia/details"
+      value_template: "{{ value_json.routineName }}"
+  - sensor:
+      name: "local04 Bathroom Routine"
+      state_topic: "local04/Lazienka/details"
+      value_template: "{{ value_json.routineName }}"
+
+    # Local 05
+    # -------- Glowny -------
+  - sensor:
+      name: "local05 Glowny Setpoint"
+      state_topic: "local05/Glowny/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local05/Glowny/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local05 Glowny Temperature"
+      state_topic: "local05/Glowny/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.temperature }}"
+      json_attributes_topic: "local05/Glowny/details"
+      json_attributes_template: "{{ value_json.temperature | tojson }}"
+  - sensor:
+      name: "local05 Glowny Pressure"
+      state_topic: "local05/Glowny/details"
+      # unit_of_measurement: "°C"
+      value_template: "{{ value_json.pressure }}"
+      json_attributes_topic: "local05/Glowny/details"
+      json_attributes_template: "{{ value_json.pressure | tojson }}"
+      device_class: "pressure"
+  - sensor:
+      name: "local05 Glowny Temperature Controller"
+      state_topic: "room05_main/sensor/temperature/state"
+      unit_of_measurement: "°C"
+      
+    # -------- Lazienka -------
+  - sensor:
+      name: "local05 Lazienka Setpoint"
+      state_topic: "local05/Lazienka/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local05/Lazienka/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local05 Lazienka Temperature"
+      state_topic: "room05_bathroom/sensor/temperature/state"
+      unit_of_measurement: "°C"
+
+      # -------- Sypialnia -------
+  - sensor:
+      name: "local05 Sypialnia Setpoint"
+      state_topic: "local05/Sypialnia/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local05/Sypialnia/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local05 Sypialnia Temperature"
+      state_topic: "room05_bedroom/sensor/temperature/state"
+      unit_of_measurement: "°C"
+
+    # Heating States
+  - sensor:
+      name: "local05 Glowny Heating State"
+      state_topic: "heating_controller/+/local05/Glowny/state"
+  - sensor:
+      name: "local05 Lazienka Heating State"
+      state_topic: "heating_controller/+/local05/Lazienka/state"
+  - sensor:
+      name: "local05 Sypialnia Heating State"
+      state_topic: "heating_controller/+/local05/Sypialnia/state"
+      # RoutineNames
+  - sensor:
+      name: "local05 Main Routine"
+      state_topic: "local05/Glowny/details"
+      value_template: "{{ value_json.routineName }}"
+  - sensor:
+      name: "local05 Bedroom Routine"
+      state_topic: "local05/Sypialnia/details"
+      value_template: "{{ value_json.routineName }}"
+  - sensor:
+      name: "local05 Bathroom Routine"
+      state_topic: "local05/Lazienka/details"
+      value_template: "{{ value_json.routineName }}"
+
+    # Local 06
+    # -------- Glowny -------
+  - sensor:
+      name: "local06 Glowny Setpoint"
+      state_topic: "local06/Glowny/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local06/Glowny/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local06 Glowny Temperature"
+      state_topic: "local06/Glowny/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.temperature }}"
+      json_attributes_topic: "local06/Glowny/details"
+      json_attributes_template: "{{ value_json.temperature | tojson }}"
+  - sensor:
+      name: "local06 Glowny Pressure"
+      state_topic: "local06/Glowny/details"
+      # unit_of_measurement: "°C"
+      value_template: "{{ value_json.pressure }}"
+      json_attributes_topic: "local06/Glowny/details"
+      json_attributes_template: "{{ value_json.pressure | tojson }}"
+      device_class: "pressure"
+  - sensor:
+      name: "local06 Glowny Temperature Controller"
+      state_topic: "room06_main/sensor/temperature/state"
+      unit_of_measurement: "°C"
+      
+    # -------- Lazienka -------
+  - sensor:
+      name: "local06 Lazienka Setpoint"
+      state_topic: "local06/Lazienka/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local06/Lazienka/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local06 Lazienka Temperature"
+      state_topic: "room06_bathroom/sensor/temperature/state"
+      unit_of_measurement: "°C"
+
+      # -------- Sypialnia -------
+  - sensor:
+      name: "local06 Sypialnia Setpoint"
+      state_topic: "local06/Sypialnia/details"
+      unit_of_measurement: "°C"
+      value_template: "{{ value_json.setpoint }}"
+      json_attributes_topic: "local06/Sypialnia/details"
+      json_attributes_template: "{{ value_json.setpoint | tojson }}"
+  - sensor:
+      name: "local06 Sypialnia Temperature"
+      state_topic: "room06_bedroom/sensor/temperature/state"
+      unit_of_measurement: "°C"
+
+    # Heating States
+  - sensor:
+      name: "local06 Glowny Heating State"
+      state_topic: "heating_controller/+/local06/Glowny/state"
+  - sensor:
+      name: "local06 Lazienka Heating State"
+      state_topic: "heating_controller/+/local06/Lazienka/state"
+  - sensor:
+      name: "local06 Sypialnia Heating State"
+      state_topic: "heating_controller/+/local06/Sypialnia/state"
+      # RoutineNames
+  - sensor:
+      name: "local06 Main Routine"
+      state_topic: "local06/Glowny/details"
+      value_template: "{{ value_json.routineName }}"
+  - sensor:
+      name: "local06 Bedroom Routine"
+      state_topic: "local06/Sypialnia/details"
+      value_template: "{{ value_json.routineName }}"
+  - sensor:
+      name: "local06 Bathroom Routine"
+      state_topic: "local06/Lazienka/details"
+      value_template: "{{ value_json.routineName }}"
+
+
+
+#Thermostat LOCAL 1 BELOW
+  - climate:
+      name: Local01 Glowny Termostat
+    #   send_if_off: false
+      mode_state_topic: "local01/Glowny/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local01/Glowny/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local01/Glowny/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local01/thermostat/Glowny/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      name: Local01 Lazienka Termostat
+      # send_if_off: false
+      mode_state_topic: "local01/Lazienka/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local01/Lazienka/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local01/Lazienka/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local01/thermostat/Lazienka/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+  
+  - climate:
+      name: Local01 Sypialnia Termostat
+    #   send_if_off: false
+      mode_state_topic: "local01/Sypialnia/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local01/Sypialnia/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local01/Sypialnia/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local01/thermostat/Sypialnia/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+# #Thermostat LOCAL 2 BELOW
+  - climate:
+      name: Local02 Glowny Termostat
+      # send_if_off: false
+      mode_state_topic: "local02/Glowny/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local02/Glowny/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local02/Glowny/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local02/thermostat/Glowny/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      name: Local02 Lazienka Termostat
+      # send_if_off: false
+      mode_state_topic: "local02/Lazienka/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local02/Lazienka/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local02/Lazienka/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local02/thermostat/Lazienka/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      name: Local02 Sypialnia Termostat
+      # send_if_off: false
+      mode_state_topic: "local02/Sypialnia/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local02/Sypialnia/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local02/Sypialnia/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local02/thermostat/Sypialnia/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+#Thermostat LOCAL 3 BELOW
+  - climate:
+      name: Local03 Glowny Termostat
+      # send_if_off: false
+      mode_state_topic: "local03/Glowny/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local03/Glowny/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local03/Glowny/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local03/thermostat/Glowny/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      name: Local03 Lazienka Termostat
+      # send_if_off: false
+      mode_state_topic: "local03/Lazienka/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local03/Lazienka/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local03/Lazienka/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local03/thermostat/Lazienka/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      name: Local03 Sypialnia Termostat
+      # send_if_off: false
+      mode_state_topic: "local03/Sypialnia/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local03/Sypialnia/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local03/Sypialnia/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local03/thermostat/Sypialnia/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+#Thermostat LOCAL 4 BELOW
+  - climate:
+      name: Local04 Glowny Termostat
+      # send_if_off: false
+      mode_state_topic: "local04/Glowny/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local04/Glowny/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local04/Glowny/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local04/thermostat/Glowny/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      name: Local04 Lazienka Termostat
+      # send_if_off: false
+      mode_state_topic: "local04/Lazienka/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local04/Lazienka/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local04/Lazienka/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local04/thermostat/Lazienka/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      name: Local04 Sypialnia Termostat
+      # send_if_off: false
+      mode_state_topic: "local04/Sypialnia/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local04/Sypialnia/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local04/Sypialnia/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local04/thermostat/Sypialnia/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+#Thermostat LOCAL 5 BELOW
+  - climate:
+      name: Local05 Glowny Termostat
+      # send_if_off: false
+      mode_state_topic: "local05/Glowny/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local05/Glowny/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local05/Glowny/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local05/thermostat/Glowny/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      name: Local05 Lazienka Termostat
+      # send_if_off: false
+      mode_state_topic: "local05/Lazienka/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local05/Lazienka/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local05/Lazienka/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local05/thermostat/Lazienka/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      name: Local05 Sypialnia Termostat
+      # send_if_off: false
+      mode_state_topic: "local05/Sypialnia/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local05/Sypialnia/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local05/Sypialnia/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local05/thermostat/Sypialnia/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+#Thermostat LOCAL 6 BELOW
+  - climate:
+      name: Local06 Glowny Termostat
+      # send_if_off: false
+      mode_state_topic: "local06/Glowny/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local06/Glowny/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local06/Glowny/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local06/thermostat/Glowny/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      name: Local06 Lazienka Termostat
+      # send_if_off: false
+      mode_state_topic: "local06/Lazienka/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local06/Lazienka/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local06/Lazienka/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local06/thermostat/Lazienka/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      name: Local06 Sypialnia Termostat
+      # send_if_off: false
+      mode_state_topic: "local06/Sypialnia/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local06/Sypialnia/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local06/Sypialnia/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local06/thermostat/Sypialnia/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'

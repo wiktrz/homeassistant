@@ -1,0 +1,13 @@
+      - climate.local06_glowny_termostat
+      - climate.local06_lazienka_termostat
+      - climate.local06_sypialnia_termostat
+      - sensor.local06_glowny_heating_state
+      - sensor.local06_glowny_pressure
+      - sensor.local06_glowny_setpoint
+      - sensor.local06_glowny_temperature
+      - sensor.local06_lazienka_heating_state
+      - sensor.local06_lazienka_pressure
+      - sensor.local06_lazienka_setpoint
+      - sensor.local06_lazienka_temperature
+      - sensor.local06_sypialnia_setpoint
+      - sensor.local06_sypialnia_temperature

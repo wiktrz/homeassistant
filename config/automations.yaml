@@ -1,0 +1,2135 @@
+- alias: Set Thermostat Local01 Glowny Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local01_main_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local01/thermostat/Glowny/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local01_main_heating_routine'') }}'
+  id: 635051fb823b49e0abf04f4c0fbcf8fe
+- alias: Set Thermostat Local01 Glowny Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local01_bathroom_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local01/thermostat/Lazienka/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local01_bathroom_heating_routine'') }}'
+  id: 455d6bb91c1544a89fe26454cf61258c
+- alias: Set Thermostat Local01 Sypialnia Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local01_bedroom_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local01/thermostat/Sypialnia/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local01_bedroom_heating_routine'') }}'
+  id: dbf171de479a4cef88826f093c1bd51b
+- alias: Set Thermostat Local02 Glowny Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local02_main_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local02/thermostat/Glowny/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local02_main_heating_routine'') }}'
+  id: cbb571f6c40e46dc951ae66df19b1649
+- alias: Set Thermostat Local02 Glowny Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local02_bathroom_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local02/thermostat/Lazienka/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local02_bathroom_heating_routine'') }}'
+  id: 2642f2def00d477fa5e1ea0faff29fa3
+- alias: Set Thermostat Local02 Sypialnia Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local02_bedroom_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local02/thermostat/Sypialnia/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local02_bedroom_heating_routine'') }}'
+  id: 6133ff4a56f4463ea368cbd55bdb089d
+- alias: Set Thermostat Local03 Glowny Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local03_main_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local03/thermostat/Glowny/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local03_main_heating_routine'') }}'
+  id: 4291ef9147fb478099cbc7f74a36d1a7
+- alias: Set Thermostat Local03 Glowny Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local03_bathroom_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local03/thermostat/Lazienka/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local03_bathroom_heating_routine'') }}'
+  id: d2b9dce7cdea4a6eb7626899bb5d3177
+- alias: Set Thermostat Local03 Sypialnia Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local03_bedroom_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local03/thermostat/Sypialnia/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local03_bedroom_heating_routine'') }}'
+  id: a4b7f327cc2f45e6bc228d84d99ded7c
+- alias: Set Thermostat Local04 Glowny Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local04_main_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local04/thermostat/Glowny/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local04_main_heating_routine'') }}'
+  id: 2dfaf24296d648dfa160859e4ac01d08
+- alias: Set Thermostat Local04 Glowny Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local04_bathroom_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local04/thermostat/Lazienka/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local04_bathroom_heating_routine'') }}'
+  id: 6f164a50010a40e8aed2a09a4fd398c2
+- alias: Set Thermostat Local04 Sypialnia Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local04_bedroom_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local04/thermostat/Sypialnia/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local04_bedroom_heating_routine'') }}'
+  id: f59bdeabd351499584c5ddc4d19ce37c
+- alias: Set Thermostat Local05 Glowny Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local05_main_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local05/thermostat/Glowny/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local05_main_heating_routine'') }}'
+  id: ec3eb7d860db4e62a3895ec264ded902
+- alias: Set Thermostat Local05 Glowny Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local05_bathroom_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local05/thermostat/Lazienka/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local05_bathroom_heating_routine'') }}'
+  id: 08d4861de501426fb32de796475aa57a
+- alias: Set Thermostat Local05 Sypialnia Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local05_bedroom_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local05/thermostat/Sypialnia/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local05_bedroom_heating_routine'') }}'
+  id: dfe9ac4d8fc94fcba8e9eb18732221b5
+- alias: Set Thermostat Local06 Glowny Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local06_main_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local06/thermostat/Glowny/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local06_main_heating_routine'') }}'
+  id: d9717a6b08b44f468b91afe4a6b1ce51
+- alias: Set Thermostat Local06 Glowny Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local06_bathroom_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local06/thermostat/Lazienka/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local06_bathroom_heating_routine'') }}'
+  id: ee57260b1ffa41d69faaff08a7677e4a
+- alias: Set Thermostat Local06 Sypialnia Routine
+  trigger:
+    platform: state
+    entity_id: input_select.local06_bedroom_heating_routine
+  action:
+    service: mqtt.publish
+    data:
+      topic: local06/thermostat/Sypialnia/routine/set
+      retain: true
+      payload: '{{ states(''input_select.local06_bedroom_heating_routine'') }}'
+  id: 09517be5706d49fd887c6d1490bd38d6
+- trigger:
+  - platform: state
+    entity_id: sensor.test
+    to: 'on'
+  action:
+    service: notify.aws_sqs
+    data:
+      message: Your message goes here
+      target: https://sqs.eu-west-1.amazonaws.com/857331545502/homeAssistant
+      title: Custom subject
+      data:
+        test: asd
+  id: 9cc198a46fda47eba57622ececa1519b
+- alias: Notify of Motion click action
+  trigger:
+  - platform: state
+    entity_id: sensor.test
+    to: 'on'
+  action:
+  - service: notify.all_devices
+    data:
+      title: Motion Detected in Backyard
+      message: Someone might be in the backyard.
+      data:
+        channel: motion
+        url: https://google.com
+        clickAction: https://google.com
+        push:
+          badge: 5
+  id: 239e37f87c7f41f3b0a7b5ae696f6c50
+- alias: Read Thermostat Routine Local01 Main
+  trigger:
+    platform: mqtt
+    topic: local01/thermostat/Glowny/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local01_main_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: a52ffedebf7e49ffae8435b08606edaa
+- alias: Read Thermostat Routine Local01 Bathroom
+  trigger:
+    platform: mqtt
+    topic: local01/thermostat/Lazienka/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local01_bathroom_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: f98c30c2e59444d29feccfcd4322f3ef
+- alias: Read Thermostat Routine Local01 Bedroom
+  trigger:
+    platform: mqtt
+    topic: local01/thermostat/Sypialnia/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local01_bedroom_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: 0d9c8ba05fe74c829530c9431cbe5303
+- alias: Read Thermostat Routine Local02 Main
+  trigger:
+    platform: mqtt
+    topic: local02/thermostat/Glowny/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local02_main_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: b30fcc466a734182bb7a617b5e6d5780
+- alias: Read Thermostat Routine Local02 Bathroom
+  trigger:
+    platform: mqtt
+    topic: local02/thermostat/Lazienka/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local02_bathroom_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: a319a8aa5ba9461bb5e174c7d7274fbb
+- alias: Read Thermostat Routine Local02 Bedroom
+  trigger:
+    platform: mqtt
+    topic: local02/thermostat/Sypialnia/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local02_bedroom_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: 8d147e4946db42de80442ee612538453
+- alias: Read Thermostat Routine Local03 Main
+  trigger:
+    platform: mqtt
+    topic: local03/thermostat/Glowny/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local03_main_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: d265da96eed340f598892c309fa86e38
+- alias: Read Thermostat Routine Local03 Bathroom
+  trigger:
+    platform: mqtt
+    topic: local03/thermostat/Lazienka/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local03_bathroom_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: 5b97cb51fbc64eab80ce62d810ee028c
+- alias: Read Thermostat Routine Local03 Bedroom
+  trigger:
+    platform: mqtt
+    topic: local03/thermostat/Sypialnia/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local03_bedroom_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: 526891a5ccf04d9195c593563ccfe900
+- alias: Read Thermostat Routine Local04 Main
+  trigger:
+    platform: mqtt
+    topic: local04/thermostat/Glowny/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local04_main_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: 38ffc5e9340a471198332ce67c1b3b5e
+- alias: Read Thermostat Routine Local04 Bathroom
+  trigger:
+    platform: mqtt
+    topic: local04/thermostat/Lazienka/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local04_bathroom_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: 35b70e0b38e5454fa2f9a8df5a9a7ddb
+- alias: Read Thermostat Routine Local04 Bedroom
+  trigger:
+    platform: mqtt
+    topic: local04/thermostat/Sypialnia/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local04_bedroom_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: 290e4e628e154e428b0750a1880b659d
+- alias: Read Thermostat Routine Local05 Main
+  trigger:
+    platform: mqtt
+    topic: local05/thermostat/Glowny/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local05_main_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: e8bdb3ccd8684d288fc768f623f39122
+- alias: Read Thermostat Routine Local05 Bathroom
+  trigger:
+    platform: mqtt
+    topic: local05/thermostat/Lazienka/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local05_bathroom_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: 6aa0461865d041d9aa02ac57edefa98e
+- alias: Read Thermostat Routine Local05 Bedroom
+  trigger:
+    platform: mqtt
+    topic: local05/thermostat/Sypialnia/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local05_bedroom_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: 45aae52ef2cc47ae9b913e764c9e455b
+- alias: Read Thermostat Routine Local06 Main
+  trigger:
+    platform: mqtt
+    topic: local06/thermostat/Glowny/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local06_main_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: c608ea46a6d642d8929fe4d521d0d2e3
+- alias: Read Thermostat Routine Local06 Bathroom
+  trigger:
+    platform: mqtt
+    topic: local06/thermostat/Lazienka/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local06_bathroom_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: 8fdd971be1e24e5da2162af3119ba5d2
+- alias: Read Thermostat Routine Local06 Bedroom
+  trigger:
+    platform: mqtt
+    topic: local06/thermostat/Sypialnia/routine
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local06_bedroom_heating_routine
+    data_template:
+      option: '{{ trigger.payload }}'
+  id: e458cf423f9d4ac19915a70555425246
+- alias: Dimming Lights Down when dark outside
+  trigger:
+  - platform: numeric_state
+    entity_id: sun.sun
+    attribute: elevation
+    below: -4.0
+  action:
+  - service: mqtt.publish
+    data:
+      topic: shellies/shellyrgbw2-814843/color/0/set
+      retain: true
+      payload: '{"mode":"color","red": 0,"green":0,"blue": 0,"gain": 0,"white": 15,"effect":
+        0,"turn":"on"}'
+  id: 68d4d324410c46e8a24520c38014613b
+- alias: Dimming Lights Up when morning outside
+  trigger:
+  - platform: numeric_state
+    entity_id: sun.sun
+    attribute: elevation
+    above: -4.0
+  action:
+  - service: mqtt.publish
+    data:
+      topic: shellies/shellyrgbw2-814843/color/0/set
+      retain: true
+      payload: '{"mode":"color","red": 0,"green":0,"blue": 0,"gain": 0,"white": 100,"effect":
+        0,"turn":"on"}'
+  id: d31bdcaa032d42628e404ca935baa872
+<<<<<<< HEAD
+- alias: Dimming Lights Up when morning outside
+  trigger:
+  - platform: numeric_state
+    entity_id: sun.sun
+    attribute: elevation
+    above: 0.0
+  action:
+  - service: mqtt.publish
+    data:
+      topic: shellies/shellyrgbw2-814843/color/0/set
+      retain: true
+      payload: '{"mode":"color","red": 0,"green":0,"blue": 0,"gain": 100,"white":
+        255,"effect": 0,"turn":"on"}'
+  id: 9c3c8f9c510041ec87050e35fc301091
+=======
+- id: 9c3c8f9c510041ec87050e35fc301091
+  alias: Dimming Lights Up when morning outside
+  triggers:
+  - entity_id: sun.sun
+    attribute: elevation
+    above: 0
+    trigger: numeric_state
+  actions:
+  - data:
+      topic: shellies/shellyrgbw2-814843/color/0/set
+      payload: '{"mode":"color","red": 0,"green":0,"blue": 0,"gain": 100,"white":
+        255,"effect": 0,"turn":"on"}'
+    action: mqtt.publish
+>>>>>>> a515bf3 (A new start)
+- id: '16232672390029'
+  description: FrontCameraMotionDetection
+  triggers:
+  - device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    domain: cover
+    entity_id: 063a3bc4beb44501b4e8d316bc388c48
+    type: opening
+    trigger: device
+  conditions: []
+  actions:
+  - data:
+      message: Ogród wejście
+      title: Wykryto ruch
+    action: notify.all_devices
+  mode: single
+- id: 09236075b09946bda8388f0aa38419e4
+  alias: Light 12 motion on
+  description: ''
+  triggers:
+  - type: turned_on
+    device_id: d8e2df1faca63578472e0677273680e2
+    entity_id: cfd71bd4dfde649c02233583749e9a79
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+<<<<<<< HEAD
+      seconds: 1
+=======
+      seconds: 0
+>>>>>>> a515bf3 (A new start)
+  conditions:
+  - condition: time
+    after: input_datetime.pora_zmroku_na_zewnatrz
+    before: input_datetime.pora_switu
+    weekday:
+    - sun
+    - sat
+    - fri
+    - thu
+    - wed
+    - tue
+    - mon
+  actions:
+  - type: turn_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: f1aa382edce4de5ebf1e072a5981d25f
+    domain: light
+  mode: single
+- id: b10039c5015740bb92fe98202599c973
+  alias: Light 13 motion off
+  description: ''
+  triggers:
+  - type: turned_off
+    device_id: afd98644a345e3e966b1ff30e03d289f
+    entity_id: f10b4f576d0180a97635bec853720b0f
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+<<<<<<< HEAD
+      seconds: 1
+=======
+      seconds: 30
+>>>>>>> a515bf3 (A new start)
+  conditions:
+  - condition: state
+    entity_id: light.boneio_32_l_07_new_light_12
+    state: 'on'
+    enabled: false
+  actions:
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 30
+      milliseconds: 0
+<<<<<<< HEAD
+=======
+    enabled: false
+>>>>>>> a515bf3 (A new start)
+  - if:
+    - condition: state
+      entity_id: binary_sensor.rlc_822a_osoba
+      state: 'off'
+    then:
+    - type: turn_off
+      device_id: e15a1fb7435cfe16a86b0f58812a81c7
+      entity_id: 46a6c2c4ae66c9f10410eef7e0b6b57e
+      domain: light
+<<<<<<< HEAD
+  mode: single
+=======
+  mode: restart
+>>>>>>> a515bf3 (A new start)
+- id: fea47ee8984d471185eb3ae01189a632
+  alias: Light 13 motion on
+  description: ''
+  triggers:
+  - type: turned_on
+    device_id: afd98644a345e3e966b1ff30e03d289f
+    entity_id: f10b4f576d0180a97635bec853720b0f
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 1
+  conditions:
+  - condition: time
+    after: input_datetime.pora_zmroku_na_zewnatrz
+    before: input_datetime.pora_switu
+    weekday:
+    - sun
+    - sat
+    - fri
+    - thu
+    - wed
+    - tue
+    - mon
+  actions:
+  - type: turn_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 46a6c2c4ae66c9f10410eef7e0b6b57e
+    domain: light
+<<<<<<< HEAD
+  mode: single
+=======
+  mode: restart
+>>>>>>> a515bf3 (A new start)
+- id: '1729967740252'
+  alias: light 13 on new
+  description: ''
+  triggers:
+  - type: motion
+    device_id: d8e2df1faca63578472e0677273680e2
+    entity_id: bd4d7a2422a677e41730fde8ee5ea955
+    domain: binary_sensor
+    trigger: device
+  conditions:
+  - condition: time
+    after: '16:00:00'
+    before: 06:00:00
+  actions:
+  - type: turn_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 46a6c2c4ae66c9f10410eef7e0b6b57e
+    domain: light
+  mode: single
+- id: '1740228530753'
+  alias: PIR Bathroom Small ON
+  description: ''
+  triggers:
+  - type: turned_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 1ad082b889081e2f5fde537a65b68d51
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - type: turn_on
+    device_id: 005fc49d6a72f9b43512a8106c2d0665
+    entity_id: 0b0f4a00d3527380f5a29173cfd229d2
+    domain: light
+    brightness_pct: 60
+  - type: turn_on
+    device_id: 005fc49d6a72f9b43512a8106c2d0665
+    entity_id: 1896766d22d6ef986f4eeb5fd4ee3a4f
+    domain: light
+    brightness_pct: 50
+<<<<<<< HEAD
+  mode: single
+=======
+  mode: restart
+>>>>>>> a515bf3 (A new start)
+- id: '1740228697228'
+  alias: PIR Bathroom Small Off
+  description: ''
+  triggers:
+  - type: turned_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 1ad082b889081e2f5fde537a65b68d51
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+  conditions: []
+  actions:
+  - wait_for_trigger:
+    - type: not_opened
+      device_id: 278589119feed2ed62463abb4f9034e1
+      entity_id: 0b01f72c9c4ac88da803fac8ac530ead
+      domain: binary_sensor
+      trigger: device
+    timeout:
+      hours: 0
+      minutes: 1
+      seconds: 0
+      milliseconds: 0
+    enabled: false
+  - type: turn_off
+    device_id: 005fc49d6a72f9b43512a8106c2d0665
+    entity_id: 0b0f4a00d3527380f5a29173cfd229d2
+    domain: light
+  - type: turn_off
+    device_id: 005fc49d6a72f9b43512a8106c2d0665
+    entity_id: 1896766d22d6ef986f4eeb5fd4ee3a4f
+    domain: light
+  mode: single
+- id: '1740309950403'
+  alias: PIR Korytarz wejście ON
+  description: ''
+  triggers:
+  - type: motion
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: bfe1c98b5dc4dc7daea4b111a1552a8b
+    domain: binary_sensor
+    trigger: device
+  conditions:
+  - condition: time
+    after: input_datetime.pora_zmroku
+    before: input_datetime.pora_switu
+    weekday:
+    - sun
+    - sat
+    - fri
+    - thu
+    - wed
+    - tue
+    - mon
+  actions:
+  - type: turn_on
+    device_id: 2a14d9e99e1077985fadfc6b3fc50198
+    entity_id: fd37e7e43890d768c1b9407689a18860
+    domain: light
+    brightness_pct: 20
+  mode: single
+- id: '1740310033970'
+  alias: PIR Korytarz wejście OFF
+  description: ''
+  triggers:
+  - type: no_motion
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: bfe1c98b5dc4dc7daea4b111a1552a8b
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 25
+  conditions: []
+  actions:
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 10
+      milliseconds: 0
+    enabled: false
+  - if:
+    - condition: state
+      entity_id: input_boolean.hall_entrance_input_manual
+      state: 'off'
+    then:
+    - type: turn_off
+      device_id: 2a14d9e99e1077985fadfc6b3fc50198
+      entity_id: fd37e7e43890d768c1b9407689a18860
+      domain: light
+    else:
+    - delay:
+        hours: 2
+        minutes: 0
+        seconds: 0
+        milliseconds: 0
+    - type: turn_off
+      device_id: 2a14d9e99e1077985fadfc6b3fc50198
+      entity_id: fd37e7e43890d768c1b9407689a18860
+      domain: light
+    - action: input_boolean.turn_off
+      metadata: {}
+      data: {}
+      target:
+        entity_id: input_boolean.hall_entrance_input_manual
+  mode: restart
+- id: '1740311606555'
+  alias: PIR Korytarz Sypialnia ON
+  description: ''
+  triggers:
+  - type: turned_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 8a912fcae28c31e3d05ab7bab4bda345
+    domain: binary_sensor
+    trigger: device
+  conditions:
+  - condition: time
+    after: input_datetime.pora_zmroku
+    before: input_datetime.pora_switu
+    weekday:
+    - sun
+    - sat
+    - fri
+    - thu
+    - wed
+    - tue
+    - mon
+  actions:
+  - if:
+    - condition: sun
+      before: sunrise
+      after: sunset
+      enabled: false
+    - condition: time
+      after: input_datetime.pora_nocna
+      before: input_datetime.pora_switu
+      weekday:
+      - sun
+      - sat
+      - fri
+      - thu
+      - wed
+      - tue
+      - mon
+    then:
+    - type: turn_on
+      device_id: 2a14d9e99e1077985fadfc6b3fc50198
+      entity_id: 353130fd939a18c96318627514961c05
+      domain: light
+      brightness_pct: 3
+      enabled: false
+    - type: turn_on
+      device_id: 2a14d9e99e1077985fadfc6b3fc50198
+      entity_id: 4faf2de9e68940427e57150f109f60c0
+      domain: light
+      brightness_pct: 1
+    else:
+    - type: turn_on
+      device_id: 2a14d9e99e1077985fadfc6b3fc50198
+      entity_id: 4faf2de9e68940427e57150f109f60c0
+      domain: light
+      brightness_pct: 15
+    - type: turn_on
+      device_id: 2a14d9e99e1077985fadfc6b3fc50198
+      entity_id: 353130fd939a18c96318627514961c05
+      domain: light
+      brightness_pct: 15
+  mode: single
+- id: '1740311715377'
+  alias: PIR Korytarz Sypialnia OFF
+  description: ''
+  triggers:
+  - type: turned_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 8a912fcae28c31e3d05ab7bab4bda345
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 15
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: 2a14d9e99e1077985fadfc6b3fc50198
+    entity_id: 353130fd939a18c96318627514961c05
+    domain: light
+  - type: turn_off
+    device_id: 2a14d9e99e1077985fadfc6b3fc50198
+    entity_id: 4faf2de9e68940427e57150f109f60c0
+    domain: light
+  mode: single
+- id: '1743600259980'
+  alias: Test Image Recognition
+  description: ''
+  triggers: []
+  conditions: []
+  actions:
+  - action: camera.snapshot
+    metadata: {}
+    data:
+      filename: /tmp/images/parking.jpg
+    target:
+      entity_id: camera.rlc_822a_plynny
+  - action: google_generative_ai_conversation.generate_content
+    metadata: {}
+    data:
+      image_filename: /tmp/images/parking.jpg
+      prompt: 'Analyze image
+
+
+        Identify person in picture when person is present
+
+
+        Return personType = ''unknown'' when recognition ratio is below 70%. Write
+        description in Polish'
+    response_variable: response
+  - action: notify.all_devices
+    data:
+      message: '{{ response.description }}'
+      title: Test
+  mode: single
+- id: '1744478030821'
+  alias: PIR Kitchen Off
+  description: ''
+  triggers:
+  - type: no_motion
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: f29bc3eac59687db5732c145ec86f53e
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 35
+  conditions:
+  - condition: state
+    entity_id: binary_sensor.boneio_32_l_07_73bbd8_in_28_pir_kitchen
+    state: unavailable
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+    enabled: false
+  actions:
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 20
+      milliseconds: 0
+    enabled: false
+  - if:
+    - condition: state
+      entity_id: input_boolean.kitchen_helper
+      state: 'off'
+    then:
+    - type: turn_off
+      device_id: 2a14d9e99e1077985fadfc6b3fc50198
+      entity_id: 2f3141edc754045dfb69248f7596beb1
+      domain: light
+    else:
+    - delay:
+        hours: 2
+        minutes: 0
+        seconds: 0
+        milliseconds: 0
+      enabled: true
+    - type: turn_off
+      device_id: 2a14d9e99e1077985fadfc6b3fc50198
+      entity_id: 2f3141edc754045dfb69248f7596beb1
+      domain: light
+    - action: input_boolean.turn_off
+      metadata: {}
+      data: {}
+      target:
+        entity_id: input_boolean.kitchen_helper
+  mode: restart
+- id: '1744478078770'
+  alias: PIR Kitchen ON
+  description: ''
+  triggers:
+  - type: motion
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: f29bc3eac59687db5732c145ec86f53e
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 1
+  conditions:
+  - condition: time
+    after: input_datetime.pora_zmroku
+    before: input_datetime.pora_switu
+    weekday:
+    - sun
+    - sat
+    - fri
+    - thu
+    - wed
+    - tue
+    - mon
+  actions:
+  - type: turn_on
+    device_id: 2a14d9e99e1077985fadfc6b3fc50198
+    entity_id: 2f3141edc754045dfb69248f7596beb1
+    domain: light
+    brightness_pct: 25
+<<<<<<< HEAD
+  mode: single
+=======
+  mode: restart
+>>>>>>> a515bf3 (A new start)
+- id: '1744478561326'
+  alias: PIR Livingroom ON
+  description: ''
+  triggers:
+  - type: motion
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: d285feadfc9e2d622f1db1e40011f42e
+    domain: binary_sensor
+    trigger: device
+  conditions:
+  - condition: sun
+    after: sunset
+    enabled: false
+  actions:
+  - type: turn_on
+    device_id: 1970db426e29a025f7b634b1e4eed668
+    entity_id: fbdaf1c667efac251eb994fbba247b2a
+    domain: light
+    brightness_pct: 10
+  mode: single
+- id: '1744478603132'
+  alias: PIR Livingroom OFF
+  description: ''
+  triggers:
+  - type: no_motion
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: d285feadfc9e2d622f1db1e40011f42e
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: 1970db426e29a025f7b634b1e4eed668
+    entity_id: fbdaf1c667efac251eb994fbba247b2a
+    domain: light
+  mode: single
+- id: '1746287559804'
+  alias: Reed Bathroom Large OFF
+  description: ''
+  triggers:
+  - type: not_opened
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 8b3fbb3b3e51aa89706f77591d67fcdf
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: a580ef561c3261adfacb318d513aacb8
+    domain: light
+  mode: single
+- id: '1746287591820'
+  alias: Reed Bathroom Large ON
+  description: ''
+  triggers:
+  - type: opened
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 8b3fbb3b3e51aa89706f77591d67fcdf
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - type: turn_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: a580ef561c3261adfacb318d513aacb8
+    domain: light
+  mode: single
+- id: '1746288100531'
+  alias: Reed Main Door on
+  description: ''
+  triggers:
+  - type: not_locked
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: beb4bc2be45c01f0c2da53f8c3837f94
+    domain: binary_sensor
+    trigger: device
+<<<<<<< HEAD
+  conditions: []
+=======
+  conditions:
+  - condition: time
+    before: input_datetime.pora_switu
+    after: input_datetime.pora_zmroku
+>>>>>>> a515bf3 (A new start)
+  actions:
+  - type: turn_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 1bf82db6c2e51b455e2aaa7230abea0c
+    domain: light
+  - type: turn_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 1dba2d456aa145c36960959d0d36f1fe
+    domain: light
+  mode: single
+- id: '1746288232769'
+  alias: Reed Main Door OFF
+  description: ''
+  triggers:
+  - type: locked
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: beb4bc2be45c01f0c2da53f8c3837f94
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 25
+  conditions:
+  - type: is_locked
+    condition: device
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: beb4bc2be45c01f0c2da53f8c3837f94
+    domain: binary_sensor
+    enabled: false
+  actions:
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 10
+      milliseconds: 0
+    enabled: false
+  - type: turn_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 1bf82db6c2e51b455e2aaa7230abea0c
+    domain: light
+    enabled: false
+  - if:
+    - type: is_off
+      condition: device
+      device_id: e15a1fb7435cfe16a86b0f58812a81c7
+      entity_id: 830aa7047839e23266cedc0fe062f938
+      domain: binary_sensor
+    then:
+    - type: turn_off
+      device_id: e15a1fb7435cfe16a86b0f58812a81c7
+      entity_id: 1bf82db6c2e51b455e2aaa7230abea0c
+      domain: light
+    - type: turn_off
+      device_id: e15a1fb7435cfe16a86b0f58812a81c7
+      entity_id: 1dba2d456aa145c36960959d0d36f1fe
+      domain: light
+    else:
+    - wait_for_trigger:
+      - type: turned_off
+        device_id: e15a1fb7435cfe16a86b0f58812a81c7
+        entity_id: 830aa7047839e23266cedc0fe062f938
+        domain: binary_sensor
+        trigger: device
+      timeout:
+        hours: 0
+        minutes: 5
+        seconds: 0
+        milliseconds: 0
+<<<<<<< HEAD
+=======
+    enabled: false
+  - type: turn_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 1bf82db6c2e51b455e2aaa7230abea0c
+    domain: light
+  - type: turn_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 1dba2d456aa145c36960959d0d36f1fe
+    domain: light
+>>>>>>> a515bf3 (A new start)
+  mode: single
+- id: '1746291017080'
+  alias: PIR Entrance ON
+  description: ''
+  triggers:
+  - type: turned_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 830aa7047839e23266cedc0fe062f938
+    domain: binary_sensor
+    trigger: device
+  conditions:
+  - condition: time
+    after: input_datetime.pora_zmroku
+    before: input_datetime.pora_switu
+    weekday:
+    - sun
+    - sat
+    - fri
+    - thu
+    - wed
+    - tue
+    - mon
+  actions:
+  - type: turn_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 1bf82db6c2e51b455e2aaa7230abea0c
+    domain: light
+  mode: single
+- id: '1746291056994'
+  alias: PIR Entrance OFF
+  description: ''
+  triggers:
+  - type: turned_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 830aa7047839e23266cedc0fe062f938
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 15
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 1bf82db6c2e51b455e2aaa7230abea0c
+    domain: light
+  mode: single
+- id: '1746292087416'
+  alias: BTN_KITCHEN_CHANGE
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.boneio_dr_8ch_03_2c7fbc_in_04
+  conditions: []
+  actions:
+  - if:
+    - condition: device
+      type: is_off
+      device_id: 2a14d9e99e1077985fadfc6b3fc50198
+      entity_id: 2f3141edc754045dfb69248f7596beb1
+      domain: light
+    then:
+    - action: input_boolean.turn_off
+      metadata: {}
+      data: {}
+      target:
+        entity_id: input_boolean.kitchen_helper
+    else:
+    - action: input_boolean.turn_on
+      target:
+        entity_id:
+        - input_boolean.kitchen_helper
+      data: {}
+    - type: turn_on
+      device_id: 2a14d9e99e1077985fadfc6b3fc50198
+      entity_id: 2f3141edc754045dfb69248f7596beb1
+      domain: light
+      brightness_pct: 75
+  mode: single
+- id: '1746360170543'
+  alias: BTN_HALL_ENTRANCE_CHANGE
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.boneio_dr_8ch_03_2c7fbc_in_01
+  conditions: []
+  actions:
+  - if:
+    - condition: device
+      type: is_off
+      device_id: 2a14d9e99e1077985fadfc6b3fc50198
+      entity_id: fd37e7e43890d768c1b9407689a18860
+      domain: light
+    then:
+    - action: input_boolean.turn_off
+      metadata: {}
+      data: {}
+      target:
+        entity_id: input_boolean.hall_entrance_input_manual
+    else:
+    - action: input_boolean.turn_on
+      data: {}
+      target:
+        entity_id: input_boolean.hall_entrance_input_manual
+    - type: turn_on
+      device_id: 2a14d9e99e1077985fadfc6b3fc50198
+      entity_id: fd37e7e43890d768c1b9407689a18860
+      domain: light
+      brightness_pct: 75
+  mode: single
+- id: '1746365946369'
+  alias: Light 12 Motion Off
+  description: ''
+  triggers:
+  - type: turned_off
+    device_id: d8e2df1faca63578472e0677273680e2
+    entity_id: cfd71bd4dfde649c02233583749e9a79
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+  conditions:
+  - condition: state
+    entity_id: light.boneio_32_l_07_new_light_12
+    state: 'on'
+    enabled: false
+  actions:
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 30
+      milliseconds: 0
+    enabled: false
+<<<<<<< HEAD
+  - if:
+    - condition: state
+      entity_id: binary_sensor.reolink_duo_floodlight_poe_osoba
+      state: 'off'
+    then:
+    - type: turn_off
+      device_id: e15a1fb7435cfe16a86b0f58812a81c7
+      entity_id: f1aa382edce4de5ebf1e072a5981d25f
+      domain: light
+=======
+  - type: turn_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: f1aa382edce4de5ebf1e072a5981d25f
+    domain: light
+>>>>>>> a515bf3 (A new start)
+  mode: single
+- id: '1746367485059'
+  alias: BTN Entrance Door Trigger
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_button.btn_entrance_door
+    from:
+    to: 'on'
+    enabled: false
+  - trigger: state
+    entity_id:
+    - input_button.btn_entrance_door
+  conditions: []
+  actions:
+  - type: turn_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 9afa6453bc16d6061e60df5649a8a099
+    domain: light
+  - delay:
+      hours: 0
+      minutes: 2
+      seconds: 0
+      milliseconds: 0
+    enabled: true
+  - type: turn_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 9afa6453bc16d6061e60df5649a8a099
+    domain: light
+    enabled: true
+  mode: restart
+- id: '1746369422493'
+  alias: Entrance Door Open
+  description: ''
+  triggers:
+  - type: not_locked
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: beb4bc2be45c01f0c2da53f8c3837f94
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 9afa6453bc16d6061e60df5649a8a099
+    domain: light
+  mode: single
+- id: '1746381660873'
+  alias: All Lights Off
+  description: ''
+  triggers:
+  - trigger: time_pattern
+    hours: '00'
+    minutes: '0'
+    seconds: '0'
+  conditions: []
+  actions:
+  - action: light.turn_off
+    metadata: {}
+    data: {}
+    target:
+      label_id:
+      - swiatlo
+      - swiatlo_na_zewnatrz
+  mode: single
+- id: '1746389025737'
+  alias: Alarm
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.boneio_32_l_07_73bbd8_in_25_reed_entrance_door
+    from:
+    to:
+  - trigger: state
+    entity_id:
+    - binary_sensor.boneio_32_l_07_73bbd8_in_27_pir_living_room
+    from:
+    to:
+  - trigger: state
+    entity_id:
+    - binary_sensor.boneio_32_l_07_73bbd8_in_26_pir_entrance
+    - binary_sensor.boneio_32_l_07_73bbd8_in_28_pir_kitchen
+    - binary_sensor.boneio_32_l_07_73bbd8_in_29_pir_small_bathroom
+    - binary_sensor.boneio_32_l_07_73bbd8_in_31_pir_hall_bedroom
+    from:
+    to:
+  conditions:
+  - condition: or
+    conditions:
+    - condition: state
+      entity_id: alarm_control_panel.alarm
+      state: armed_away
+    - condition: state
+      entity_id: alarm_control_panel.alarm
+      state: armed_custom_bypass
+  actions:
+  - action: notify.notify
+    data:
+      message: Ktoś jest w domu
+      title: Alarm
+  - type: turn_on
+    device_id: d8e2df1faca63578472e0677273680e2
+    entity_id: 95f979b4b804ddc3a4b5b895915ad5e9
+    domain: switch
+  - delay:
+      hours: 0
+      minutes: 1
+      seconds: 0
+      milliseconds: 0
+  - if:
+    - condition: not
+      conditions:
+      - condition: state
+        entity_id: alarm_control_panel.alarm
+        state: disarmed
+    then:
+    - action: siren.turn_on
+      metadata: {}
+      data: {}
+      target:
+        entity_id: siren.reolink_duo_floodlight_poe_syrena
+  mode: single
+- id: '1746970911150'
+  alias: Reed_Small_Bathroom_OFF
+  description: ''
+  triggers:
+  - type: not_opened
+    device_id: 278589119feed2ed62463abb4f9034e1
+    entity_id: 0b01f72c9c4ac88da803fac8ac530ead
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+<<<<<<< HEAD
+      seconds: 1
+=======
+      seconds: 30
+>>>>>>> a515bf3 (A new start)
+  conditions: []
+  actions:
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 30
+      milliseconds: 0
+    enabled: true
+  - if:
+    - type: is_no_motion
+      condition: device
+      device_id: e15a1fb7435cfe16a86b0f58812a81c7
+      entity_id: 1ad082b889081e2f5fde537a65b68d51
+      domain: binary_sensor
+    then:
+    - type: turn_off
+      device_id: 2a14d9e99e1077985fadfc6b3fc50198
+      entity_id: 3a972362364e4a2e7b542faad911220c
+      domain: light
+    else:
+    - delay:
+        hours: 0
+        minutes: 35
+        seconds: 0
+        milliseconds: 0
+    - type: turn_off
+      device_id: 2a14d9e99e1077985fadfc6b3fc50198
+      entity_id: 3a972362364e4a2e7b542faad911220c
+      domain: light
+  mode: restart
+- id: '1747025286733'
+  alias: Light power ON OFF
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - alarm_control_panel.alarm
+    - automation.alarm
+  conditions: []
+  actions:
+  - if:
+    - condition: state
+      entity_id: alarm_control_panel.alarm
+      state: disarmed
+    then:
+    - action: light.turn_on
+      metadata: {}
+      data: {}
+      target:
+        label_id: zasilanie_swiatla
+    else:
+    - action: light.turn_off
+      metadata: {}
+      data: {}
+      target:
+        label_id:
+        - zasilanie_swiatla
+        - swiatlo
+  mode: single
+- id: '1747671242888'
+  alias: Reed Small Bathroom ON v2
+  description: ''
+  triggers:
+  - type: opened
+    device_id: 278589119feed2ed62463abb4f9034e1
+    entity_id: 0b01f72c9c4ac88da803fac8ac530ead
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - type: turn_on
+    device_id: 2a14d9e99e1077985fadfc6b3fc50198
+    entity_id: 3a972362364e4a2e7b542faad911220c
+    domain: light
+    brightness_pct: 20
+  mode: single
+- id: '1748188350415'
+  alias: Door tag
+  description: ''
+  triggers:
+  - trigger: tag
+    tag_id: 0a9cf91e-baf1-48c1-9982-281d82b507aa
+  conditions: []
+  actions:
+  - if:
+    - condition: state
+      entity_id: alarm_control_panel.alarm
+      state: disarmed
+    then:
+    - action: input_button.press
+      metadata: {}
+      data: {}
+      target:
+        entity_id: input_button.btn_entrance_door
+    else:
+    - if:
+      - condition: or
+        conditions:
+        - condition: state
+          entity_id: person.magda
+          state: home
+        - condition: state
+          entity_id: person.wiktor
+          state: home
+        - condition: state
+          entity_id: device_tracker.nikola_samsung
+          state: home
+      then:
+      - action: alarm_control_panel.alarm_disarm
+        metadata: {}
+        data:
+          code: '1111'
+        target:
+          entity_id: alarm_control_panel.alarm
+      - action: input_button.press
+        metadata: {}
+        data: {}
+        target:
+          entity_id: input_button.btn_entrance_door
+      else:
+      - action: notify.notify
+        metadata: {}
+        data:
+          message: Ktoś chce otworzyć drzwi
+          title: Drzwi wejściowe
+  mode: restart
+- id: '1748191276759'
+  alias: Tag Alarm ON
+  description: ''
+  triggers:
+  - trigger: tag
+    tag_id: zamykanie drzwi
+  conditions: []
+  actions:
+  - action: notify.notify
+    metadata: {}
+    data:
+      message: Uzbrajanie domu
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 15
+      milliseconds: 0
+  - action: alarm_control_panel.alarm_arm_away
+    metadata: {}
+    data:
+      code: '1111'
+    target:
+      entity_id: alarm_control_panel.alarm
+  mode: single
+<<<<<<< HEAD
+=======
+- id: '1748448370119'
+  alias: BTN_PRESS_ROLLER_BEDROOM_UP
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_button.roleta_sypialnia_up
+  conditions: []
+  actions:
+  - action: script.roller_bedroom_on
+    metadata: {}
+    data: {}
+  mode: single
+- id: '1748448489804'
+  alias: BTN_PRESS_ROLLER_BEDROOM_DOWN_ALMOST
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_button.roleta_sypialnia_down
+  conditions: []
+  actions:
+  - action: script.roller_bedroom_down_almost
+    data: {}
+  mode: single
+- id: '1748463392108'
+  alias: Night time
+  description: ''
+  triggers:
+  - trigger: time
+    at: input_datetime.pora_nocna
+  conditions: []
+  actions:
+  - action: script.roller_bedroom_down_almost
+    metadata: {}
+    data: {}
+    enabled: true
+  mode: single
+- id: '1748463729691'
+  alias: Day time
+  description: ''
+  triggers:
+  - at: input_datetime.pora_pobudka
+    trigger: time
+  - at: input_datetime.pora_pobudka_weekend
+    trigger: time
+  conditions:
+  - condition: or
+    conditions:
+    - condition: and
+      conditions:
+      - condition: time
+        weekday:
+        - mon
+        - tue
+        - wed
+        - thu
+        - fri
+      - condition: trigger
+        id: 0
+    - condition: and
+      conditions:
+      - condition: time
+        weekday:
+        - sat
+        - sun
+      - condition: trigger
+        id: 1
+  actions:
+  - data: {}
+    action: script.roller_bedroom_on
+  mode: single
+- id: '1748463855640'
+  alias: Sunrise time roller
+  description: ''
+  triggers:
+  - at: 05:40:00
+    trigger: time
+  - at: 06:40:00
+    trigger: time
+  conditions:
+  - condition: or
+    conditions:
+    - condition: and
+      conditions:
+      - condition: time
+        weekday:
+        - mon
+        - tue
+        - wed
+        - thu
+        - fri
+      - condition: trigger
+        id: 0
+    - condition: and
+      conditions:
+      - condition: time
+        weekday:
+        - sat
+        - sun
+      - condition: trigger
+        id: 1
+  - condition: state
+    entity_id: alarm_control_panel.alarm
+    state: disarmed
+  actions:
+  - data: {}
+    action: script.roller_bedroom_up_1_5
+  mode: single
+- id: '1749908930801'
+  alias: Light Salon ON Single Click
+  description: ''
+  triggers:
+  - type: turned_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: c784c7c03f27a8855ad878b98fb5bab8
+    domain: binary_sensor
+    trigger: device
+  - type: turned_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: c784c7c03f27a8855ad878b98fb5bab8
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - if:
+    - condition: state
+      entity_id: light.salon_mqtt
+      state: 'on'
+    then:
+    - action: script.turn_on
+      metadata: {}
+      data: {}
+      target:
+        entity_id: script.light_salon_white_off
+    else:
+    - action: script.turn_on
+      metadata: {}
+      data: {}
+      target:
+        entity_id:
+        - script.light_salon_white_on_variable
+  mode: single
+- id: '1749927239357'
+  alias: LIGHT Salon Variable White Color
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_number.kolor_bialy_salon
+  conditions: []
+  actions:
+  - action: script.light_salon_white_on_variable
+    metadata: {}
+    data: {}
+  mode: single
+- id: '1749929935330'
+  alias: Light Salon Btn Click White Color Adjust
+  description: ''
+  triggers:
+  - type: turned_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: ff23fd0335cab00cc7c6ddc14bc67e36
+    domain: binary_sensor
+    trigger: device
+  - type: turned_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: ff23fd0335cab00cc7c6ddc14bc67e36
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - action: script.light_salon_white_adjust
+    metadata: {}
+    data: {}
+  mode: single
+- id: '1749934918489'
+  alias: Light Salon Btn 07 Click Next Color Sequence
+  description: ''
+  triggers:
+  - type: turned_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 8e66d48ca4eaa4d7d0909f63d75e04ce
+    domain: binary_sensor
+    trigger: device
+  - type: turned_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 8e66d48ca4eaa4d7d0909f63d75e04ce
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - action: script.run_next_script_in_sequence
+    metadata: {}
+    data: {}
+  mode: single
+- id: '1754333312816'
+  alias: Advanced Bathroom Automation
+  description: Handles all bathroom lighting based on door and motion.
+  triggers:
+  - entity_id: binary_sensor.0b01f72c9c4ac88da803fac8ac530ead
+    to: 'on'
+    id: door_opened
+    trigger: state
+  - entity_id: binary_sensor.0b01f72c9c4ac88da803fac8ac530ead
+    to: 'off'
+    id: door_closed
+    trigger: state
+  - entity_id: binary_sensor.1ad082b889081e2f5fde537a65b68d51
+    to: 'on'
+    id: motion_detected
+    trigger: state
+  - entity_id: binary_sensor.1ad082b889081e2f5fde537a65b68d51
+    to: 'off'
+    for:
+      seconds: 30
+    id: motion_cleared
+    trigger: state
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: door_opened
+      sequence:
+      - target:
+          entity_id: light.3a972362364e4a2e7b542faad911220c
+        data:
+          brightness_pct: 20
+        action: light.turn_on
+    - conditions:
+      - condition: trigger
+        id: motion_detected
+      sequence:
+      - target:
+          entity_id:
+          - light.0b0f4a00d3527380f5a29173cfd229d2
+          - light.1896766d22d6ef986f4eeb5fd4ee3a4f
+        data:
+          brightness_pct: 60
+        action: light.turn_on
+      - if:
+        - condition: state
+          entity_id: binary_sensor.0b01f72c9c4ac88da803fac8ac530ead
+          state: 'off'
+        then:
+        - target:
+            entity_id: light.3a972362364e4a2e7b542faad911220c
+          data:
+            brightness_pct: 20
+          action: light.turn_on
+    - conditions:
+      - condition: trigger
+        id: motion_cleared
+      sequence:
+      - target:
+          entity_id:
+          - light.3a972362364e4a2e7b542faad911220c
+          - light.0b0f4a00d3527380f5a29173cfd229d2
+          - light.1896766d22d6ef986f4eeb5fd4ee3a4f
+        action: light.turn_off
+    - conditions:
+      - condition: trigger
+        id: door_closed
+      sequence:
+      - delay:
+          seconds: 5
+      - if:
+        - condition: state
+          entity_id: binary_sensor.1ad082b889081e2f5fde537a65b68d51
+          state: 'off'
+        then:
+        - target:
+            entity_id: light.3a972362364e4a2e7b542faad911220c
+          action: light.turn_off
+  mode: restart
+- id: '1754334259452'
+  alias: Merged Small Bathroom Door Reed Automation
+  description: Controls the small bathroom light based on the door sensor and motion.
+  triggers:
+  - device_id: 278589119feed2ed62463abb4f9034e1
+    domain: binary_sensor
+    entity_id: 0b01f72c9c4ac88da803fac8ac530ead
+    type: opened
+    id: door_opened
+    trigger: device
+  - device_id: 278589119feed2ed62463abb4f9034e1
+    domain: binary_sensor
+    entity_id: 0b01f72c9c4ac88da803fac8ac530ead
+    type: not_opened
+    id: door_closed
+    trigger: device
+  - type: present
+    device_id: ab72fcc52466bde41609b627679d66d5
+    entity_id: 0aba9a05f17e637121967e990d636592
+    domain: binary_sensor
+    trigger: device
+    id: motion
+  - type: not_present
+    device_id: ab72fcc52466bde41609b627679d66d5
+    entity_id: 0aba9a05f17e637121967e990d636592
+    domain: binary_sensor
+    trigger: device
+    id: no_motion
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: door_opened
+      sequence:
+      - type: turn_on
+        device_id: 2a14d9e99e1077985fadfc6b3fc50198
+        entity_id: 3a972362364e4a2e7b542faad911220c
+        domain: light
+        brightness_pct: 20
+      - delay:
+          minutes: 5
+      - type: turn_off
+        device_id: 2a14d9e99e1077985fadfc6b3fc50198
+        entity_id: 3a972362364e4a2e7b542faad911220c
+        domain: light
+    - conditions:
+      - condition: trigger
+        id: door_closed
+      sequence:
+      - choose:
+        - conditions:
+          - condition: device
+            device_id: ab72fcc52466bde41609b627679d66d5
+            domain: binary_sensor
+            entity_id: 0aba9a05f17e637121967e990d636592
+            type: is_present
+          sequence:
+          - type: turn_on
+            device_id: 2a14d9e99e1077985fadfc6b3fc50198
+            entity_id: 3a972362364e4a2e7b542faad911220c
+            domain: light
+            brightness_pct: 20
+        default:
+        - type: turn_off
+          device_id: 2a14d9e99e1077985fadfc6b3fc50198
+          entity_id: 3a972362364e4a2e7b542faad911220c
+          domain: light
+        - delay:
+            minutes: 10
+        - type: turn_off
+          device_id: 2a14d9e99e1077985fadfc6b3fc50198
+          entity_id: 3a972362364e4a2e7b542faad911220c
+          domain: light
+    - conditions:
+      - condition: trigger
+        id: motion
+      sequence:
+      - type: turn_on
+        device_id: 2a14d9e99e1077985fadfc6b3fc50198
+        entity_id: 3a972362364e4a2e7b542faad911220c
+        domain: light
+        brightness_pct: 20
+      - delay:
+          minutes: 10
+      - type: turn_off
+        device_id: 2a14d9e99e1077985fadfc6b3fc50198
+        entity_id: 3a972362364e4a2e7b542faad911220c
+        domain: light
+    - conditions:
+      - condition: trigger
+        id: no_motion
+      sequence:
+      - type: turn_off
+        device_id: 2a14d9e99e1077985fadfc6b3fc50198
+        entity_id: 3a972362364e4a2e7b542faad911220c
+        domain: light
+      - delay:
+          minutes: 10
+      - type: turn_off
+        device_id: 2a14d9e99e1077985fadfc6b3fc50198
+        entity_id: 3a972362364e4a2e7b542faad911220c
+        domain: light
+  mode: restart
+- id: '1754334356656'
+  alias: Merged Small Bathroom Motion Automation
+  description: Controls the main bathroom lights based on the motion sensor. (Step
+    2)
+  triggers:
+  - type: motion
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 1ad082b889081e2f5fde537a65b68d51
+    domain: binary_sensor
+    trigger: device
+    id: motion_on
+  - type: no_motion
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 1ad082b889081e2f5fde537a65b68d51
+    domain: binary_sensor
+    trigger: device
+    id: motion_off
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 35
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: motion_on
+      sequence:
+      - choose:
+        - conditions:
+          - condition: or
+            conditions:
+            - condition: time
+              after: input_datetime.pora_nocna
+            - condition: time
+              before: input_datetime.pora_pobudka
+          sequence:
+          - type: turn_on
+            device_id: 005fc49d6a72f9b43512a8106c2d0665
+            entity_id: 0b0f4a00d3527380f5a29173cfd229d2
+            domain: light
+            brightness_pct: 60
+        default:
+        - type: turn_on
+          device_id: 005fc49d6a72f9b43512a8106c2d0665
+          entity_id: 0b0f4a00d3527380f5a29173cfd229d2
+          domain: light
+          brightness_pct: 60
+        - type: turn_on
+          device_id: 005fc49d6a72f9b43512a8106c2d0665
+          entity_id: 1896766d22d6ef986f4eeb5fd4ee3a4f
+          domain: light
+          brightness_pct: 50
+    - conditions:
+      - condition: trigger
+        id: motion_off
+      sequence:
+      - type: turn_off
+        device_id: 005fc49d6a72f9b43512a8106c2d0665
+        entity_id: 0b0f4a00d3527380f5a29173cfd229d2
+        domain: light
+      - type: turn_off
+        device_id: 005fc49d6a72f9b43512a8106c2d0665
+        entity_id: 1896766d22d6ef986f4eeb5fd4ee3a4f
+        domain: light
+  mode: restart
+- id: '1754335731939'
+  alias: Ogród REED ON
+  description: ''
+  triggers:
+  - type: opened
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: a92463980ce4502bc080c6040fe97513
+    domain: binary_sensor
+    trigger: device
+  conditions:
+  - condition: time
+    after: input_datetime.pora_zmroku_na_zewnatrz
+    before: input_datetime.pora_pobudka
+  actions:
+  - type: turn_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: a3a0c14cb3c712c9be2253c45a7b5863
+    domain: light
+  mode: single
+- id: '1754335762351'
+  alias: Ogród REED Off
+  description: ''
+  triggers:
+  - type: not_opened
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: a92463980ce4502bc080c6040fe97513
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: a3a0c14cb3c712c9be2253c45a7b5863
+    domain: light
+  mode: single
+- id: '1754370295657'
+  alias: Merged Garden Reed Automation Ogród
+  description: Controls the garden light based on the reed sensor and time of day.
+  triggers:
+  - device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    domain: binary_sensor
+    entity_id: a92463980ce4502bc080c6040fe97513
+    type: opened
+    id: garden_reed_opened
+    trigger: device
+  - device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    domain: binary_sensor
+    entity_id: a92463980ce4502bc080c6040fe97513
+    type: not_opened
+    id: garden_reed_closed
+    trigger: device
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: garden_reed_opened
+      - condition: time
+        after: input_datetime.pora_zmroku_na_zewnatrz
+        before: input_datetime.pora_pobudka
+      sequence:
+      - target:
+          entity_id: a3a0c14cb3c712c9be2253c45a7b5863
+        action: light.turn_on
+        data: {}
+    - conditions:
+      - condition: trigger
+        id: garden_reed_closed
+      sequence:
+      - target:
+          entity_id: a3a0c14cb3c712c9be2253c45a7b5863
+        action: light.turn_off
+        data: {}
+  mode: restart
+- id: '1754679474193'
+  alias: Test Dimmer Rorate Right
+  description: ''
+  triggers:
+  - device_id: fd19b93043d59ad90f9560eca9ee5072
+    domain: zha
+    type: device_rotated_fast
+    subtype: right
+    trigger: device
+  - device_id: fd19b93043d59ad90f9560eca9ee5072
+    domain: zha
+    type: device_rotated_slow
+    subtype: left
+    trigger: device
+  - device_id: fd19b93043d59ad90f9560eca9ee5072
+    domain: zha
+    type: remote_button_short_press
+    subtype: button
+    trigger: device
+  conditions: []
+  actions:
+  - action: notify.notify
+    data:
+      message: est
+  mode: single
+>>>>>>> a515bf3 (A new start)
