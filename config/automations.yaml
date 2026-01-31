@@ -1297,6 +1297,10 @@
       label_id:
       - swiatlo
       - swiatlo_na_zewnatrz
+    enabled: false
+  - action: script.all_lights_off
+    metadata: {}
+    data: {}
   mode: single
 - id: '1746389025737'
   alias: Alarm
@@ -1899,7 +1903,7 @@
         domain: light
   mode: restart
 - id: '1754334356656'
-  alias: Merged Small Bathroom Motion Automation
+  alias: Small Bathroom Motion Automation
   description: Controls the main bathroom lights based on the motion sensor. (Step
     2)
   triggers:
@@ -1963,7 +1967,8 @@
         device_id: 005fc49d6a72f9b43512a8106c2d0665
         entity_id: 1896766d22d6ef986f4eeb5fd4ee3a4f
         domain: light
-  mode: restart
+  mode: queued
+  max: 10
 - id: '1754335731939'
   alias: Ogród REED ON
   description: ''
@@ -2025,18 +2030,22 @@
         after: input_datetime.pora_zmroku_na_zewnatrz
         before: input_datetime.pora_pobudka
       sequence:
-      - target:
-          entity_id: a3a0c14cb3c712c9be2253c45a7b5863
-        action: light.turn_on
+      - action: light.turn_on
         data: {}
+        target:
+          entity_id:
+          - light.bulb_1
+          - light.bulb_2
     - conditions:
       - condition: trigger
         id: garden_reed_closed
       sequence:
-      - target:
-          entity_id: a3a0c14cb3c712c9be2253c45a7b5863
-        action: light.turn_off
+      - action: light.turn_off
         data: {}
+        target:
+          entity_id:
+          - light.bulb_1
+          - light.bulb_2
   mode: restart
 - id: '1754679474193'
   alias: Test Dimmer Rorate Right
@@ -2063,3 +2072,350 @@
     data:
       message: est
   mode: single
+- id: '1762707932172'
+  alias: POWER_ON
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - sensor.boneio_32_l_07_new_serial_no
+    to:
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 0
+    from:
+  conditions: []
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    data: {}
+    target:
+      label_id: zasilanie_swiatla
+  mode: single
+- id: '1766001662050'
+  alias: Motion Taras OFF
+  description: ''
+  triggers:
+  - type: turned_off
+    device_id: 85421899dfcf715d7caf94a826c2291b
+    entity_id: 97189c43689f1ce1662a567d0d4fc670
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+  conditions:
+  - condition: state
+    entity_id: light.boneio_32_l_07_new_light_12
+    state: 'on'
+    enabled: false
+  actions:
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 30
+      milliseconds: 0
+    enabled: false
+  - type: turn_off
+    device_id: 1c520c1f9679ef1ffd442ab5f372c1fd
+    entity_id: 8ce0e57f8d3366abe8ecf17500114dae
+    domain: light
+  - type: turn_off
+    device_id: fea1b7f823480391c3f5b4da643a4b49
+    entity_id: 64b3af4f89bbf0214b7d90312e3cd9e9
+    domain: light
+  mode: single
+- id: '1766001732126'
+  alias: Motion Taras ON
+  description: ''
+  triggers:
+  - type: turned_on
+    device_id: 85421899dfcf715d7caf94a826c2291b
+    entity_id: 97189c43689f1ce1662a567d0d4fc670
+    domain: binary_sensor
+    trigger: device
+  conditions:
+  - condition: time
+    after: input_datetime.pora_zmroku_na_zewnatrz
+    before: input_datetime.pora_switu
+    weekday:
+    - sun
+    - sat
+    - fri
+    - thu
+    - wed
+    - tue
+    - mon
+  actions:
+  - type: turn_on
+    device_id: 1c520c1f9679ef1ffd442ab5f372c1fd
+    entity_id: 8ce0e57f8d3366abe8ecf17500114dae
+    domain: light
+  - type: turn_on
+    device_id: fea1b7f823480391c3f5b4da643a4b49
+    entity_id: 64b3af4f89bbf0214b7d90312e3cd9e9
+    domain: light
+  mode: single
+- id: '1766063549554'
+  alias: Motion Pralnia ON
+  description: ''
+  triggers:
+  - type: motion
+    device_id: a69ca9609beb041c063dac146c332029
+    entity_id: 6f53218af670871fa020c86aeea7d6d3
+    domain: binary_sensor
+    trigger: device
+  conditions:
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: binary_sensor.kontaktron_pralnia_otwarcie
+      state: unavailable
+      for:
+        hours: 0
+        minutes: 0
+        seconds: 1
+  actions:
+  - type: turn_on
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 9ac09cf844504499bf220fdc4ad9bb07
+    domain: light
+  mode: single
+- id: '1766063586394'
+  alias: Motion Pralnia OFF
+  description: ''
+  triggers:
+  - type: no_motion
+    device_id: a69ca9609beb041c063dac146c332029
+    entity_id: 6f53218af670871fa020c86aeea7d6d3
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 20
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: e15a1fb7435cfe16a86b0f58812a81c7
+    entity_id: 9ac09cf844504499bf220fdc4ad9bb07
+    domain: light
+  mode: single
+- id: '1766089910157'
+  alias: Shelly RGBW Continuous Animation Loop
+  description: Loops the selected RGBW animation script continuously
+  triggers:
+  - event: start
+    id: start_animation
+    trigger: homeassistant
+  - entity_id: script.shelly_rgbw_animation_cycle
+    to: 'off'
+    id: cycle_complete_script_1
+    trigger: state
+  - entity_id: script.shelly_rgbw_animation_cycle_dim
+    to: 'off'
+    id: cycle_complete_script_2
+    trigger: state
+  - entity_id: script.shelly_rgbw_animation_wave
+    to: 'off'
+    id: cycle_complete_script_3
+    trigger: state
+  - entity_id: script.shelly_rgbw_animation_chase
+    to: 'off'
+    id: cycle_complete_script_4
+    trigger: state
+  - entity_id: script.shelly_rgbw_animation_pulse
+    to: 'off'
+    id: cycle_complete_script_5
+    trigger: state
+  - entity_id: input_select.shelly_mode
+    id: mode_changed
+    trigger: state
+  - entity_id: input_select.shelly_animation_type
+    id: animation_changed
+    trigger: state
+  conditions:
+  - condition: state
+    entity_id: input_select.shelly_mode
+    state: Animation
+  actions:
+  - choose:
+    - conditions:
+      - condition: or
+        conditions:
+        - condition: trigger
+          id: animation_changed
+        - condition: trigger
+          id: mode_changed
+      - condition: state
+        entity_id: input_select.shelly_mode
+        state: Animation
+      sequence:
+      - target:
+          entity_id: automation.shelly_rgbw_continuous_animation_loop
+        action: automation.turn_off
+      - delay:
+          milliseconds: 100
+      - target:
+          entity_id: automation.shelly_rgbw_continuous_animation_loop
+        action: automation.turn_on
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_select.shelly_animation_type
+        state: script_1
+      sequence:
+      - data: {}
+        action: script.shelly_rgbw_animation_cycle
+    - conditions:
+      - condition: state
+        entity_id: input_select.shelly_animation_type
+        state: script_2
+      sequence:
+      - data: {}
+        action: script.shelly_rgbw_animation_cycle_dim
+    - conditions:
+      - condition: state
+        entity_id: input_select.shelly_animation_type
+        state: script_3
+      sequence:
+      - data: {}
+        action: script.shelly_rgbw_animation_wave
+    - conditions:
+      - condition: state
+        entity_id: input_select.shelly_animation_type
+        state: script_4
+      sequence:
+      - data: {}
+        action: script.shelly_rgbw_animation_chase
+    - conditions:
+      - condition: state
+        entity_id: input_select.shelly_animation_type
+        state: script_5
+      sequence:
+      - data: {}
+        action: script.shelly_rgbw_animation_pulse
+  mode: restart
+- id: '1766090064628'
+  alias: Shelly Animation Button Cycle
+  description: Cycle through animations when button is pressed
+  triggers:
+  - entity_id: input_button.shelly_animation_toggle
+    trigger: state
+  conditions:
+  - condition: state
+    entity_id: input_select.shelly_mode
+    state: Animation
+  actions:
+  - data: {}
+    action: script.shelly_cycle_animation
+  mode: single
+- id: '1766094716192'
+  alias: Shelly Mode Handler
+  description: Handles mode changes for ON, Off, and Animation
+  triggers:
+  - entity_id: input_select.shelly_mode
+    trigger: state
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_select.shelly_mode
+        state: 'ON'
+      sequence:
+      - target:
+          entity_id: automation.shelly_rgbw_continuous_animation_loop
+        action: automation.turn_off
+      - target:
+          entity_id:
+          - light.shellyplusrgbwpm_9451dc0a83b4_light_0
+          - light.shellyplusrgbwpm_9451dc0a83b4_light_1
+          - light.shellyplusrgbwpm_9451dc0a83b4_light_2
+          - light.shellyplusrgbwpm_9451dc0a83b4_light_3
+        data:
+          brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+        action: light.turn_on
+    - conditions:
+      - condition: state
+        entity_id: input_select.shelly_mode
+        state: 'Off'
+      sequence:
+      - target:
+          entity_id: automation.shelly_rgbw_continuous_animation_loop
+        action: automation.turn_off
+      - target:
+          entity_id:
+          - light.shellyplusrgbwpm_9451dc0a83b4_light_0
+          - light.shellyplusrgbwpm_9451dc0a83b4_light_1
+          - light.shellyplusrgbwpm_9451dc0a83b4_light_2
+          - light.shellyplusrgbwpm_9451dc0a83b4_light_3
+        action: light.turn_off
+    - conditions:
+      - condition: state
+        entity_id: input_select.shelly_mode
+        state: Animation
+      sequence:
+      - target:
+          entity_id: automation.shelly_rgbw_continuous_animation_loop
+        action: automation.turn_off
+      - target:
+          entity_id:
+          - light.shellyplusrgbwpm_9451dc0a83b4_light_0
+          - light.shellyplusrgbwpm_9451dc0a83b4_light_1
+          - light.shellyplusrgbwpm_9451dc0a83b4_light_2
+          - light.shellyplusrgbwpm_9451dc0a83b4_light_3
+        action: light.turn_off
+      - delay:
+          seconds: 1
+      - target:
+          entity_id: automation.shelly_rgbw_continuous_animation_loop
+        action: automation.turn_on
+      - delay:
+          milliseconds: 200
+      - choose:
+        - conditions:
+          - condition: state
+            entity_id: input_select.shelly_animation_type
+            state: script_1
+          sequence:
+          - data: {}
+            action: script.shelly_rgbw_animation_cycle
+        - conditions:
+          - condition: state
+            entity_id: input_select.shelly_animation_type
+            state: script_2
+          sequence:
+          - data: {}
+            action: script.shelly_rgbw_animation_cycle_dim
+        - conditions:
+          - condition: state
+            entity_id: input_select.shelly_animation_type
+            state: script_3
+          sequence:
+          - data: {}
+            action: script.shelly_rgbw_animation_wave
+        - conditions:
+          - condition: state
+            entity_id: input_select.shelly_animation_type
+            state: script_4
+          sequence:
+          - data: {}
+            action: script.shelly_rgbw_animation_chase
+        - conditions:
+          - condition: state
+            entity_id: input_select.shelly_animation_type
+            state: script_5
+          sequence:
+          - data: {}
+            action: script.shelly_rgbw_animation_pulse
+        - conditions:
+          - condition: state
+            entity_id: input_select.shelly_animation_type
+            state: script_6
+          sequence:
+          - data: {}
+            action: script.shelly_rgbw_animation_rock
+  mode: restart

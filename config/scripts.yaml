@@ -85,6 +85,17 @@ all_lights_off:
     data: {}
     target:
       floor_id: parter
+  - action: light.turn_off
+    metadata: {}
+    data: {}
+    target:
+      label_id: swiatlo
+  - action: input_select.select_option
+    metadata: {}
+    data:
+      option: 'Off'
+    target:
+      entity_id: input_select.shelly_mode
   description: ''
   icon: mdi:ceiling-light-multiple
 roller_bedroom_up_1_3:
@@ -356,3 +367,498 @@ run_next_script_in_sequence:
     data:
       cycle: true
     action: input_select.select_next
+shelly_living_room_decoration_turn_off:
+  alias: Shelly Living Room Decoration Turn OFF
+  sequence:
+  - type: turn_off
+    device_id: ac3535288e91bae346a47746931fc013
+    entity_id: 8d9e3513560d016207a533be17fb58f3
+    domain: light
+  - type: turn_off
+    device_id: ac3535288e91bae346a47746931fc013
+    entity_id: 6dedaf0c2589ed18cd71e43b5a93afb9
+    domain: light
+  - type: turn_off
+    device_id: ac3535288e91bae346a47746931fc013
+    entity_id: 172b4ddf6531454c509a93af7ef9ae0f
+    domain: light
+  - type: turn_off
+    device_id: ac3535288e91bae346a47746931fc013
+    entity_id: 86492950899ac5ce293690f7beaee641
+    domain: light
+  description: ''
+shelly_living_room_decoration_turn_on:
+  alias: Shelly Living Room Decoration Turn ON
+  sequence:
+  - type: turn_on
+    device_id: ac3535288e91bae346a47746931fc013
+    entity_id: 8d9e3513560d016207a533be17fb58f3
+    domain: light
+  - type: turn_on
+    device_id: ac3535288e91bae346a47746931fc013
+    entity_id: 6dedaf0c2589ed18cd71e43b5a93afb9
+    domain: light
+  - type: turn_on
+    device_id: ac3535288e91bae346a47746931fc013
+    entity_id: 172b4ddf6531454c509a93af7ef9ae0f
+    domain: light
+  - type: turn_on
+    device_id: ac3535288e91bae346a47746931fc013
+    entity_id: 86492950899ac5ce293690f7beaee641
+    domain: light
+  description: ''
+shelly_rgbw_animation_cycle:
+  alias: Shelly RGBW Animation Cycle
+  sequence:
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_0
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 1
+    action: light.turn_on
+  - delay:
+      milliseconds: 500
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_1
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 1
+    action: light.turn_on
+  - delay:
+      milliseconds: 500
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_2
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 1
+    action: light.turn_on
+  - delay:
+      milliseconds: 500
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_3
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 1
+    action: light.turn_on
+  - delay:
+      milliseconds: 500
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_0
+    data:
+      transition: 1
+    action: light.turn_off
+  - delay:
+      milliseconds: 500
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_1
+    data:
+      transition: 1
+    action: light.turn_off
+  - delay:
+      milliseconds: 500
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_2
+    data:
+      transition: 1
+    action: light.turn_off
+  - delay:
+      milliseconds: 500
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_3
+    data:
+      transition: 1
+    action: light.turn_off
+  mode: restart
+  icon: mdi:lightbulb-multiple
+  description: RGBW animation cycle - turns on channels sequentially, then off
+shelly_rgbw_animation_cycle_dim:
+  alias: Shelly RGBW Animation Cycle (Dim)
+  sequence:
+  - delay:
+      milliseconds: 100
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_0
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 0.5
+    action: light.turn_on
+  - delay:
+      milliseconds: 2500
+  - delay:
+      milliseconds: 100
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_1
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 0.5
+    action: light.turn_on
+  - delay:
+      milliseconds: 2500
+  - delay:
+      milliseconds: 100
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_2
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 0.5
+    action: light.turn_on
+  - delay:
+      milliseconds: 2500
+  - delay:
+      milliseconds: 100
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_3
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 0.5
+    action: light.turn_on
+  - delay:
+      milliseconds: 2500
+  - delay:
+      milliseconds: 100
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_0
+    data:
+      transition: 0.5
+    action: light.turn_off
+  - delay:
+      milliseconds: 2500
+  - delay:
+      milliseconds: 100
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_1
+    data:
+      transition: 0.5
+    action: light.turn_off
+  - delay:
+      milliseconds: 2500
+  - delay:
+      milliseconds: 100
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_2
+    data:
+      transition: 0.5
+    action: light.turn_off
+  - delay:
+      milliseconds: 2500
+  - delay:
+      milliseconds: 100
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_3
+    data:
+      transition: 0.5
+    action: light.turn_off
+  mode: restart
+  icon: mdi:lightbulb-multiple-outline
+  description: RGBW animation cycle (dim) - uses brightness control, 2000ms delay
+shelly_rgbw_control_all_channels:
+  alias: Shelly Cycle Animation
+  sequence:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_select.shelly_animation_type
+        state: script_1
+      sequence:
+      - target:
+          entity_id: input_select.shelly_animation_type
+        data:
+          option: script_2
+        action: input_select.select_option
+    - conditions:
+      - condition: state
+        entity_id: input_select.shelly_animation_type
+        state: script_2
+      sequence:
+      - target:
+          entity_id: input_select.shelly_animation_type
+        data:
+          option: script_3
+        action: input_select.select_option
+    - conditions:
+      - condition: state
+        entity_id: input_select.shelly_animation_type
+        state: script_3
+      sequence:
+      - target:
+          entity_id: input_select.shelly_animation_type
+        data:
+          option: script_4
+        action: input_select.select_option
+    - conditions:
+      - condition: state
+        entity_id: input_select.shelly_animation_type
+        state: script_4
+      sequence:
+      - target:
+          entity_id: input_select.shelly_animation_type
+        data:
+          option: script_5
+        action: input_select.select_option
+    - conditions:
+      - condition: state
+        entity_id: input_select.shelly_animation_type
+        state: script_5
+      sequence:
+      - target:
+          entity_id: input_select.shelly_animation_type
+        data:
+          option: script_6
+        action: input_select.select_option
+    - conditions:
+      - condition: state
+        entity_id: input_select.shelly_animation_type
+        state: script_6
+      sequence:
+      - target:
+          entity_id: input_select.shelly_animation_type
+        data:
+          option: script_1
+        action: input_select.select_option
+  mode: single
+  icon: mdi:animation
+  description: Cycle through available animation types
+shelly_rgbw_animation_wave:
+  alias: Shelly RGBW Animation Wave
+  sequence:
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_0
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 0.5
+    action: light.turn_on
+  - delay:
+      milliseconds: 300
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_1
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 0.5
+    action: light.turn_on
+  - delay:
+      milliseconds: 300
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_2
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 0.5
+    action: light.turn_on
+  - delay:
+      milliseconds: 300
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_3
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 0.5
+    action: light.turn_on
+  - delay:
+      milliseconds: 500
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_3
+    data:
+      transition: 0.5
+    action: light.turn_off
+  - delay:
+      milliseconds: 300
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_2
+    data:
+      transition: 0.5
+    action: light.turn_off
+  - delay:
+      milliseconds: 300
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_1
+    data:
+      transition: 0.5
+    action: light.turn_off
+  - delay:
+      milliseconds: 300
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_0
+    data:
+      transition: 0.5
+    action: light.turn_off
+  mode: restart
+  icon: mdi:wave
+  description: Wave animation - lights turn on sequentially, then off in reverse
+shelly_rgbw_animation_chase:
+  alias: Shelly RGBW Animation Chase
+  sequence:
+  - delay:
+      milliseconds: 150
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_0
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 0.3
+    action: light.turn_on
+  - delay:
+      milliseconds: 300
+  - target:
+      entity_id:
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_1
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_2
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_3
+    data:
+      transition: 0.3
+    action: light.turn_off
+  - delay:
+      milliseconds: 800
+  - delay:
+      milliseconds: 150
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_1
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 0.3
+    action: light.turn_on
+  - delay:
+      milliseconds: 300
+  - target:
+      entity_id:
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_0
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_2
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_3
+    data:
+      transition: 0.3
+    action: light.turn_off
+  - delay:
+      milliseconds: 800
+  - delay:
+      milliseconds: 150
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_2
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 0.3
+    action: light.turn_on
+  - delay:
+      milliseconds: 300
+  - target:
+      entity_id:
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_0
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_1
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_3
+    data:
+      transition: 0.3
+    action: light.turn_off
+  - delay:
+      milliseconds: 800
+  - delay:
+      milliseconds: 150
+  - target:
+      entity_id: light.shellyplusrgbwpm_9451dc0a83b4_light_3
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 0.3
+    action: light.turn_on
+  - delay:
+      milliseconds: 300
+  - target:
+      entity_id:
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_0
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_1
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_2
+    data:
+      transition: 0.3
+    action: light.turn_off
+  - delay:
+      milliseconds: 800
+  mode: restart
+  icon: mdi:run-fast
+  description: Chase animation - one light follows another in a continuous loop
+shelly_rgbw_animation_pulse:
+  alias: Shelly RGBW Animation Pulse
+  sequence:
+  - target:
+      entity_id:
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_0
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_1
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_2
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_3
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 3
+    action: light.turn_on
+  - delay:
+      seconds: 3
+  - target:
+      entity_id:
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_0
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_1
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_2
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_3
+    data:
+      transition: 3
+    action: light.turn_off
+  - delay:
+      seconds: 3
+  mode: single
+  icon: mdi:heart-pulse
+  description: Pulse animation - all lights fade in/out together (breathing effect)
+shelly_rgbw_animation_rock:
+  alias: Shelly RGBW Animation Rock
+  sequence:
+  - target:
+      entity_id:
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_1
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_2
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 1.5
+    action: light.turn_on
+  - delay:
+      seconds: 1.5
+  - target:
+      entity_id:
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_0
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_3
+    data:
+      brightness_pct: '{{ states(''input_number.shelly_brightness'') | int }}'
+      transition: 1.5
+    action: light.turn_on
+  - delay:
+      seconds: 2
+  - target:
+      entity_id:
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_0
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_3
+    data:
+      transition: 1.5
+    action: light.turn_off
+  - delay:
+      seconds: 1.5
+  - target:
+      entity_id:
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_1
+      - light.shellyplusrgbwpm_9451dc0a83b4_light_2
+    data:
+      transition: 1.5
+    action: light.turn_off
+  - delay:
+      seconds: 1.5
+  mode: single
+  icon: mdi:music-note
+  description: Breathing wave animation - lights expand from center outward, then
+    contract inward
+bedroom_cinema_on:
+  alias: Bedroom cinema ON
+  sequence:
+  - type: turn_on
+    device_id: c3f1dabf82ca1677bb51ea54196f64b1
+    entity_id: f9cf4477785c31d01d6d9f086572ddcc
+    domain: remote
+  - action: script.roller_bedroom_down_almost
+    data: {}
+  description: ''
+bedroom_cinema_off:
+  alias: Bedroom cinema OFF
+  sequence:
+  - type: turn_off
+    device_id: c3f1dabf82ca1677bb51ea54196f64b1
+    entity_id: f9cf4477785c31d01d6d9f086572ddcc
+    domain: remote
+  - action: script.roller_bedroom_on
+    data: {}
+  description: ''
