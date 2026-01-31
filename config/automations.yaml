@@ -226,204 +226,207 @@
         push:
           badge: 5
   id: 239e37f87c7f41f3b0a7b5ae696f6c50
-- alias: Read Thermostat Routine Local01 Main
-  trigger:
-    platform: mqtt
-    topic: local01/thermostat/Glowny/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local01_main_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: a52ffedebf7e49ffae8435b08606edaa
-- alias: Read Thermostat Routine Local01 Bathroom
-  trigger:
-    platform: mqtt
-    topic: local01/thermostat/Lazienka/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local01_bathroom_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: f98c30c2e59444d29feccfcd4322f3ef
-- alias: Read Thermostat Routine Local01 Bedroom
-  trigger:
-    platform: mqtt
-    topic: local01/thermostat/Sypialnia/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local01_bedroom_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: 0d9c8ba05fe74c829530c9431cbe5303
-- alias: Read Thermostat Routine Local02 Main
-  trigger:
-    platform: mqtt
-    topic: local02/thermostat/Glowny/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local02_main_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: b30fcc466a734182bb7a617b5e6d5780
-- alias: Read Thermostat Routine Local02 Bathroom
-  trigger:
-    platform: mqtt
-    topic: local02/thermostat/Lazienka/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local02_bathroom_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: a319a8aa5ba9461bb5e174c7d7274fbb
-- alias: Read Thermostat Routine Local02 Bedroom
-  trigger:
-    platform: mqtt
-    topic: local02/thermostat/Sypialnia/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local02_bedroom_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: 8d147e4946db42de80442ee612538453
-- alias: Read Thermostat Routine Local03 Main
-  trigger:
-    platform: mqtt
-    topic: local03/thermostat/Glowny/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local03_main_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: d265da96eed340f598892c309fa86e38
-- alias: Read Thermostat Routine Local03 Bathroom
-  trigger:
-    platform: mqtt
-    topic: local03/thermostat/Lazienka/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local03_bathroom_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: 5b97cb51fbc64eab80ce62d810ee028c
-- alias: Read Thermostat Routine Local03 Bedroom
-  trigger:
-    platform: mqtt
-    topic: local03/thermostat/Sypialnia/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local03_bedroom_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: 526891a5ccf04d9195c593563ccfe900
-- alias: Read Thermostat Routine Local04 Main
-  trigger:
-    platform: mqtt
-    topic: local04/thermostat/Glowny/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local04_main_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: 38ffc5e9340a471198332ce67c1b3b5e
-- alias: Read Thermostat Routine Local04 Bathroom
-  trigger:
-    platform: mqtt
-    topic: local04/thermostat/Lazienka/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local04_bathroom_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: 35b70e0b38e5454fa2f9a8df5a9a7ddb
-- alias: Read Thermostat Routine Local04 Bedroom
-  trigger:
-    platform: mqtt
-    topic: local04/thermostat/Sypialnia/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local04_bedroom_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: 290e4e628e154e428b0750a1880b659d
-- alias: Read Thermostat Routine Local05 Main
-  trigger:
-    platform: mqtt
-    topic: local05/thermostat/Glowny/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local05_main_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: e8bdb3ccd8684d288fc768f623f39122
-- alias: Read Thermostat Routine Local05 Bathroom
-  trigger:
-    platform: mqtt
-    topic: local05/thermostat/Lazienka/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local05_bathroom_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: 6aa0461865d041d9aa02ac57edefa98e
-- alias: Read Thermostat Routine Local05 Bedroom
-  trigger:
-    platform: mqtt
-    topic: local05/thermostat/Sypialnia/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local05_bedroom_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: 45aae52ef2cc47ae9b913e764c9e455b
-- alias: Read Thermostat Routine Local06 Main
-  trigger:
-    platform: mqtt
-    topic: local06/thermostat/Glowny/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local06_main_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: c608ea46a6d642d8929fe4d521d0d2e3
-- alias: Read Thermostat Routine Local06 Bathroom
-  trigger:
-    platform: mqtt
-    topic: local06/thermostat/Lazienka/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local06_bathroom_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: 8fdd971be1e24e5da2162af3119ba5d2
-- alias: Read Thermostat Routine Local06 Bedroom
-  trigger:
-    platform: mqtt
-    topic: local06/thermostat/Sypialnia/routine
-  action:
-    service: input_select.select_option
-    target:
-      entity_id: input_select.local06_bedroom_heating_routine
-    data_template:
-      option: '{{ trigger.payload }}'
-  id: e458cf423f9d4ac19915a70555425246
+# Read Thermostat Routine automations DISABLED to fix feedback loop:
+# MQTT state (device) was updating input_select, which triggered Set automation
+# and overwrote user's routine/set with stale value.
+# - alias: Read Thermostat Routine Local01 Main
+#   trigger:
+#     platform: mqtt
+#     topic: local01/thermostat/Glowny/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local01_main_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: a52ffedebf7e49ffae8435b08606edaa
+# - alias: Read Thermostat Routine Local01 Bathroom
+#   trigger:
+#     platform: mqtt
+#     topic: local01/thermostat/Lazienka/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local01_bathroom_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: f98c30c2e59444d29feccfcd4322f3ef
+# - alias: Read Thermostat Routine Local01 Bedroom
+#   trigger:
+#     platform: mqtt
+#     topic: local01/thermostat/Sypialnia/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local01_bedroom_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: 0d9c8ba05fe74c829530c9431cbe5303
+# - alias: Read Thermostat Routine Local02 Main
+#   trigger:
+#     platform: mqtt
+#     topic: local02/thermostat/Glowny/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local02_main_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: b30fcc466a734182bb7a617b5e6d5780
+# - alias: Read Thermostat Routine Local02 Bathroom
+#   trigger:
+#     platform: mqtt
+#     topic: local02/thermostat/Lazienka/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local02_bathroom_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: a319a8aa5ba9461bb5e174c7d7274fbb
+# - alias: Read Thermostat Routine Local02 Bedroom
+#   trigger:
+#     platform: mqtt
+#     topic: local02/thermostat/Sypialnia/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local02_bedroom_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: 8d147e4946db42de80442ee612538453
+# - alias: Read Thermostat Routine Local03 Main
+#   trigger:
+#     platform: mqtt
+#     topic: local03/thermostat/Glowny/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local03_main_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: d265da96eed340f598892c309fa86e38
+# - alias: Read Thermostat Routine Local03 Bathroom
+#   trigger:
+#     platform: mqtt
+#     topic: local03/thermostat/Lazienka/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local03_bathroom_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: 5b97cb51fbc64eab80ce62d810ee028c
+# - alias: Read Thermostat Routine Local03 Bedroom
+#   trigger:
+#     platform: mqtt
+#     topic: local03/thermostat/Sypialnia/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local03_bedroom_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: 526891a5ccf04d9195c593563ccfe900
+# - alias: Read Thermostat Routine Local04 Main
+#   trigger:
+#     platform: mqtt
+#     topic: local04/thermostat/Glowny/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local04_main_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: 38ffc5e9340a471198332ce67c1b3b5e
+# - alias: Read Thermostat Routine Local04 Bathroom
+#   trigger:
+#     platform: mqtt
+#     topic: local04/thermostat/Lazienka/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local04_bathroom_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: 35b70e0b38e5454fa2f9a8df5a9a7ddb
+# - alias: Read Thermostat Routine Local04 Bedroom
+#   trigger:
+#     platform: mqtt
+#     topic: local04/thermostat/Sypialnia/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local04_bedroom_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: 290e4e628e154e428b0750a1880b659d
+# - alias: Read Thermostat Routine Local05 Main
+#   trigger:
+#     platform: mqtt
+#     topic: local05/thermostat/Glowny/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local05_main_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: e8bdb3ccd8684d288fc768f623f39122
+# - alias: Read Thermostat Routine Local05 Bathroom
+#   trigger:
+#     platform: mqtt
+#     topic: local05/thermostat/Lazienka/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local05_bathroom_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: 6aa0461865d041d9aa02ac57edefa98e
+# - alias: Read Thermostat Routine Local05 Bedroom
+#   trigger:
+#     platform: mqtt
+#     topic: local05/thermostat/Sypialnia/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local05_bedroom_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: 45aae52ef2cc47ae9b913e764c9e455b
+# - alias: Read Thermostat Routine Local06 Main
+#   trigger:
+#     platform: mqtt
+#     topic: local06/thermostat/Glowny/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local06_main_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: c608ea46a6d642d8929fe4d521d0d2e3
+# - alias: Read Thermostat Routine Local06 Bathroom
+#   trigger:
+#     platform: mqtt
+#     topic: local06/thermostat/Lazienka/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local06_bathroom_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: 8fdd971be1e24e5da2162af3119ba5d2
+# - alias: Read Thermostat Routine Local06 Bedroom
+#   trigger:
+#     platform: mqtt
+#     topic: local06/thermostat/Sypialnia/routine
+#   action:
+#     service: input_select.select_option
+#     target:
+#       entity_id: input_select.local06_bedroom_heating_routine
+#     data_template:
+#       option: '{{ trigger.payload }}'
+#   id: e458cf423f9d4ac19915a70555425246
 - alias: Dimming Lights Down when dark outside
   trigger:
   - platform: numeric_state

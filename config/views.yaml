@@ -11,8 +11,10 @@ views:
             name: Ciśnienie
           - entity: sensor.local02_glowny_temperature
             name: Temperatura
+          - entity: sensor.local02_main_routine_current
+            name: Obecna rutyna
           - entity: input_select.local02_main_heating_routine
-            name: Heating Routine
+            name: Ustaw rutynę
           - entity: sensor.local02_glowny_heating_state
             name: Heating State
         state_color: true
@@ -25,7 +27,10 @@ views:
             name: Temperatura
           - entity: sensor.local02_lazienka_heating_state
             name: Heating Controller State
+          - entity: sensor.local02_bathroom_routine_current
+            name: Obecna rutyna
           - entity: input_select.local02_bathroom_heating_routine
+            name: Ustaw rutynę
         title: Łazienka
       - type: entities
         entities:
@@ -35,6 +40,9 @@ views:
             name: Temperature
           - entity: sensor.local02_sypialnia_heating_state
             name: Heating State
+          - entity: sensor.local02_bedroom_routine_current
+            name: Obecna rutyna
           - entity: input_select.local02_bedroom_heating_routine
+            name: Ustaw rutynę
         title: Sypialnia
         state_color: true

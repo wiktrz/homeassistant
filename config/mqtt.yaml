@@ -934,7 +934,62 @@
       state_topic: "local06/Lazienka/details"
       value_template: "{{ value_json.routineName }}"
 
-
+  # Current routine (read-only): what the heating controller reports via MQTT.
+  # Use with dropdown (input_select) for "set" so UI shows both current and set.
+  - sensor:
+      name: "Local01 Main Routine (current)"
+      state_topic: "local01/thermostat/Glowny/routine"
+  - sensor:
+      name: "Local01 Bathroom Routine (current)"
+      state_topic: "local01/thermostat/Lazienka/routine"
+  - sensor:
+      name: "Local01 Bedroom Routine (current)"
+      state_topic: "local01/thermostat/Sypialnia/routine"
+  - sensor:
+      name: "Local02 Main Routine (current)"
+      state_topic: "local02/thermostat/Glowny/routine"
+  - sensor:
+      name: "Local02 Bathroom Routine (current)"
+      state_topic: "local02/thermostat/Lazienka/routine"
+  - sensor:
+      name: "Local02 Bedroom Routine (current)"
+      state_topic: "local02/thermostat/Sypialnia/routine"
+  - sensor:
+      name: "Local03 Main Routine (current)"
+      state_topic: "local03/thermostat/Glowny/routine"
+  - sensor:
+      name: "Local03 Bathroom Routine (current)"
+      state_topic: "local03/thermostat/Lazienka/routine"
+  - sensor:
+      name: "Local03 Bedroom Routine (current)"
+      state_topic: "local03/thermostat/Sypialnia/routine"
+  - sensor:
+      name: "Local04 Main Routine (current)"
+      state_topic: "local04/thermostat/Glowny/routine"
+  - sensor:
+      name: "Local04 Bathroom Routine (current)"
+      state_topic: "local04/thermostat/Lazienka/routine"
+  - sensor:
+      name: "Local04 Bedroom Routine (current)"
+      state_topic: "local04/thermostat/Sypialnia/routine"
+  - sensor:
+      name: "Local05 Main Routine (current)"
+      state_topic: "local05/thermostat/Glowny/routine"
+  - sensor:
+      name: "Local05 Bathroom Routine (current)"
+      state_topic: "local05/thermostat/Lazienka/routine"
+  - sensor:
+      name: "Local05 Bedroom Routine (current)"
+      state_topic: "local05/thermostat/Sypialnia/routine"
+  - sensor:
+      name: "Local06 Main Routine (current)"
+      state_topic: "local06/thermostat/Glowny/routine"
+  - sensor:
+      name: "Local06 Bathroom Routine (current)"
+      state_topic: "local06/thermostat/Lazienka/routine"
+  - sensor:
+      name: "Local06 Bedroom Routine (current)"
+      state_topic: "local06/thermostat/Sypialnia/routine"
 
 #Thermostat LOCAL 1 BELOW
   - climate:
