@@ -2217,14 +2217,14 @@
       at: "20:00:00"
   action:
     - variables:
-        sensor_entity: "sensor.pstryk_cheapest_window_direct"
+        sensor_entity: "sensor.pstryk_price_meter"
         state: "{{ states(sensor_entity) }}"
         start_attr: "{{ state_attr(sensor_entity, 'start') }}"
         end_attr: "{{ state_attr(sensor_entity, 'end') }}"
         net_attr: "{{ state_attr(sensor_entity, 'net') }}"
         debug_attr: "{{ state_attr(sensor_entity, 'debug') }}"
         # Robust data check: sensor must be active AND have the start/end/net attributes
-        has_data: "{{ state not in ['Error', 'Unknown', 'unavailable', 'none'] and start_attr is not none and end_attr is not none and net_attr is not none }}"
+        has_data: "{{ state not in ['Error', 'Unknown', 'unavailable', 'none', '0.0'] and start_attr is not none and end_attr is not none and net_attr is not none }}"
         min_price: "{{ net_attr['min'] if has_data and 'min' in net_attr else 'N/A' }}"
         start_time: "{{ as_timestamp(start_attr, 0) | timestamp_custom('%H:%M') if has_data else '' }}"
         end_time: "{{ as_timestamp(end_attr, 0) | timestamp_custom('%H:%M') if has_data else '' }}"

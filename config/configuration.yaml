@@ -48,31 +48,11 @@ template: !include templates.yaml
 
 command_line:
   - sensor:
-      name: Pstryk Cheapest Window (Direct Script)
-      unique_id: pstryk_cheapest_window_direct
+      name: Pstryk Price Meter
+      unique_id: pstryk_price_meter_unified_v1
       command: !secret pstryk_command
       scan_interval: 3600
-      value_template: >
-        {% if value_json.error is defined %}
-          Error
-        {% elif value_json.start is defined %}
-          {{ as_timestamp(value_json.start) | timestamp_custom('%H:%M') }} - {{ as_timestamp(value_json.end) | timestamp_custom('%H:%M') }}
-        {% else %}
-          Unknown
-        {% endif %}
-      json_attributes:
-        - start
-        - end
-        - duration_hours
-        - net
-        - gross
-        - error
-
-  - sensor:
-      name: Pstryk Current Buy Price
-      command: !secret pstryk_command
       unit_of_measurement: "PLN/kWh"
-      # Robust template: If current_price is missing, return 0 or another numeric placeholder to avoid HA error
       value_template: >
         {% if value_json.current_price is defined and value_json.current_price is not none %}
           {{ value_json.current_price }}
@@ -82,7 +62,12 @@ command_line:
       json_attributes:
         - all_prices
         - debug
-      scan_interval: 3600
+        - start
+        - end
+        - duration_hours
+        - net
+        - gross
+        - error
 
 api:
 

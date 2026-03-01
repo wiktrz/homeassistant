@@ -18,7 +18,7 @@
         all_window_prices: "{{ window_prices if best_window }}"
       variables:
         best_window: >
-          {% set all_prices = state_attr('sensor.pstryk_current_buy_price', 'all_prices') %}
+          {% set all_prices = state_attr('sensor.pstryk_price_meter', 'all_prices') %}
           {% if all_prices is iterable and all_prices | length > 0 %}
             {# Snapping now to hour start and using seconds precision for string comparison #}
             {% set current_hour_iso = now().replace(minute=0, second=0, microsecond=0).isoformat(timespec='seconds') %}

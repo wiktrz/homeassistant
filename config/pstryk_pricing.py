@@ -94,12 +94,14 @@ def find_cheapest_window(data):
     
     for f in valid_frames:
         p_net = f["metrics"]["pricing"]["price_net"]
+        p_gross = f["metrics"]["pricing"]["price_gross"]
         all_prices.append({
             "start": f["start"],
             "end": f["end"],
             "price": p_net,
-            "price_gross": f["metrics"]["pricing"]["price_gross"]
+            "price_gross": p_gross
         })
+        # Find price for the current hour
         if f["start"] == now_iso:
             current_price = p_net
 
@@ -107,6 +109,8 @@ def find_cheapest_window(data):
         "start": window_frames[0]["start"],
         "end": window_frames[-1]["end"],
         "duration_hours": len(window_frames),
+        "current_price": current_price,
+        "all_prices": all_prices,
         "net": {
             "min": round(min(net_prices), 5),
             "max": round(max(net_prices), 5),
@@ -116,9 +120,7 @@ def find_cheapest_window(data):
             "min": round(min(gross_prices), 5),
             "max": round(max(gross_prices), 5),
             "avg": round(sum(gross_prices) / len(gross_prices), 5)
-        },
-        "current_price": current_price,
-        "all_prices": all_prices
+        }
     }
 
 def main():
