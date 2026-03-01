@@ -2211,10 +2211,10 @@
 
 - id: daily_energy_price_notification
   alias: "Energy: Daily Price Forecast Notification"
-  description: "Sends a notification at 20:00 with the cheapest energy price window for the next available time."
+  description: "Sends a notification at 22:00 with the cheapest energy price window for the next available time."
   trigger:
     - platform: time
-      at: "20:00:00"
+      at: "22:00:00"
   action:
     - variables:
         sensor_entity: "sensor.pstryk_best_window"
