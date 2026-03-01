@@ -57,25 +57,34 @@ def find_cheapest_window(data):
     if not valid_frames:
         return {"error": "No valid pricing data in frames"}
 
-    min_f = min(valid_frames, key=lambda x: x["metrics"]["pricing"]["price_net"])
+    # 1. Find the absolute minimum GROSS price and its index
+    min_f = min(valid_frames, key=lambda x: x["metrics"]["pricing"]["price_gross"])
+    min_price = min_f["metrics"]["pricing"]["price_gross"]
     min_idx = valid_frames.index(min_f)
     
     start_idx = min_idx
     end_idx = min_idx
     
+    # 2. Expand forward: include next hour if it's cheaper OR rises by < 10%
     while end_idx + 1 < len(valid_frames):
-        curr_p = valid_frames[end_idx]["metrics"]["pricing"]["price_net"]
-        next_p = valid_frames[end_idx + 1]["metrics"]["pricing"]["price_net"]
-        limit = max(curr_p * 1.10, curr_p + 0.001) 
+        curr_p = valid_frames[end_idx]["metrics"]["pricing"]["price_gross"]
+        next_p = valid_frames[end_idx + 1]["metrics"]["pricing"]["price_gross"]
+        
+        # 10% increase limit, with small epsilon for low prices
+        limit = max(curr_p * 1.10, curr_p + 0.01) 
+        
         if next_p <= limit:
             end_idx += 1
         else:
             break
             
+    # 3. Expand backward: include previous hour if it's cheaper OR rises by < 10%
     while start_idx - 1 >= 0:
-        curr_p = valid_frames[start_idx]["metrics"]["pricing"]["price_net"]
-        prev_p = valid_frames[start_idx - 1]["metrics"]["pricing"]["price_net"]
-        limit = max(curr_p * 1.10, curr_p + 0.001)
+        curr_p = valid_frames[start_idx]["metrics"]["pricing"]["price_gross"]
+        prev_p = valid_frames[start_idx - 1]["metrics"]["pricing"]["price_gross"]
+        
+        limit = max(curr_p * 1.10, curr_p + 0.01)
+        
         if prev_p <= limit:
             start_idx -= 1
         else:

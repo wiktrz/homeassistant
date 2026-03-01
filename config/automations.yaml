@@ -2217,17 +2217,30 @@
       at: "20:00:00"
   action:
     - variables:
-        sensor_entity: "sensor.pstryk_price_meter"
-        state: "{{ states(sensor_entity) }}"
-        start_attr: "{{ state_attr(sensor_entity, 'start') }}"
-        end_attr: "{{ state_attr(sensor_entity, 'end') }}"
-        net_attr: "{{ state_attr(sensor_entity, 'net') }}"
-        debug_attr: "{{ state_attr(sensor_entity, 'debug') }}"
-        # Robust data check: sensor must be active AND have the start/end/net attributes
-        has_data: "{{ state not in ['Error', 'Unknown', 'unavailable', 'none', '0.0'] and start_attr is not none and end_attr is not none and net_attr is not none }}"
-        min_price: "{{ net_attr['min'] if has_data and 'min' in net_attr else 'N/A' }}"
-        start_time: "{{ as_timestamp(start_attr, 0) | timestamp_custom('%H:%M') if has_data else '' }}"
-        end_time: "{{ as_timestamp(end_attr, 0) | timestamp_custom('%H:%M') if has_data else '' }}"
+        sensor_entity: "sensor.pstryk_best_window"
+        start_attr: "{{ state_attr(sensor_entity, 'start_time') }}"
+        end_attr: "{{ state_attr(sensor_entity, 'end_time') }}"
+        gross_min: "{{ state_attr(sensor_entity, 'gross_min') }}"
+        has_data: "{{ states(sensor_entity) not in ['unavailable', 'none', 'Error'] and start_attr is not none and gross_min != 'N/A' }}"
+        # Mapping Polish day names
+        days: ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Ndz']
+        day_name: "{{ days[as_timestamp(start_attr) | timestamp_custom('%w', true) | int - 1] if has_data else '' }}"
+        start_time: "{{ as_timestamp(start_attr) | timestamp_custom('%d.%m (' ~ day_name ~ ') %H:%M') if has_data else '' }}"
+        end_time: "{{ as_timestamp(end_attr) | timestamp_custom('%H:%M') if has_data else '' }}"
+    - if:
+        - condition: template
+          value_template: "{{ has_data }}"
+      then:
+        - service: notify.notify
+          data:
+            title: "⚡ Najtańsza Energia"
+            message: >
+              Nadchodzi okno z najniższą ceną: {{ gross_min }} PLN/kWh. 
+              Planuj zużycie: {{ start_time }} - {{ end_time }}.
+            data:
+              channel: energy
+              tag: energy_forecast
+              clickAction: "/pstryk"
     - if:
         - condition: template
           value_template: "{{ has_data and min_price != 'N/A' }}"
