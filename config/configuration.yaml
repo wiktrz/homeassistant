@@ -70,7 +70,6 @@ command_line:
 
   - sensor:
       name: Pstryk Current Buy Price
-      unique_id: pstryk_current_buy_price
       command: !secret pstryk_command
       unit_of_measurement: "PLN/kWh"
       # Robust template: If current_price is missing, return 0 or another numeric placeholder to avoid HA error
