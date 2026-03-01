@@ -84,6 +84,24 @@ def find_cheapest_window(data):
     net_prices = [f["metrics"]["pricing"]["price_net"] for f in window_frames]
     gross_prices = [f["metrics"]["pricing"]["price_gross"] for f in window_frames]
     
+    # Extract all prices for HA attributes
+    all_prices = []
+    current_price = None
+    # Get current hour in UTC for matching
+    now_utc = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    now_iso = now_utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+    
+    for f in valid_frames:
+        p_net = f["metrics"]["pricing"]["price_net"]
+        all_prices.append({
+            "start": f["start"],
+            "end": f["end"],
+            "price": p_net,
+            "price_gross": f["metrics"]["pricing"]["price_gross"]
+        })
+        if f["start"] == now_iso:
+            current_price = p_net
+
     return {
         "start": window_frames[0]["start"],
         "end": window_frames[-1]["end"],
@@ -97,7 +115,9 @@ def find_cheapest_window(data):
             "min": round(min(gross_prices), 5),
             "max": round(max(gross_prices), 5),
             "avg": round(sum(gross_prices) / len(gross_prices), 5)
-        }
+        },
+        "current_price": current_price,
+        "all_prices": all_prices
     }
 
 def main():

@@ -50,7 +50,7 @@ command_line:
   - sensor:
       name: Pstryk Cheapest Window (Direct Script)
       unique_id: pstryk_cheapest_window_direct
-      command: "python3 /config/pstryk_pricing.py --json --key !secret pstryk_api_key"
+      command: !secret pstryk_command
       scan_interval: 3600
       value_template: >
         {% if value_json.error is defined %}
@@ -67,6 +67,16 @@ command_line:
         - net
         - gross
         - error
+
+  - sensor:
+      name: Pstryk Current Buy Price
+      unique_id: pstryk_current_buy_price
+      command: !secret pstryk_command
+      unit_of_measurement: "PLN/kWh"
+      value_template: "{{ value_json.current_price if value_json.current_price is defined else 'unavailable' }}"
+      json_attributes:
+        - all_prices
+        - debug
 
 api:
 
