@@ -44,6 +44,29 @@ automation: !include automations.yaml
 mqtt: !include mqtt.yaml
 scene: !include scenes.yaml
 script: !include scripts.yaml
+template: !include templates.yaml
+
+command_line:
+  - sensor:
+      name: Pstryk Cheapest Window (Direct Script)
+      unique_id: pstryk_cheapest_window_direct
+      command: "python3 /config/pstryk_pricing.py --json --key !secret pstryk_api_key"
+      scan_interval: 3600
+      value_template: >
+        {% if value_json.error is defined %}
+          Error
+        {% elif value_json.start is defined %}
+          {{ as_timestamp(value_json.start) | timestamp_custom('%H:%M') }} - {{ as_timestamp(value_json.end) | timestamp_custom('%H:%M') }}
+        {% else %}
+          Unknown
+        {% endif %}
+      json_attributes:
+        - start
+        - end
+        - duration_hours
+        - net
+        - gross
+        - error
 
 api:
 

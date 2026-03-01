@@ -1,0 +1,106 @@
+- sensor:
+    - name: "Pstryk Best Window"
+      unique_id: pstryk_best_window
+      # The state will be a human-readable summary of the best window
+      state: >
+        {% if best_window %}
+          {{ as_timestamp(best_window[0].start, 0) | timestamp_custom('%H:%M') }} - {{ (as_timestamp(best_window[-1].start, 0) + 3600) | timestamp_custom('%H:%M') }}
+        {% else %}
+          unavailable
+        {% endif %}
+      attributes:
+        start_time: "{{ best_window[0].start if best_window }}"
+        end_time: "{{ (as_timestamp(best_window[-1].start) + 3600) | timestamp_custom('%Y-%m-%dT%H:%M:%SZ') if best_window }}"
+        duration_hours: "{{ best_window | length if best_window }}"
+        min_price: "{{ window_prices | min if best_window }}"
+        max_price: "{{ window_prices | max if best_window }}"
+        avg_price: "{{ (window_prices | sum / window_prices | length) | round(4) if best_window }}"
+        all_window_prices: "{{ window_prices if best_window }}"
+      variables:
+        best_window: >
+          {% set all_prices = state_attr('sensor.pstryk_current_buy_price', 'all_prices') %}
+          {% if all_prices is iterable and all_prices | length > 0 %}
+            {# Snapping now to hour start and using seconds precision for string comparison #}
+            {% set current_hour_iso = now().replace(minute=0, second=0, microsecond=0).isoformat(timespec='seconds') %}
+            
+            {# Find all future prices from current hour onwards #}
+            {% set ns_future = namespace(prices=[]) %}
+            {% for p in all_prices %}
+               {% if p.start is defined %}
+                 {# Handle both '2026-02-28T12:00:00Z' and '2026-02-28T12:00:00+00:00' by taking first 19 chars #}
+                 {% if p.start[:19] >= current_hour_iso[:19] %}
+                    {% set ns_future.prices = ns_future.prices + [p] %}
+                 {% endif %}
+               {% endif %}
+            {% endfor %}
+            {% set future_prices = ns_future.prices %}
+
+            {% if future_prices | length > 0 %}
+              {% set prices = future_prices | map(attribute='price') | list %}
+              {% set min_price = prices | min %}
+              {# Find the index of the first occurrence of min_price #}
+              {% set ns = namespace(min_idx=0, found=false) %}
+              {% for p in prices %}
+                {% if not ns.found and p == min_price %}
+                  {% set ns.min_idx = loop.index0 %}
+                  {% set ns.found = true %}
+                {% endif %}
+              {% endfor %}
+              
+              {% set min_idx = ns.min_idx %}
+              {% set ns_window = namespace(start_idx=min_idx, end_idx=min_idx, stop_f=false, stop_b=false) %}
+              
+              {# Forward expansion: next hour rise <= 10% of CURRENT hour, or cheaper #}
+              {% for i in range(min_idx + 1, prices | length) %}
+                {% if not ns_window.stop_f %}
+                  {% set curr = prices[i] %}
+                  {% set prev = prices[i-1] %}
+                  {% set limit = [prev * 1.1, prev + 0.001] | max %}
+                  {% if curr <= limit %}
+                    {% set ns_window.end_idx = i %}
+                  {% else %}
+                    {% set ns_window.stop_f = true %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              
+              {# Backward expansion #}
+              {% for i in range(0, min_idx) | reverse %}
+                {% if not ns_window.stop_b %}
+                  {% set curr = prices[i] %}
+                  {% set next = prices[i+1] %}
+                  {% set limit = [next * 1.1, next + 0.001] | max %}
+                  {% if curr <= limit %}
+                    {% set ns_window.start_idx = i %}
+                  {% else %}
+                    {% set ns_window.stop_b = true %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              
+              {{ future_prices[ns_window.start_idx : ns_window.end_idx + 1] }}
+            {% else %}
+              []
+            {% endif %}
+          {% else %}
+            []
+          {% endif %}
+        window_prices: "{{ best_window | map(attribute='price') | list if best_window }}"
+
+- binary_sensor:
+    - name: "Pstryk In Best Window"
+      unique_id: pstryk_in_best_window
+      state: >
+        {% set start = state_attr('sensor.pstryk_best_window', 'start_time') %}
+        {% set end = state_attr('sensor.pstryk_best_window', 'end_time') %}
+        {% if start and end %}
+          {{ as_timestamp(start, 0) <= as_timestamp(now(), 0) < as_timestamp(end, 0) }}
+        {% else %}
+          false
+        {% endif %}
+      icon: >
+        {% if is_state('binary_sensor.pstryk_in_best_window', 'on') %}
+          mdi:flash
+        {% else %}
+          mdi:flash-outline
+        {% endif %}

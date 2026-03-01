@@ -2206,3 +2206,50 @@
           - data: {}
             action: script.shelly_rgbw_animation_rock
   mode: restart
+
+
+
+- id: daily_energy_price_notification
+  alias: "Energy: Daily Price Forecast Notification"
+  description: "Sends a notification at 20:00 with the cheapest energy price window for the next available time."
+  trigger:
+    - platform: time
+      at: "20:00:00"
+  action:
+    - variables:
+        sensor_entity: "sensor.pstryk_cheapest_window_direct"
+        state: "{{ states(sensor_entity) }}"
+        start_attr: "{{ state_attr(sensor_entity, 'start') }}"
+        end_attr: "{{ state_attr(sensor_entity, 'end') }}"
+        net_attr: "{{ state_attr(sensor_entity, 'net') }}"
+        debug_attr: "{{ state_attr(sensor_entity, 'debug') }}"
+        # Robust data check: sensor must be active AND have the start/end/net attributes
+        has_data: "{{ state not in ['Error', 'Unknown', 'unavailable', 'none'] and start_attr is not none and end_attr is not none and net_attr is not none }}"
+        min_price: "{{ net_attr['min'] if has_data and 'min' in net_attr else 'N/A' }}"
+        start_time: "{{ as_timestamp(start_attr, 0) | timestamp_custom('%H:%M') if has_data else '' }}"
+        end_time: "{{ as_timestamp(end_attr, 0) | timestamp_custom('%H:%M') if has_data else '' }}"
+    - if:
+        - condition: template
+          value_template: "{{ has_data and min_price != 'N/A' }}"
+      then:
+        - service: notify.notify
+          data:
+            title: "⚡ Najtańsza Energia"
+            message: >
+              Nadchodzi okno z najniższą ceną: {{ min_price }} PLN/kWh. 
+              Planuj zużycie w godzinach {{ start_time }} - {{ end_time }}.
+            data:
+              channel: energy
+              tag: energy_forecast
+              clickAction: "/pstryk"
+      else:
+        - service: notify.notify
+          data:
+            title: "⚠️ Brak Danych Pstryk"
+            message: >
+              Status: {{ state }}
+              Klucz: {{ debug_attr['key_status'] if debug_attr else 'Missing Debug' }}
+              Start: {{ start_attr if start_attr else 'None' }}
+              Net: {{ 'Ok' if net_attr else 'None' }}
+              Błąd: {{ state_attr(sensor_entity, 'error') if state_attr(sensor_entity, 'error') else 'Brak szczegółów' }}
+
