@@ -73,10 +73,17 @@ command_line:
       unique_id: pstryk_current_buy_price
       command: !secret pstryk_command
       unit_of_measurement: "PLN/kWh"
-      value_template: "{{ value_json.current_price if value_json.current_price is defined else 'unavailable' }}"
+      # Robust template: If current_price is missing, return 0 or another numeric placeholder to avoid HA error
+      value_template: >
+        {% if value_json.current_price is defined and value_json.current_price is not none %}
+          {{ value_json.current_price }}
+        {% else %}
+          0.0
+        {% endif %}
       json_attributes:
         - all_prices
         - debug
+      scan_interval: 3600
 
 api:
 

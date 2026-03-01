@@ -14,7 +14,8 @@ def get_pstryk_data(api_key, hours_ahead=48):
     Fetches pricing data from Pstryk API for the specified window using standard urllib.
     """
     now = datetime.now(timezone.utc)
-    window_start = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0).strftime('%Y-%m-%dT%H:%M:%SZ')
+    # Start from the current hour (snapped) instead of next hour
+    window_start = now.replace(minute=0, second=0, microsecond=0).strftime('%Y-%m-%dT%H:%M:%SZ')
     window_end = (now + timedelta(hours=hours_ahead)).strftime('%Y-%m-%dT%H:%M:%SZ')
 
     params = {
