@@ -1,0 +1,165 @@
+title: Dom iPad Edition - Oświetlenie
+views:
+  - title: Korytarze i Pokoje
+    path: korytarze
+    icon: mdi:lightbulb-group
+    cards:
+      # --- SALON ---
+      - type: markdown
+        content: "## 🛋️ Salon"
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.salon_mqtt
+            name: Salon Główne
+          - type: light
+            entity: light.boneio_32_l_07_new_light_18
+            name: Salon Dodatkowe
+          - type: light
+            entity: light.shellyrgbw2_salon
+            name: Salon LED
+          - type: light
+            entity: light.shellyplusrgbwpm_9451dc0a83b4_light_0
+            name: Salon LED Ch1
+
+      # --- SYPIALNIA ---
+      - type: markdown
+        content: "## 🛌 Sypialnia"
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.boneio_32_l_07_new_light_17
+            name: Sypialnia Główne
+          - type: light
+            entity: light.boneio_32_l_07_new_light_08
+            name: Sypialnia Dekoracyjne
+          - type: light
+            entity: light.boneio_32_l_07_new_light_07
+            name: Sypialnia Garderoba
+
+      # --- ŁAZIENKA MAŁA ---
+      - type: markdown
+        content: "## 🛁 Łazienka Mała"
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chr_02
+            name: Łazienka Mała Dekor.
+          - type: light
+            entity: light.boneio_32_l_07_new_light_20
+            name: Zasilanie Łazienka M.
+          - type: light
+            entity: light.shellyrgbw2_c8c9a3399f35
+            name: LED Łazienka Ch1
+          - type: light
+            entity: light.shellyrgbw2_c8c9a3399f35_channel_2
+            name: LED Łazienka Ch2
+
+      # --- KUCHNIA ---
+      - type: markdown
+        content: "## 🍳 Kuchnia"
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_04
+            name: Kuchnia Główne
+          - type: light
+            entity: light.boneio_32_l_07_new_light_05
+            name: Kuchnia Wyspa
+          - type: light
+            entity: light.shellyrgbw2_814843
+            name: LED Kuchnia
+
+      # --- TARAS ---
+      - type: markdown
+        content: "## 🌲 Taras"
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.bulb_1
+            name: Taras Strona 1
+          - type: light
+            entity: light.bulb_2
+            name: Taras Strona 2
+          - type: light
+            entity: light.boneio_32_l_07_new_light_11
+            name: Zasilanie Taras
+
+      # --- KORYTARZE ---
+      - type: markdown
+        content: "## 🚪 Korytarze"
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_01
+            name: Korytarz Wejście
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_02
+            name: Korytarz Sypialnia
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chr_01
+            name: Korytarz Ściana
+
+      # --- POKOJE DZIECIĘCE ---
+      - type: markdown
+        content: "## 👧 Pokoje Dziecięce"
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.boneio_32_l_07_new_light_16
+            name: Klara Główne
+          - type: light
+            entity: light.boneio_32_l_07_new_light_14
+            name: Nikola Główne
+
+      # --- GOSPODARCZE ---
+      - type: markdown
+        content: "## 🧺 Gospodarcze"
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.boneio_32_l_07_new_light_10
+            name: Łazienka Duża
+          - type: light
+            entity: light.boneio_32_l_07_new_light_09
+            name: Pralnia
+          - type: light
+            entity: light.boneio_32_l_07_new_light_19
+            name: Gabinet Nocne
+
+      # --- STEROWANIE ---
+      - type: markdown
+        content: "## ✨ Atmosfera Salon"
+      - type: vertical-stack
+        cards:
+          - type: entities
+            entities:
+              - entity: input_select.shelly_mode
+                name: Tryb
+              - entity: input_number.shelly_brightness
+                name: Jasność
+          - type: conditional
+            conditions:
+              - entity: input_select.shelly_mode
+                state: Animation
+            card:
+              type: entities
+              entities:
+                - entity: input_select.shelly_animation_type
+                  name: Typ Animacji

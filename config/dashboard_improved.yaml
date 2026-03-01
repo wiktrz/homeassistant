@@ -1,0 +1,1424 @@
+title: Dom
+views:
+  - title: Home
+    path: dol
+    cards:
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_kuchnia_temperature_controller
+              - entity: sensor.local00_kuchnia_heating_state
+                icon: mdi:power
+            title: Kuchnia
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_kuchnia_temperature_controller
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_salon_temperature
+              - entity: sensor.local00_salon_heating_state
+                icon: mdi:power
+            title: Salon
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_salon_temperature
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_malalazienka_temperature
+              - entity: sensor.local00_malalazienka_heating_state
+                icon: mdi:power
+            title: Mała Łazienka
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_malalazienka_temperature
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_wiatrolap_temperature
+              - entity: sensor.local00_wiatrolap_heating_state
+                icon: mdi:power
+            title: Wiatrołap
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_wiatrolap_temperature
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_gabinet_temperature
+              - entity: sensor.local00_gabinet_heating_state
+                icon: mdi:power
+            title: Gabinet
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_gabinet_temperature
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_holsypialnia_temperature
+              - entity: sensor.local00_holsypialnia_heating_state
+                icon: mdi:power
+            title: Hol Sypialnia
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_holsypialnia_temperature
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_holwejscie_temperature
+              - entity: sensor.local00_holwejscie_heating_state
+                icon: mdi:power
+            title: Hol Wejście
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_holwejscie_temperature
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_klara_temperature
+              - entity: sensor.local00_klara_heating_state
+                icon: mdi:power
+            title: Klara
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_klara_temperature
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_sypialnia_temperature
+              - entity: sensor.local00_sypialnia_heating_state
+                icon: mdi:power
+            title: Sypialnia
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_sypialnia_temperature
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_nikola_temperature
+              - entity: sensor.local00_nikola_heating_state
+                icon: mdi:power
+            title: Nikola
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_nikola_temperature
+              hours_to_show: 12
+        columns: 1
+    icon: mdi:home
+  - title: Wynajem
+    path: all
+    badges: []
+    cards:
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_klatka1p_controler_temperature
+              - entity: sensor.local00_klatka1p_heating_state
+                icon: mdi:power
+            title: Klatka 1 P
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_klatka1p_controler_temperature
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_klatka2p_controler_temperature
+              - entity: sensor.local00_klatka2p_heating_state
+                icon: mdi:power
+            title: Klatka 2 P
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_klatka2p_controler_temperature
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local01_glowny_temperature_controller
+              - entity: sensor.local01_glowny_heating_state
+                icon: mdi:power
+            title: Główny Lokal 01
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local01_glowny_temperature_controller
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local01_sypialnia_temperature
+              - entity: sensor.local01_sypialnia_heating_state
+                icon: mdi:power
+            title: Sypialnia Lokal 01
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local01_sypialnia_temperature
+              hours_to_show: 12
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local01_lazienka_temperature
+              - entity: sensor.local01_lazienka_heating_state
+                icon: mdi:power
+            title: Łazienka Lokal 01
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local01_lazienka_temperature
+              hours_to_show: 12
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local02_glowny_temperature_controller
+              - entity: sensor.local02_glowny_heating_state
+                icon: mdi:power
+            title: Główny Lokal 02
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local02_glowny_temperature_controller
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local02_sypialnia_temperature
+              - entity: sensor.local02_sypialnia_heating_state
+                icon: mdi:power
+            title: Sypialnia Lokal 02
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local02_sypialnia_temperature
+              hours_to_show: 12
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local02_lazienka_temperature
+              - entity: sensor.local02_lazienka_heating_state
+                icon: mdi:power
+            title: Łazienka Lokal 02
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local02_lazienka_temperature
+              hours_to_show: 12
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local03_glowny_temperature_controller
+              - entity: sensor.local03_glowny_heating_state
+                icon: mdi:power
+            title: Główny Lokal 03
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local03_glowny_temperature_controller
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local03_sypialnia_temperature
+              - entity: sensor.local03_sypialnia_heating_state
+                icon: mdi:power
+            title: Sypialnia Lokal 03
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local03_sypialnia_temperature
+              hours_to_show: 12
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local03_lazienka_temperature
+              - entity: sensor.local03_lazienka_heating_state
+                icon: mdi:power
+            title: Łazienka Lokal 03
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local03_lazienka_temperature
+              hours_to_show: 12
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local04_glowny_temperature_controller
+              - entity: sensor.local04_glowny_heating_state
+                icon: mdi:power
+            title: Główny Lokal 04
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local04_glowny_temperature_controller
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local04_sypialnia_temperature
+              - entity: sensor.local04_sypialnia_heating_state
+                icon: mdi:power
+            title: Sypialnia Lokal 04
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local04_sypialnia_temperature
+              hours_to_show: 12
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local04_lazienka_temperature
+              - entity: sensor.local04_lazienka_heating_state
+                icon: mdi:power
+            title: Łazienka Lokal 04
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local04_lazienka_temperature
+              hours_to_show: 12
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local05_glowny_temperature_controller
+              - entity: sensor.local05_glowny_heating_state
+                icon: mdi:power
+            title: Główny Lokal 05
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local05_glowny_temperature_controller
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local05_sypialnia_temperature
+              - entity: sensor.local05_sypialnia_heating_state
+                icon: mdi:power
+            title: Sypialnia Lokal 05
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local05_sypialnia_temperature
+              hours_to_show: 12
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local05_lazienka_temperature
+              - entity: sensor.local05_lazienka_heating_state
+                icon: mdi:power
+            title: Łazienka Lokal 05
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local05_lazienka_temperature
+              hours_to_show: 12
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local06_glowny_temperature_controller
+              - entity: sensor.local06_glowny_heating_state
+                icon: mdi:power
+            title: Główny Lokal 06
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local06_glowny_temperature_controller
+              hours_to_show: 12
+        columns: 1
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local06_sypialnia_temperature
+              - entity: sensor.local06_sypialnia_heating_state
+                icon: mdi:power
+            title: Sypialnia Lokal 06
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local06_sypialnia_temperature
+              hours_to_show: 12
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local06_lazienka_temperature
+              - entity: sensor.local06_lazienka_heating_state
+                icon: mdi:power
+            title: Łazienka Lokal 06
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local06_lazienka_temperature
+              hours_to_show: 12
+  - title: LOKAL 01
+    path: lokal-01
+    badges: []
+    cards:
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local01_glowny_temperature_controller
+                name: Temperature
+              - entity: sensor.local01_glowny_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local01_glowny_setpoint
+                name: Setpoint
+              - entity: input_select.local01_main_heating_routine
+                name: Routine
+              - entity: sensor.local01_glowny_routine
+                name: Routine read
+            title: Główny
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local01_glowny_temperature_controller
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local01_glowny_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local01_sypialnia_temperature
+                name: Temperature
+              - entity: sensor.local01_sypialnia_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local01_sypialnia_setpoint
+                name: Setpoint
+              - entity: input_select.local01_bedroom_heating_routine
+                name: Routine
+              - entity: sensor.local01_sypialnia_routine
+                name: Routine read
+            title: Sypialnia
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local01_sypialnia_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local01_sypialnia_termostat
+            name: Thermostat
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local01_lazienka_temperature
+                name: Temperature
+              - entity: sensor.local01_lazienka_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local01_lazienka_setpoint
+                name: Setpoint
+              - entity: input_select.local01_bathroom_heating_routine
+                name: Routine
+              - entity: sensor.local01_lazienka_routine
+                name: Routine read
+            title: Lazienka
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local01_lazienka_temperature
+              hours_to_show: 168
+              detail: 2
+          - type: thermostat
+            entity: climate.local01_lazienka_termostat
+            name: Thermostat
+  - path: default_view
+    title: LOKAL 2
+    badges: []
+    cards:
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local02_glowny_temperature_controller
+                name: Temperature
+              - entity: sensor.local02_glowny_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local02_glowny_setpoint
+                name: Setpoint
+              - entity: input_select.local02_main_heating_routine
+                name: Routine
+              - entity: sensor.local02_glowny_routine
+                name: Routine read
+            title: Główny
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local02_glowny_temperature_controller
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local02_glowny_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local02_sypialnia_temperature
+                name: Temperature
+              - entity: sensor.local02_sypialnia_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local02_sypialnia_setpoint
+                name: Setpoint
+              - entity: input_select.local02_bedroom_heating_routine
+                name: Routine
+              - entity: sensor.local02_sypialnia_routine
+                name: Routine read
+            title: Sypialnia
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local02_sypialnia_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local02_sypialnia_termostat
+            name: Thermostat
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local02_lazienka_temperature
+                name: Temperature
+              - entity: sensor.local02_lazienka_setpoint
+                name: Setpoint
+              - entity: sensor.local02_lazienka_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: input_select.local02_bathroom_heating_routine
+                name: Routine
+              - entity: sensor.local02_lazienka_routine
+                name: Routine read
+            title: Lazienka
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local02_sypialnia_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local02_lazienka_termostat
+            name: Thermostat
+  - title: LOKAL 03
+    path: lokal-03
+    badges: []
+    cards:
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local03_glowny_temperature_controller
+                name: Temperature
+              - entity: sensor.local03_glowny_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local03_glowny_setpoint
+                name: Setpoint
+              - entity: input_select.local03_main_heating_routine
+                name: Routine
+              - entity: sensor.local03_glowny_routine
+                name: Routine read
+            title: Główny
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local03_glowny_temperature_controller
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local03_glowny_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local03_sypialnia_temperature
+                name: Temperature
+              - entity: sensor.local03_sypialnia_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local03_sypialnia_setpoint
+                name: Setpoint
+              - entity: input_select.local03_bedroom_heating_routine
+                name: Routine
+              - entity: sensor.local03_sypialnia_routine
+                name: Routine read
+            title: Sypialnia
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local03_sypialnia_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local03_sypialnia_termostat
+            name: Thermostat
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local03_lazienka_temperature
+                name: Temperature
+              - entity: sensor.local03_lazienka_setpoint
+                name: Setpoint
+              - entity: sensor.local03_lazienka_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: input_select.local03_bathroom_heating_routine
+                name: Routine
+              - entity: sensor.local03_lazienka_routine
+                name: Routine read
+            title: Lazienka
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local03_sypialnia_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local03_lazienka_termostat
+            name: Thermostat
+  - title: LOKAL 04
+    path: lokal-04
+    badges: []
+    cards:
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local04_glowny_temperature_controller
+                name: Temperature
+              - entity: sensor.local04_glowny_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local04_glowny_setpoint
+                name: Setpoint
+              - entity: input_select.local04_main_heating_routine
+                name: Routine
+              - entity: sensor.local04_glowny_routine
+                name: Routine read
+            title: Główny
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local04_glowny_temperature_controller
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local04_glowny_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local04_sypialnia_temperature
+                name: Temperature
+              - entity: sensor.local04_sypialnia_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local04_sypialnia_setpoint
+                name: Setpoint
+              - entity: input_select.local04_bedroom_heating_routine
+                name: Routine
+              - entity: sensor.local04_sypialnia_routine
+                name: Routine read
+            title: Sypialnia
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local04_sypialnia_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local04_sypialnia_termostat
+            name: Thermostat
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local04_lazienka_temperature
+                name: Temperature
+              - entity: sensor.local04_lazienka_setpoint
+                name: Setpoint
+              - entity: sensor.local04_lazienka_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: input_select.local04_bathroom_heating_routine
+                name: Routine
+              - entity: sensor.local04_lazienka_routine
+                name: Routine read
+            title: Lazienka
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local04_sypialnia_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local04_lazienka_termostat
+            name: Thermostat
+  - title: LOKAL 05
+    path: lokal-05
+    badges: []
+    cards:
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local05_glowny_temperature_controller
+                name: Temperature
+              - entity: sensor.local05_glowny_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local05_glowny_setpoint
+                name: Setpoint
+              - entity: input_select.local05_main_heating_routine
+                name: Routine
+              - entity: sensor.local05_glowny_routine
+                name: Routine read
+            title: Główny
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local05_glowny_temperature_controller
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local05_glowny_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local05_sypialnia_temperature
+                name: Temperature
+              - entity: sensor.local05_sypialnia_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local05_sypialnia_setpoint
+                name: Setpoint
+              - entity: input_select.local05_bedroom_heating_routine
+                name: Routine
+              - entity: sensor.local05_sypialnia_routine
+                name: Routine read
+            title: Sypialnia
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local05_sypialnia_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local05_sypialnia_termostat
+            name: Thermostat
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local05_lazienka_temperature
+                name: Temperature
+              - entity: sensor.local05_lazienka_setpoint
+                name: Setpoint
+              - entity: sensor.local05_lazienka_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: input_select.local05_bathroom_heating_routine
+                name: Routine
+              - entity: sensor.local05_lazienka_routine
+                name: Routine read
+            title: Lazienka
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local05_sypialnia_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local05_lazienka_termostat
+            name: Thermostat
+  - title: LOKAL 06
+    path: lokal-06
+    badges: []
+    cards:
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local06_glowny_temperature_controller
+                name: Temperature
+              - entity: sensor.local06_glowny_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local06_glowny_setpoint
+                name: Setpoint
+              - entity: input_select.local06_main_heating_routine
+                name: Routine
+              - entity: sensor.local06_glowny_routine
+                name: Routine read
+            title: Główny
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local06_glowny_temperature_controller
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local06_glowny_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local06_sypialnia_temperature
+                name: Temperature
+              - entity: sensor.local06_sypialnia_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local06_sypialnia_setpoint
+                name: Setpoint
+              - entity: input_select.local06_bedroom_heating_routine
+                name: Routine
+              - entity: sensor.local06_sypialnia_routine
+                name: Routine read
+            title: Sypialnia
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local06_sypialnia_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local06_sypialnia_termostat
+            name: Thermostat
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local06_lazienka_temperature
+                name: Temperature
+              - entity: sensor.local06_lazienka_setpoint
+                name: Setpoint
+              - entity: sensor.local06_lazienka_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: input_select.local06_bathroom_heating_routine
+                name: Routine
+              - entity: sensor.local06_lazienka_routine
+                name: Routine read
+            title: Lazienka
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local06_sypialnia_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local06_lazienka_termostat
+            name: Thermostat
+  - title: Details
+    path: details
+    badges: []
+    cards:
+      - type: entities
+        entities:
+          - input_select.local01_bathroom_heating_routine
+          - input_select.local01_bedroom_heating_routine
+          - input_select.local01_main_heating_routine
+          - input_select.local02_bathroom_heating_routine
+          - input_select.local02_bedroom_heating_routine
+          - input_select.local02_main_heating_routine
+          - input_select.local03_bathroom_heating_routine
+          - input_select.local03_bedroom_heating_routine
+          - input_select.local03_main_heating_routine
+          - input_select.local04_bathroom_heating_routine
+          - input_select.local04_bedroom_heating_routine
+          - input_select.local04_main_heating_routine
+          - input_select.local05_bathroom_heating_routine
+          - input_select.local05_bedroom_heating_routine
+          - input_select.local05_main_heating_routine
+          - input_select.local06_bathroom_heating_routine
+          - input_select.local06_bedroom_heating_routine
+      - type: entities
+        entities:
+          - sensor.local00_klatka1p_heating_state
+          - sensor.local00_klatka2p_heating_state
+          - sensor.local01_glowny_heating_state
+          - sensor.local01_lazienka_heating_state
+          - sensor.local01_sypialnia_heating_state
+          - sensor.local02_glowny_heating_state
+          - sensor.local02_lazienka_heating_state
+          - sensor.local02_sypialnia_heating_state
+          - sensor.local03_glowny_heating_state
+          - sensor.local03_lazienka_heating_state
+          - sensor.local03_sypialnia_heating_state
+          - sensor.local04_glowny_heating_state
+          - sensor.local04_lazienka_heating_state
+          - sensor.local04_sypialnia_heating_state
+          - sensor.local05_glowny_heating_state
+          - sensor.local05_lazienka_heating_state
+          - sensor.local05_sypialnia_heating_state
+          - sensor.local06_glowny_heating_state
+          - sensor.local06_lazienka_heating_state
+          - sensor.local06_sypialnia_heating_state
+  - title: Klatki
+    path: klatki
+    badges: []
+    cards:
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_klatka1p_controler_temperature
+                name: Temperature
+              - entity: sensor.local00_klatka1p_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_klatka1p_setpoint
+                name: Setpoint
+              - entity: input_select.local00_klatka1p_heating_routine
+            title: Klatka 1P
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_klatka1p_controler_temperature
+              hours_to_show: 12
+      - square: false
+        type: grid
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_klatka2p_controler_temperature
+                name: Temperature
+              - entity: sensor.local00_klatka2p_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_klatka2p_setpoint
+                name: Setpoint
+              - entity: input_select.local00_klatka2p_heating_routine
+            title: Klatka 2P
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_klatka2p_controler_temperature
+              hours_to_show: 12
+      - type: entities
+        entities:
+          - number.520a_ai_person_sensitivity
+          - number.520a_ai_vehicle_sensitivity
+          - select.520a_day_night_mode
+          - switch.520a_email_on_event
+          - update.520a_firmware
+          - switch.520a_ftp_upload
+          - light.520a_infra_red_lights_in_night_mode
+          - number.520a_motion_sensitivity
+          - switch.520a_push_notifications
+          - switch.520a_record_audio
+          - number.520a_volume
+        title: 520A
+  - title: Home2
+    path: home2
+    badges: []
+    cards:
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_kuchnia_temperature_controller
+                name: Temperature
+              - entity: sensor.local00_kuchnia_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_kuchnia_setpoint
+                name: Setpoint
+              - entity: input_select.local00_kuchnia_heating_routine
+                name: Routine
+              - entity: sensor.local00_kuchnia_routine
+                name: Routine read
+            title: Kuchnia
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_kuchnia_temperature_controller
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local00_kuchnia_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_salon_temperature
+                name: Temperature
+              - entity: sensor.local00_salon_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_salon_setpoint
+                name: Setpoint
+              - entity: input_select.local00_salon_heating_routine
+                name: Routine
+              - entity: sensor.local00_salon_routine
+                name: Routine read
+            title: Salon
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_salon_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local00_salon_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_sypialnia_temperature
+                name: Temperature
+              - entity: sensor.local00_sypialnia_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_sypialnia_setpoint
+                name: Setpoint
+              - entity: input_select.local00_sypialnia_heating_routine
+                name: Routine
+              - entity: sensor.local00_sypialnia_routine
+                name: Routine read
+            title: Sypialnia
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_sypialnia_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local00_sypialnia_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_lazienka_temperature
+                name: Temperature
+              - entity: sensor.local00_lazienka_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_lazienka_setpoint
+                name: Setpoint
+              - entity: input_select.local00_lazienka_heating_routine
+                name: Routine
+              - entity: sensor.local00_lazienka_routine
+                name: Routine read
+            title: Łazienka
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_lazienka_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local00_lazienka_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_malalazienka_temperature
+                name: Temperature
+              - entity: sensor.local00_malalazienka_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_malalazienka_setpoint
+                name: Setpoint
+              - entity: input_select.local00_malalazienka_heating_routine
+                name: Routine
+              - entity: sensor.local00_malalazienka_routine
+                name: Routine read
+            title: Mała łazienka
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_malalazienka_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local00_malalazienka_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_klara_temperature
+                name: Temperature
+              - entity: sensor.local00_klara_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_klara_setpoint
+                name: Setpoint
+              - entity: input_select.local00_klara_heating_routine
+                name: Routine
+              - entity: sensor.local00_klara_routine
+                name: Routine read
+            title: Klara
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_klara_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local00_klara_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_nikola_temperature
+                name: Temperature
+              - entity: sensor.local00_nikola_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_nikola_setpoint
+                name: Setpoint
+              - entity: input_select.local00_nikola_heating_routine
+                name: Routine
+              - entity: sensor.local00_nikola_routine
+                name: Routine read
+            title: Nikola
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_nikola_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local00_nikola_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_gabinet_temperature
+                name: Temperature
+              - entity: sensor.local00_gabinet_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_gabinet_setpoint
+                name: Setpoint
+              - entity: input_select.local00_gabinet_heating_routine
+                name: Routine
+              - entity: sensor.local00_gabinet_routine
+                name: Routine read
+            title: Gabinet
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_gabinet_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local00_gabinet_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_gospodarcze_temperature
+                name: Temperature
+              - entity: sensor.local00_gospodarcze_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_gospodarcze_setpoint
+                name: Setpoint
+              - entity: input_select.local00_gospodarcze_heating_routine
+                name: Routine
+              - entity: sensor.local00_gospodarcze_routine
+                name: Routine read
+            title: Gospodarcze
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_gospodarcze_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local00_gospodarcze_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_wiatrolap_temperature
+                name: Temperature
+              - entity: sensor.local00_wiatrolap_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_wiatrolap_setpoint
+                name: Setpoint
+              - entity: input_select.local00_wiatrolap_heating_routine
+                name: Routine
+              - entity: sensor.local00_wiatrolap_routine
+                name: Routine read
+            title: Wiatrołap
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_wiatrolap_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local00_wiatrolap_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_holwejscie_temperature
+                name: Temperature
+              - entity: sensor.local00_holwejscie_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_holwejscie_setpoint
+                name: Setpoint
+              - entity: input_select.local00_holwejscie_heating_routine
+                name: Routine
+              - entity: sensor.local00_holwejscie_routine
+                name: Routine read
+            title: Hol Wejście
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_holwejscie_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local00_holwejscie_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_holsypialnia_temperature
+                name: Temperature
+              - entity: sensor.local00_holsypialnia_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_holsypialnia_setpoint
+                name: Setpoint
+              - entity: input_select.local00_holsypialnia_heating_routine
+                name: Routine
+              - entity: sensor.local00_holsypialnia_routine
+                name: Routine read
+            title: Hol Sypialnia
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_holsypialnia_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local00_holsypialnia_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_klatka1p_controler_temperature
+                name: Temperature
+              - entity: sensor.local00_klatka1p_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_klatka1p_setpoint
+                name: Setpoint
+              - entity: input_select.local00_klatka1p_heating_routine
+                name: Routine
+              - entity: sensor.local00_klatka1p_routine
+                name: Routine read
+            title: Klatka 1P
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_klatka1p_controler_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local00_klatka1p_termostat
+            name: Thermostat
+        columns: 1
+      - square: false
+        type: grid
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.local00_klatka2p_controler_temperature
+                name: Temperature
+              - entity: sensor.local00_klatka2p_heating_state
+                name: Heating State
+                icon: mdi:power
+              - entity: sensor.local00_klatka2p_setpoint
+                name: Setpoint
+              - entity: input_select.local00_klatka2p_heating_routine
+                name: Routine
+              - entity: sensor.local00_klatka2p_routine
+                name: Routine read
+            title: Klatka 2P
+            show_header_toggle: true
+            footer:
+              type: graph
+              entity: sensor.local00_klatka2p_controler_temperature
+              hours_to_show: 12
+          - type: thermostat
+            entity: climate.local00_klatka2p_termostat
+            name: Thermostat
+        columns: 1

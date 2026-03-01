@@ -1,0 +1,241 @@
+title: Dom iPad Edition
+views:
+  - title: Home
+    path: home
+    icon: mdi:home
+    cards:
+      # --- HEADING: QUICK ACTIONS ---
+      - type: heading
+        heading: Szybki Dostęp
+      
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: cover.brama_wynajem_zaslona
+            name: Brama
+            icon: mdi:gate
+            tap_action:
+              action: toggle
+          - type: tile
+            entity: light.boneio_32_l_07_73bbd8_door_23_relay
+            name: Drzwi
+            icon: mdi:door-closed-lock
+            tap_action:
+              action: perform-action
+              perform_action: input_button.press
+              target:
+                entity_id: input_button.btn_entrance_door
+          - type: tile
+            entity: script.all_lights_off
+            name: Wyłącz Wszystko
+            icon: mdi:lightbulb-off
+            color: red
+
+      # --- HEADING: WEATHER ---
+      - type: weather-forecast
+        entity: weather.forecast_home
+        name: Pogoda Dom
+        show_current: true
+        show_forecast: true
+        forecast_type: daily
+
+      # --- HEADING: STREFA DZIENNA ---
+      - type: heading
+        heading: Strefa Dzienna i Korytarze
+      
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: tile
+            entity: light.salon_mqtt
+            name: Salon Główne
+          - type: tile
+            entity: light.boneio_32_l_07_new_light_18
+            name: Salon Dodatkowe
+          - type: tile
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_04
+            name: Kuchnia
+          - type: tile
+            entity: light.boneio_dr_8ch_03_2c7fbc_chr_04
+            name: Kuchnia (Prawa)
+          - type: tile
+            entity: light.boneio_32_l_07_new_light_05
+            name: Wyspa
+          - type: tile
+            entity: light.boneio_32_l_07_new_light_06
+            name: Jadalnia
+          - type: tile
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_01
+            name: Korytarz Wejście
+          - type: tile
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_02
+            name: Korytarz Sypialnie
+          - type: tile
+            entity: light.boneio_32_l_07_new_light_12
+            name: Podjazd
+
+      # --- HEADING: MONITORING ---
+      - type: heading
+        heading: Monitoring
+      
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: picture-entity
+            entity: camera.reolink_duo_floodlight_poe_plynny_2
+            camera_view: live
+            name: Podwórze
+          - type: picture-entity
+            entity: camera.rlc_822a_plynny
+            camera_view: live
+            name: Wejście
+          - type: picture-entity
+            entity: camera.taras_plynny
+            camera_view: live
+            name: Taras
+          - type: picture-entity
+            entity: camera.rlc_820a_niska_rozdzielczosc
+            camera_view: live
+            name: Ogród
+
+      # --- HEADING: ATMOSFERA ---
+      - type: heading
+        heading: Atmosfera i LED
+      
+      - type: entities
+        entities:
+          - entity: input_select.shelly_mode
+            name: Tryb Salon
+          - entity: input_number.shelly_brightness
+            name: Jasność
+          - entity: input_number.kolor_bialy_salon
+            name: Kanał Biały
+          - entity: input_number.kolor_czerwony_salon
+            name: Kanał Czerwony
+
+  - title: Multimedia
+    path: media
+    icon: mdi:television-play
+    cards:
+      - type: heading
+        heading: Salon Rozrywka
+      
+      - type: media-control
+        entity: media_player.salon_2
+        name: Apple TV / Speaker
+      
+      - type: media-control
+        entity: media_player.googletv8897_2
+        name: Google TV
+      
+      - type: entities
+        title: Sterowanie Pilotem
+        entities:
+          - entity: remote.salon_2
+            name: Pilot Salon
+
+  - title: Klimat
+    path: temperatura
+    icon: mdi:thermometer
+    cards:
+      - type: heading
+        heading: Temperatura w Pomieszczeniach
+      
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: entities
+            title: Kuchnia
+            entities:
+              - entity: sensor.local00_kuchnia_temperature_controller
+                name: Temperatura
+              - entity: sensor.local00_kuchnia_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_kuchnia_temperature_controller
+          
+          - type: entities
+            title: Salon
+            entities:
+              - entity: sensor.local00_salon_temperature
+                name: Temperatura
+              - entity: sensor.local00_salon_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_salon_temperature
+
+          - type: entities
+            title: Sypialnia
+            entities:
+              - entity: sensor.local00_sypialnia_temperature
+                name: Temperatura
+              - entity: sensor.local00_sypialnia_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_sypialnia_temperature
+
+          - type: entities
+            title: Łazienka
+            entities:
+              - entity: sensor.local00_malalazienka_temperature
+                name: Temperatura
+              - entity: sensor.local00_malalazienka_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_malalazienka_temperature
+
+  - title: Energia
+    path: pstryk
+    icon: mdi:transmission-tower
+    cards:
+      - type: heading
+        heading: Pstryk Energy - Ceny i Bilans
+      
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: tile
+            entity: sensor.pstryk_current_buy_price
+            name: Kupno
+            color: red
+          - type: tile
+            entity: sensor.pstryk_current_sell_price
+            name: Sprzedaż
+            color: green
+          - type: tile
+            entity: sensor.pstryk_daily_financial_balance
+            name: Bilans Dziś
+          
+          - type: tile
+            entity: sensor.pstryk_buy_daily_average
+            name: Średnia Kupno (Doba)
+          - type: tile
+            entity: sensor.pstryk_sell_daily_average
+            name: Średnia Sprzedaż (Doba)
+          - type: tile
+            entity: sensor.pstryk_monthly_financial_balance
+            name: Bilans Miesiąc
+          
+          - type: tile
+            entity: sensor.pstryk_best_window
+            name: Najlepsze Okno (Ceny)
+            icon: mdi:clock-check-outline
+            color: purple
+          - type: tile
+            entity: binary_sensor.pstryk_in_best_window
+            name: W Najtańszym Oknie
+            color: indigo
+          
+          - type: tile
+            entity: sensor.pstryk_cheapest_window_direct
+            name: Najtańsze Okno (Direct Script)
+            icon: mdi:script-text-outline
+            color: orange
