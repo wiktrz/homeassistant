@@ -36,3 +36,23 @@
         {% else %}
           mdi:flash-outline
         {% endif %}
+- sensor:
+      - name: "Następny wywóz odpadów"
+        unique_id: nastepny_wywoz_odpadow
+        state: >
+          {{ state_attr('calendar.smieci_i_alarmy', 'message') }}
+        attributes:
+          data: >
+            {{ as_timestamp(state_attr('calendar.smieci_i_alarmy', 'start_time')) | timestamp_custom('%d.%m.%Y') }}
+          dni_pozostalo: >
+            {{ ((as_timestamp(state_attr('calendar.smieci_i_alarmy', 'start_time')) - as_timestamp(now())) / 86400) | int + 1 }}
+          kolor: >
+            {% set msg = state_attr('calendar.smieci_i_alarmy', 'message') | lower %}
+            {% if 'niesegregowane' in msg %} grey
+            {% elif 'bio' in msg %} brown
+            {% elif 'plastik' in msg %} yellow
+            {% elif 'szkło' in msg %} green
+            {% elif 'papier' in msg %} blue
+            {% else %} white
+            {% endif %}
+        icon: "mdi:trash-can"

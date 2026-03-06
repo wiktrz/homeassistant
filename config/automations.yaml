@@ -2206,63 +2206,116 @@
           - data: {}
             action: script.shelly_rgbw_animation_rock
   mode: restart
-
-
-
 - id: daily_energy_price_notification
-  alias: "Energy: Daily Price Forecast Notification"
-  description: "Sends a notification at 22:00 with the cheapest energy price window for the next available time."
+  alias: 'Energy: Daily Price Forecast Notification'
+  description: Sends a notification at 22:00 with the cheapest energy price window
+    for the next available time.
   trigger:
-    - platform: time
-      at: "22:00:00"
+  - platform: time
+    at: '22:00:00'
   action:
-    - variables:
-        sensor_entity: "sensor.pstryk_best_window"
-        start_attr: "{{ state_attr(sensor_entity, 'start_time') }}"
-        end_attr: "{{ state_attr(sensor_entity, 'end_time') }}"
-        gross_min: "{{ state_attr(sensor_entity, 'gross_min') }}"
-        has_data: "{{ states(sensor_entity) not in ['unavailable', 'none', 'Error'] and start_attr is not none and gross_min != 'N/A' }}"
-        # Mapping Polish day names
-        days: ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Ndz']
-        day_name: "{{ days[as_timestamp(start_attr) | timestamp_custom('%w', true) | int - 1] if has_data else '' }}"
-        start_time: "{{ as_timestamp(start_attr) | timestamp_custom('%d.%m (' ~ day_name ~ ') %H:%M') if has_data else '' }}"
-        end_time: "{{ as_timestamp(end_attr) | timestamp_custom('%H:%M') if has_data else '' }}"
-    - if:
-        - condition: template
-          value_template: "{{ has_data }}"
-      then:
-        - service: notify.notify
-          data:
-            title: "⚡ Najtańsza Energia"
-            message: >
-              Nadchodzi okno z najniższą ceną: {{ gross_min }} PLN/kWh. 
-              Planuj zużycie: {{ start_time }} - {{ end_time }}.
-            data:
-              channel: energy
-              tag: energy_forecast
-              clickAction: "/pstryk"
-    - if:
-        - condition: template
-          value_template: "{{ has_data and min_price != 'N/A' }}"
-      then:
-        - service: notify.notify
-          data:
-            title: "⚡ Najtańsza Energia"
-            message: >
-              Nadchodzi okno z najniższą ceną: {{ min_price }} PLN/kWh. 
-              Planuj zużycie w godzinach {{ start_time }} - {{ end_time }}.
-            data:
-              channel: energy
-              tag: energy_forecast
-              clickAction: "/pstryk"
-      else:
-        - service: notify.notify
-          data:
-            title: "⚠️ Brak Danych Pstryk"
-            message: >
-              Status: {{ state }}
-              Klucz: {{ debug_attr['key_status'] if debug_attr else 'Missing Debug' }}
-              Start: {{ start_attr if start_attr else 'None' }}
-              Net: {{ 'Ok' if net_attr else 'None' }}
-              Błąd: {{ state_attr(sensor_entity, 'error') if state_attr(sensor_entity, 'error') else 'Brak szczegółów' }}
+  - variables:
+      sensor_entity: sensor.pstryk_best_window
+      start_attr: '{{ state_attr(sensor_entity, ''start_time'') }}'
+      end_attr: '{{ state_attr(sensor_entity, ''end_time'') }}'
+      gross_min: '{{ state_attr(sensor_entity, ''gross_min'') }}'
+      has_data: '{{ states(sensor_entity) not in [''unavailable'', ''none'', ''Error'']
+        and start_attr is not none and gross_min != ''N/A'' }}'
+      days:
+      - Pon
+      - Wt
+      - Śr
+      - Czw
+      - Pt
+      - Sob
+      - Ndz
+      day_name: '{{ days[as_timestamp(start_attr) | timestamp_custom(''%w'', true)
+        | int - 1] if has_data else '''' }}'
+      start_time: '{{ as_timestamp(start_attr) | timestamp_custom(''%d.%m ('' ~ day_name
+        ~ '') %H:%M'') if has_data else '''' }}'
+      end_time: '{{ as_timestamp(end_attr) | timestamp_custom(''%H:%M'') if has_data
+        else '''' }}'
+  - if:
+    - condition: template
+      value_template: '{{ has_data }}'
+    then:
+    - service: notify.notify
+      data:
+        title: ⚡ Najtańsza Energia
+        message: 'Nadchodzi okno z najniższą ceną: {{ gross_min }} PLN/kWh.  Planuj
+          zużycie: {{ start_time }} - {{ end_time }}.
 
+          '
+        data:
+          channel: energy
+          tag: energy_forecast
+          clickAction: /pstryk
+  - if:
+    - condition: template
+      value_template: '{{ has_data and min_price != ''N/A'' }}'
+    then:
+    - service: notify.notify
+      data:
+        title: ⚡ Najtańsza Energia
+        message: 'Nadchodzi okno z najniższą ceną: {{ min_price }} PLN/kWh.  Planuj
+          zużycie w godzinach {{ start_time }} - {{ end_time }}.
+
+          '
+        data:
+          channel: energy
+          tag: energy_forecast
+          clickAction: /pstryk
+    else:
+    - service: notify.notify
+      data:
+        title: ⚠️ Brak Danych Pstryk
+        message: 'Status: {{ state }} Klucz: {{ debug_attr[''key_status''] if debug_attr
+          else ''Missing Debug'' }} Start: {{ start_attr if start_attr else ''None''
+          }} Net: {{ ''Ok'' if net_attr else ''None'' }} Błąd: {{ state_attr(sensor_entity,
+          ''error'') if state_attr(sensor_entity, ''error'') else ''Brak szczegółów''
+          }}
+
+          '
+- id: '1772557345605'
+  alias: Tesla Charging Best Window
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.pstryk_in_best_window
+    to:
+    - 'on'
+  conditions:
+  - condition: state
+    entity_id: device_tracker.tesl_y_location
+    state: []
+  actions:
+  - action: switch.turn_on
+    metadata: {}
+    target:
+      entity_id: switch.tesl_y_charge
+    data: {}
+  mode: single
+- id: '1772783265111'
+  alias: 'Powiadomienie: Wywóz śmieci (Marki Sektor 1A)'
+  description: Wysyła powiadomienie wieczorem przed planowanym odbiorem odpadów
+  triggers:
+  - at: '19:00:00'
+    trigger: time
+  conditions:
+  - condition: template
+    value_template: "{% set nastepny_wywoz = state_attr('calendar.odpady', 'start_time')
+      %} {% if nastepny_wywoz != None %}\n  {{ (as_timestamp(nastepny_wywoz) - as_timestamp(now()))
+      / 3600 < 15 }}\n{% else %}\n  false\n{% endif %}\n"
+  actions:
+  - data:
+      title: "\U0001F69B Jutro rano odbiór odpadów!"
+      message: 'Jutro rano odbierają: {{ state_attr(''calendar.odpady'', ''message'')
+        }}.  Wystaw pojemnik/worek przed posesję do godziny 6:00.
+
+        '
+      data:
+        notification_icon: mdi:trash-can
+        color: '#2196F3'
+    action: notify.mobile_app_twoj_telefon
+  mode: single

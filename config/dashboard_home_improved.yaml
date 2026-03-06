@@ -31,13 +31,29 @@ views:
             icon: mdi:lightbulb-off
             color: red
 
-      # --- HEADING: WEATHER ---
-      - type: weather-forecast
-        entity: weather.forecast_home
-        name: Pogoda Dom
-        show_current: true
-        show_forecast: true
-        forecast_type: daily
+      # --- HEADING: WEATHER & WASTE ---
+      - type: horizontal-stack
+        cards:
+          - type: weather-forecast
+            entity: weather.forecast_home
+            name: Pogoda Dom
+            show_current: true
+            show_forecast: true
+            forecast_type: daily
+          
+          # Nowa sekcja odpadów obok pogody (lub pod nią w zależności od szerokości)
+          - type: vertical-stack
+            cards:
+              - type: heading
+                heading: Odpady
+              - type: tile
+                entity: sensor.nastepny_wywoz_odpadow
+                name: Najbliższy odbiór
+                icon: mdi:truck-clock
+                vertical: false
+                show_entity_picture: false
+                # Jeśli używasz sensorów z moich poprzednich wiadomości:
+                color: blue 
 
       # --- HEADING: STREFA DZIENNA ---
       - type: heading
