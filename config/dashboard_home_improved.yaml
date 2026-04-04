@@ -101,19 +101,19 @@ views:
         cards:
           - type: picture-entity
             entity: camera.reolink_duo_floodlight_poe_plynny_2
-            camera_view: live
+            camera_view: auto
             name: Podwórze
           - type: picture-entity
             entity: camera.rlc_822a_plynny
-            camera_view: live
+            camera_view: auto
             name: Wejście
           - type: picture-entity
             entity: camera.taras_plynny
-            camera_view: live
+            camera_view: auto
             name: Taras
           - type: picture-entity
             entity: camera.rlc_820a_niska_rozdzielczosc
-            camera_view: live
+            camera_view: auto
             name: Ogród
 
       # --- HEADING: ATMOSFERA ---
