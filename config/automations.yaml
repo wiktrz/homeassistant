@@ -196,38 +196,6 @@
       retain: true
       payload: '{{ states(''input_select.local06_bedroom_heating_routine'') }}'
   id: 09517be5706d49fd887c6d1490bd38d6
-- trigger:
-  - platform: state
-    entity_id: sensor.test
-    to: 'on'
-  action:
-    service: notify.aws_sqs
-    data:
-      message: Your message goes here
-      target: https://sqs.eu-west-1.amazonaws.com/857331545502/homeAssistant
-      title: Custom subject
-      data:
-        test: asd
-  id: 9cc198a46fda47eba57622ececa1519b
-  enabled: false
-- alias: Notify of Motion click action
-  enabled: false
-  trigger:
-  - platform: state
-    entity_id: sensor.test
-    to: 'on'
-  action:
-  - service: notify.all_devices
-    data:
-      title: Motion Detected in Backyard
-      message: Someone might be in the backyard.
-      data:
-        channel: motion
-        url: https://google.com
-        clickAction: https://google.com
-        push:
-          badge: 5
-  id: 239e37f87c7f41f3b0a7b5ae696f6c50
 - alias: Dimming Lights Down when dark outside
   trigger:
   - platform: numeric_state
