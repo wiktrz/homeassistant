@@ -476,7 +476,8 @@
     entity_id: fd37e7e43890d768c1b9407689a18860
     domain: light
     brightness_pct: 20
-  mode: single
+  mode: restart
+  max_exceeded: silent
 - id: '1740310033970'
   alias: PIR Korytarz wejście OFF
   description: ''
@@ -587,7 +588,8 @@
       entity_id: 353130fd939a18c96318627514961c05
       domain: light
       brightness_pct: 15
-  mode: single
+  mode: restart
+  max_exceeded: silent
 - id: '1740311715377'
   alias: PIR Korytarz Sypialnia OFF
   description: ''
@@ -755,7 +757,8 @@
     entity_id: fbdaf1c667efac251eb994fbba247b2a
     domain: light
     brightness_pct: 10
-  mode: single
+  mode: restart
+  max_exceeded: silent
 - id: '1744478603132'
   alias: PIR Livingroom OFF
   description: ''
@@ -925,7 +928,8 @@
     device_id: e15a1fb7435cfe16a86b0f58812a81c7
     entity_id: 1bf82db6c2e51b455e2aaa7230abea0c
     domain: light
-  mode: single
+  mode: restart
+  max_exceeded: silent
 - id: '1746291056994'
   alias: PIR Entrance OFF
   description: ''
