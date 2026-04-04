@@ -483,6 +483,11 @@ notify:
       # - service: mobile_app_pixel_4_xl
 
 
+input_boolean:
+  motion_lights_disabled:
+    name: Motion Lights Disabled
+    icon: mdi:motion-sensor-off
+
 input_select:
   local01_main_heating_routine:
     name: Heating Routine Local01 Main

@@ -29,3 +29,15 @@
       state: 'on'
   icon: mdi:account-group
   metadata: {}
+- id: '1790000000001'
+  name: Motion Lights OFF
+  icon: mdi:motion-sensor-off
+  entities:
+    input_boolean.motion_lights_disabled:
+      state: 'on'
+- id: '1790000000002'
+  name: Motion Lights ON
+  icon: mdi:motion-sensor
+  entities:
+    input_boolean.motion_lights_disabled:
+      state: 'off'

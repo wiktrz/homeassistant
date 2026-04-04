@@ -9,7 +9,7 @@
       retain: true
       payload: '{{ states(''input_select.local01_main_heating_routine'') }}'
   id: 635051fb823b49e0abf04f4c0fbcf8fe
-- alias: Set Thermostat Local01 Glowny Routine
+- alias: Set Thermostat Local01 Lazienka Routine
   trigger:
     platform: state
     entity_id: input_select.local01_bathroom_heating_routine
@@ -42,7 +42,7 @@
       retain: true
       payload: '{{ states(''input_select.local02_main_heating_routine'') }}'
   id: cbb571f6c40e46dc951ae66df19b1649
-- alias: Set Thermostat Local02 Glowny Routine
+- alias: Set Thermostat Local02 Lazienka Routine
   trigger:
     platform: state
     entity_id: input_select.local02_bathroom_heating_routine
@@ -75,7 +75,7 @@
       retain: true
       payload: '{{ states(''input_select.local03_main_heating_routine'') }}'
   id: 4291ef9147fb478099cbc7f74a36d1a7
-- alias: Set Thermostat Local03 Glowny Routine
+- alias: Set Thermostat Local03 Lazienka Routine
   trigger:
     platform: state
     entity_id: input_select.local03_bathroom_heating_routine
@@ -108,7 +108,7 @@
       retain: true
       payload: '{{ states(''input_select.local04_main_heating_routine'') }}'
   id: 2dfaf24296d648dfa160859e4ac01d08
-- alias: Set Thermostat Local04 Glowny Routine
+- alias: Set Thermostat Local04 Lazienka Routine
   trigger:
     platform: state
     entity_id: input_select.local04_bathroom_heating_routine
@@ -141,7 +141,7 @@
       retain: true
       payload: '{{ states(''input_select.local05_main_heating_routine'') }}'
   id: ec3eb7d860db4e62a3895ec264ded902
-- alias: Set Thermostat Local05 Glowny Routine
+- alias: Set Thermostat Local05 Lazienka Routine
   trigger:
     platform: state
     entity_id: input_select.local05_bathroom_heating_routine
@@ -174,7 +174,7 @@
       retain: true
       payload: '{{ states(''input_select.local06_main_heating_routine'') }}'
   id: d9717a6b08b44f468b91afe4a6b1ce51
-- alias: Set Thermostat Local06 Glowny Routine
+- alias: Set Thermostat Local06 Lazienka Routine
   trigger:
     platform: state
     entity_id: input_select.local06_bathroom_heating_routine
@@ -392,7 +392,10 @@
     entity_id: 1ad082b889081e2f5fde537a65b68d51
     domain: binary_sensor
     trigger: device
-  conditions: []
+  conditions:
+  - condition: state
+    entity_id: input_boolean.motion_lights_disabled
+    state: 'off'
   actions:
   - type: turn_on
     device_id: 005fc49d6a72f9b43512a8106c2d0665
@@ -451,6 +454,9 @@
     domain: binary_sensor
     trigger: device
   conditions:
+  - condition: state
+    entity_id: input_boolean.motion_lights_disabled
+    state: 'off'
   - condition: time
     after: input_datetime.pora_zmroku
     before: input_datetime.pora_switu
@@ -525,6 +531,9 @@
     domain: binary_sensor
     trigger: device
   conditions:
+  - condition: state
+    entity_id: input_boolean.motion_lights_disabled
+    state: 'off'
   - condition: time
     after: input_datetime.pora_zmroku
     before: input_datetime.pora_switu
@@ -700,6 +709,9 @@
       minutes: 0
       seconds: 1
   conditions:
+  - condition: state
+    entity_id: input_boolean.motion_lights_disabled
+    state: 'off'
   - condition: time
     after: input_datetime.pora_zmroku
     before: input_datetime.pora_switu
@@ -728,6 +740,9 @@
     domain: binary_sensor
     trigger: device
   conditions:
+  - condition: state
+    entity_id: input_boolean.motion_lights_disabled
+    state: 'off'
   - condition: sun
     after: sunset
     enabled: false
@@ -888,6 +903,9 @@
     domain: binary_sensor
     trigger: device
   conditions:
+  - condition: state
+    entity_id: input_boolean.motion_lights_disabled
+    state: 'off'
   - condition: time
     after: input_datetime.pora_zmroku
     before: input_datetime.pora_switu
