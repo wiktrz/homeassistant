@@ -209,7 +209,9 @@
       data:
         test: asd
   id: 9cc198a46fda47eba57622ececa1519b
+  enabled: false
 - alias: Notify of Motion click action
+  enabled: false
   trigger:
   - platform: state
     entity_id: sensor.test
@@ -612,6 +614,7 @@
   mode: single
 - id: '1743600259980'
   alias: Test Image Recognition
+  enabled: false
   description: ''
   triggers: []
   conditions: []
@@ -1853,8 +1856,8 @@
           - light.bulb_2
   mode: restart
 - id: '1754679474193'
-  alias: Test Dimmer Rorate Right
-  description: ''
+  alias: Dimmer Rorate Right
+  description: 'to be improved'
   triggers:
   - device_id: fd19b93043d59ad90f9560eca9ee5072
     domain: zha
