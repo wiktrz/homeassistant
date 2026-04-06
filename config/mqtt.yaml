@@ -99,21 +99,21 @@
 #       name: "local00 Klatka1P Routine"
 #       state_topic: "local00/Klatka1P/details"
 #       value_template: "{{ value_json.routineName }}"
-#   - climate:
-#       unique_id: local00_klatka1p_termostat
-#       name: Klatka1P Termostat
-#       # send_if_off: false
-#       mode_state_topic: "local00/Klatka1P/details"
-#       mode_state_template: "{{ value_json['mode'] }}"
-#       current_temperature_topic: "local00/Klatka1P/details"
-#       current_temperature_template: "{{ value_json['temperature'] }}"
-#       temperature_state_topic: "local00/Klatka1P/details"
-#       temperature_state_template: "{{ value_json['setpoint'] }}"
-#       temperature_command_topic: local00/thermostat/Klatka1P/temperature/set
-#       temp_step: 0.5
-#       modes:
-#        - 'off'
-#        - 'heat'
+  - climate:
+      unique_id: local00_klatka1p_termostat
+      name: Klatka1P Termostat
+      # send_if_off: false
+      mode_state_topic: "local00/Klatka1P/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local00/Klatka1P/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local00/Klatka1P/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local00/thermostat/Klatka1P/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
 
 #     #   Klatka 2p
 #   - sensor:
@@ -143,21 +143,21 @@
 #       name: "local00 Klatka2P Routine"
 #       state_topic: "local00/Klatka2P/details"
 #       value_template: "{{ value_json.routineName }}"
-#   - climate:
-#       unique_id: local00_klatka2p_termostat
-#       name: Klatka2P Termostat
-#       # send_if_off: false
-#       mode_state_topic: "local00/Klatka2P/details"
-#       mode_state_template: "{{ value_json['mode'] }}"
-#       current_temperature_topic: "local00/Klatka2P/details"
-#       current_temperature_template: "{{ value_json['temperature'] }}"
-#       temperature_state_topic: "local00/Klatka2P/details"
-#       temperature_state_template: "{{ value_json['setpoint'] }}"
-#       temperature_command_topic: local00/thermostat/Klatka2P/temperature/set
-#       temp_step: 0.5
-#       modes:
-#        - 'off'
-#        - 'heat'
+  - climate:
+      unique_id: local00_klatka2p_termostat
+      name: Klatka2P Termostat
+      # send_if_off: false
+      mode_state_topic: "local00/Klatka2P/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local00/Klatka2P/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local00/Klatka2P/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local00/thermostat/Klatka2P/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
 
 #PARTER
 #   - sensor:
@@ -457,7 +457,96 @@
       state_topic: "local00/HolSypialnia/details"
       value_template: "{{ value_json.routineName }}"
 
+# Climate entities for local00 (PARTER)
+  - climate:
+      unique_id: local00_salon_termostat
+      name: Salon Termostat
+      mode_state_topic: "local00/Salon/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local00/Salon/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local00/Salon/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local00/thermostat/Salon/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
 
+  - climate:
+      unique_id: local00_sypialnia_termostat
+      name: Sypialnia Termostat
+      mode_state_topic: "local00/Sypialnia/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local00/Sypialnia/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local00/Sypialnia/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local00/thermostat/Sypialnia/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      unique_id: local00_lazienka_termostat
+      name: Lazienka Termostat
+      mode_state_topic: "local00/Lazienka/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local00/Lazienka/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local00/Lazienka/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local00/thermostat/Lazienka/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      unique_id: local00_klara_termostat
+      name: Klara Termostat
+      mode_state_topic: "local00/Klara/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local00/Klara/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local00/Klara/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local00/thermostat/Klara/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      unique_id: local00_nikola_termostat
+      name: Nikola Termostat
+      mode_state_topic: "local00/Nikola/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local00/Nikola/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local00/Nikola/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local00/thermostat/Nikola/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
+
+  - climate:
+      unique_id: local00_gabinet_termostat
+      name: Gabinet Termostat
+      mode_state_topic: "local00/Gabinet/details"
+      mode_state_template: "{{ value_json['mode'] }}"
+      current_temperature_topic: "local00/Gabinet/details"
+      current_temperature_template: "{{ value_json['temperature'] }}"
+      temperature_state_topic: "local00/Gabinet/details"
+      temperature_state_template: "{{ value_json['setpoint'] }}"
+      temperature_command_topic: local00/thermostat/Gabinet/temperature/set
+      temp_step: 0.5
+      modes:
+       - 'off'
+       - 'heat'
 
 ### WYNAJEM ###
     # -------- Glowny -------

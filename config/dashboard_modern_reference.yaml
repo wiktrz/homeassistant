@@ -1,0 +1,530 @@
+title: Dom iPad Modern
+views:
+  - title: Dom
+    path: dom
+    icon: mdi:home
+    cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: tile
+            entity: cover.brama_wynajem_zaslona
+            name: Brama
+            icon: mdi:gate
+            tap_action:
+              action: toggle
+          - type: tile
+            entity: light.boneio_32_l_07_73bbd8_door_23_relay
+            name: Drzwi
+            icon: mdi:door-closed-lock
+            tap_action:
+              action: perform-action
+              perform_action: input_button.press
+              target:
+                entity_id: input_button.btn_entrance_door
+          - type: tile
+            entity: script.all_lights_off
+            name: Wyłącz Wszystko
+            icon: mdi:lightbulb-off
+            color: red
+          - type: tile
+            entity: input_boolean.motion_lights_disabled
+            name: Czujniki
+            icon: |
+              {% if is_state('input_boolean.motion_lights_disabled', 'on') %}
+                mdi:motion-sensor-off
+              {% else %}
+                mdi:motion-sensor
+              {% endif %}
+            color: |
+              {% if is_state('input_boolean.motion_lights_disabled', 'on') %}
+                red
+              {% else %}
+                green
+              {% endif %}
+            tap_action:
+              action: toggle
+      - type: weather-forecast
+        entity: weather.forecast_home
+        name: Pogoda Dom
+        show_current: true
+        show_forecast: true
+        forecast_type: daily
+      - type: entities
+        title: Energia i Info
+        entities:
+          - entity: sensor.pstryk_price_meter
+            name: Cena Energii
+            icon: mdi:currency-pln
+          - entity: sensor.pstryk_daily_financial_balance
+            name: Bilans Dziś
+          - entity: binary_sensor.pstryk_in_best_window
+            name: Okno Cenowe
+            icon: mdi:clock-check
+          - entity: sensor.nastepny_wywoz_odpadow
+            name: Odpady
+            icon: mdi:truck-clock
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: light
+            entity: light.salon_mqtt
+            name: Salon Główne
+          - type: light
+            entity: light.boneio_32_l_07_new_light_18
+            name: Salon Dodatkowe
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_04
+            name: Kuchnia
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chr_04
+            name: Kuchnia (Prawa)
+          - type: light
+            entity: light.boneio_32_l_07_new_light_05
+            name: Wyspa
+          - type: light
+            entity: light.boneio_32_l_07_new_light_06
+            name: Jadalnia
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_01
+            name: Korytarz Wejście
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_02
+            name: Korytarz Sypialnie
+          - type: light
+            entity: light.boneio_32_l_07_new_light_12
+            name: Podjazd
+      - type: entities
+        entities:
+          - entity: input_select.shelly_mode
+            name: Tryb Salon
+          - entity: input_number.shelly_brightness
+            name: Jasność
+          - entity: input_number.kolor_bialy_salon
+            name: Kanał Biały
+          - entity: input_number.kolor_czerwony_salon
+            name: Kanał Czerwony
+      - square: false
+        type: grid
+        columns: 2
+        cards:
+          - show_state: true
+            show_name: true
+            camera_view: auto
+            fit_mode: cover
+            type: picture-entity
+            entity: camera.reolink_duo_floodlight_poe_plynny_2
+            name: Podwórze
+          - type: picture-entity
+            entity: camera.rlc_822a_plynny
+            camera_view: auto
+            name: Wejście
+          - show_state: true
+            show_name: true
+            camera_view: auto
+            fit_mode: cover
+            type: picture-entity
+            entity: camera.taras_plynny
+            name: Taras
+          - show_state: true
+            show_name: true
+            camera_view: auto
+            fit_mode: cover
+            type: picture-entity
+            entity: camera.rlc_820a_niska_rozdzielczosc
+            name: Ogród
+          - show_state: true
+            show_name: true
+            camera_view: auto
+            fit_mode: cover
+            type: picture-entity
+            entity: camera.520a_plynny
+            name: Ogród
+        title: Klatka 2P
+  - title: Klimat
+    path: klimat
+    icon: mdi:thermometer
+    cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: entities
+            title: Kuchnia
+            entities:
+              - entity: sensor.local00_kuchnia_temperature_controller
+                name: Temperatura
+              - entity: sensor.local00_kuchnia_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_kuchnia_temperature_controller
+              hours_to_show: 12
+          - type: entities
+            title: Salon
+            entities:
+              - entity: sensor.local00_salon_temperature
+                name: Temperatura
+              - entity: sensor.local00_salon_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_salon_temperature
+              hours_to_show: 12
+          - type: entities
+            title: Sypialnia
+            entities:
+              - entity: sensor.local00_sypialnia_temperature
+                name: Temperatura
+              - entity: sensor.local00_sypialnia_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_sypialnia_temperature
+              hours_to_show: 12
+          - type: entities
+            title: Mała Łazienka
+            entities:
+              - entity: sensor.local00_malalazienka_temperature
+                name: Temperatura
+              - entity: sensor.local00_malalazienka_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_malalazienka_temperature
+              hours_to_show: 12
+          - type: entities
+            title: Łazienka Duża
+            entities:
+              - entity: sensor.local00_lazienka_temperature
+                name: Temperatura
+              - entity: sensor.local00_lazienka_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_lazienka_temperature
+              hours_to_show: 12
+          - type: entities
+            title: Gabinet
+            entities:
+              - entity: sensor.local00_gabinet_temperature
+                name: Temperatura
+              - entity: sensor.local00_gabinet_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_gabinet_temperature
+              hours_to_show: 12
+          - type: entities
+            title: Klara
+            entities:
+              - entity: sensor.local00_klara_temperature
+                name: Temperatura
+              - entity: sensor.local00_klara_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_klara_temperature
+              hours_to_show: 12
+          - type: entities
+            title: Nikola
+            entities:
+              - entity: sensor.local00_nikola_temperature
+                name: Temperatura
+              - entity: sensor.local00_nikola_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_nikola_temperature
+              hours_to_show: 12
+          - type: entities
+            title: Wiatrołap
+            entities:
+              - entity: sensor.local00_wiatrolap_temperature
+                name: Temperatura
+              - entity: sensor.local00_wiatrolap_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_wiatrolap_temperature
+              hours_to_show: 12
+          - type: entities
+            title: Hol Wejście
+            entities:
+              - entity: sensor.local00_holwejscie_temperature
+                name: Temperatura
+              - entity: sensor.local00_holwejscie_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_holwejscie_temperature
+              hours_to_show: 12
+          - type: entities
+            title: Hol Sypialnia
+            entities:
+              - entity: sensor.local00_holsypialnia_temperature
+                name: Temperatura
+              - entity: sensor.local00_holsypialnia_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_holsypialnia_temperature
+              hours_to_show: 12
+          - type: entities
+            title: Gospodarcze
+            entities:
+              - entity: sensor.local00_gospodarcze_temperature
+                name: Temperatura
+              - entity: sensor.local00_gospodarcze_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_gospodarcze_temperature
+              hours_to_show: 12
+  - title: Oświetlenie
+    path: oswietlenie
+    icon: mdi:lightbulb-group
+    cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.salon_mqtt
+            name: Salon Główne
+          - type: light
+            entity: light.boneio_32_l_07_new_light_18
+            name: Salon Dodatkowe
+          - type: light
+            entity: light.shellyrgbw2_salon
+            name: Salon LED
+          - type: light
+            entity: light.shellyplusrgbwpm_9451dc0a83b4_light_0
+            name: Salon LED Ch1
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.boneio_32_l_07_new_light_17
+            name: Sypialnia Główne
+          - type: light
+            entity: light.boneio_32_l_07_new_light_08
+            name: Sypialnia Dekoracyjne
+          - type: light
+            entity: light.boneio_32_l_07_new_light_07
+            name: Sypialnia Garderoba
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chr_02
+            name: Łazienka M. Dekor.
+          - type: light
+            entity: light.boneio_32_l_07_new_light_20
+            name: Zasilanie Łaz. M.
+          - type: light
+            entity: light.shellyrgbw2_c8c9a3399f35
+            name: LED Łazienka Ch1
+          - type: light
+            entity: light.shellyrgbw2_c8c9a3399f35_channel_2
+            name: LED Łazienka Ch2
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_04
+            name: Kuchnia Główne
+          - type: light
+            entity: light.boneio_32_l_07_new_light_05
+            name: Kuchnia Wyspa
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chr_04
+            name: Kuchnia Prawa
+          - type: light
+            entity: light.shellyrgbw2_814843
+            name: LED Kuchnia
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_01
+            name: Korytarz Wejście
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_02
+            name: Korytarz Sypialnia
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chr_01
+            name: Korytarz Ściana
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.bulb_1
+            name: Taras Strona 1
+          - type: light
+            entity: light.bulb_2
+            name: Taras Strona 2
+          - type: light
+            entity: light.boneio_32_l_07_new_light_11
+            name: Zasilanie Taras
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: light
+            entity: light.boneio_32_l_07_new_light_16
+            name: Klara Główne
+          - type: light
+            entity: light.boneio_32_l_07_new_light_14
+            name: Nikola Główne
+          - type: light
+            entity: light.boneio_32_l_07_new_light_10
+            name: Łazienka Duża
+          - type: light
+            entity: light.boneio_32_l_07_new_light_09
+            name: Pralnia
+          - type: light
+            entity: light.boneio_32_l_07_new_light_19
+            name: Gabinet Nocne
+      - type: entities
+        title: Atmosfera LED
+        entities:
+          - entity: input_select.shelly_mode
+            name: Tryb
+          - entity: input_number.shelly_brightness
+            name: Jasność
+          - entity: input_number.kolor_bialy_salon
+            name: Kanał Biały
+          - entity: input_number.kolor_czerwony_salon
+            name: Kanał Czerwony
+        state_color: true
+  - title: Energia
+    path: energia
+    icon: mdi:transmission-tower
+    cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: tile
+            entity: sensor.pstryk_price_meter
+            name: Kupno
+            color: |
+              {% if states('sensor.pstryk_price_meter') | float > 0.7 %}
+                red
+              {% elif states('sensor.pstryk_price_meter') | float > 0.5 %}
+                orange
+              {% else %}
+                green
+              {% endif %}
+          - type: tile
+            entity: sensor.pstryk_current_sell_price
+            name: Sprzedaż
+            color: green
+          - type: tile
+            entity: sensor.pstryk_daily_financial_balance
+            name: Bilans Dziś
+          - type: tile
+            entity: sensor.pstryk_monthly_financial_balance
+            name: Bilans Miesiąc
+          - type: tile
+            entity: sensor.pstryk_buy_daily_average
+            name: Średnia Kupno
+          - type: tile
+            entity: sensor.pstryk_sell_daily_average
+            name: Średnia Sprzedaż
+          - type: tile
+            entity: sensor.pstryk_best_window
+            name: Najlepsze Okno
+            icon: mdi:clock-check-outline
+            color: purple
+          - type: tile
+            entity: binary_sensor.pstryk_in_best_window
+            name: W Oknie
+            color: |
+              {% if is_state('binary_sensor.pstryk_in_best_window', 'on') %}
+                green
+              {% else %}
+                grey
+              {% endif %}
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: tile
+            entity: sensor.tesla_y_charging
+            name: Ładowanie
+            icon: mdi:car-electric
+            color: |
+              {% if is_state('sensor.tesla_y_charging', 'on') %}
+                blue
+              {% else %}
+                grey
+              {% endif %}
+          - type: tile
+            entity: sensor.tesla_y_battery_level
+            name: Bateria
+            icon: mdi:battery
+            color: |
+              {% if states('sensor.tesla_y_battery_level') | float > 80 %}
+                green
+              {% elif states('sensor.tesla_y_battery_level') | float > 30 %}
+                orange
+              {% else %}
+                red
+              {% endif %}
+          - type: tile
+            entity: sensor.tesla_y_charger_actual_range
+            name: Zasięg
+            icon: mdi:map-marker-distance
+          - type: tile
+            entity: device_tracker.tesla_y_location
+            name: Lokalizacja
+            icon: mdi:map-marker
+  - title: Multimedia
+    path: media
+    icon: mdi:television-play
+    cards:
+      - type: horizontal-stack
+        cards:
+          - type: media-control
+            entity: media_player.salon_2
+            name: Apple TV / Speaker
+          - type: media-control
+            entity: media_player.googletv8897_2
+            name: Google TV
+      - type: entities
+        entities:
+          - entity: remote.salon_2
+            name: Pilot Salon
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: tile
+            entity: scene.salon_kino_1
+            name: Kino
+            icon: mdi:movie
+            color: purple
+          - type: tile
+            entity: scene.zmierzch
+            name: Zmierzch
+            icon: mdi:weather-night
+            color: indigo
+          - type: tile
+            entity: scene.motion_lights_off
+            name: Ruch OFF
+            icon: mdi:motion-sensor-off
+            color: red
+          - type: tile
+            entity: scene.motion_lights_on
+            name: Ruch ON
+            icon: mdi:motion-sensor
+            color: green

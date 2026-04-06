@@ -1,0 +1,305 @@
+title: Energy Dashboard - TEST
+views:
+  - title: Energy Overview
+    path: energy
+    icon: mdi:lightning-bolt
+    cards:
+
+      # --- HEADING: CURRENT ENERGY PRICE ---
+      - type: heading
+        heading: Aktualna Cena Energii
+
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: sensor.pstryk_price_meter
+            name: Cena PLN/kWh
+            icon: mdi:currency-pln
+            color: >
+              {% if states('sensor.pstryk_price_meter') | float > 0.7 %}
+                red
+              {% elif states('sensor.pstryk_price_meter') | float > 0.5 %}
+                orange
+              {% else %}
+                green
+              {% endif %}
+
+          - type: tile
+            entity: binary_sensor.pstryk_in_best_window
+            name: Najlepszy Okres
+            icon: mdi:clock-check
+            color: >
+              {% if is_state('binary_sensor.pstryk_in_best_window', 'on') %}
+                green
+              {% else %}
+                grey
+              {% endif %}
+
+          - type: tile
+            entity: sensor.pstryk_best_window
+            name: Najtańsze Okno
+            icon: mdi:calendar-clock
+            color: blue
+
+      # --- HEADING: HEATING ZONES (6 LOCALS) ---
+      - type: heading
+        heading: Strefy Grzewcze - Lokale
+
+      - type: grid
+        columns: 3
+        cards:
+          # Local 01
+          - type: tile
+            entity: sensor.local01_glowny_temperature
+            name: Local01 Glowny
+            icon: mdi:home
+          - type: tile
+            entity: sensor.local01_glowny_heating_state
+            name: Local01 Glowny Ogrzewanie
+            icon: mdi:radiator
+          - type: tile
+            entity: sensor.local01_glowny_setpoint
+            name: Local01 Glowny Zadana
+            icon: mdi:thermometer
+
+          # Local 02
+          - type: tile
+            entity: sensor.local02_glowny_temperature
+            name: Local02 Glowny
+            icon: mdi:home
+          - type: tile
+            entity: sensor.local02_glowny_heating_state
+            name: Local02 Glowny Ogrzewanie
+            icon: mdi:radiator
+          - type: tile
+            entity: sensor.local02_glowny_setpoint
+            name: Local02 Glowny Zadana
+            icon: mdi:thermometer
+
+          # Local 03
+          - type: tile
+            entity: sensor.local03_glowny_temperature
+            name: Local03 Glowny
+            icon: mdi:home
+          - type: tile
+            entity: sensor.local03_glowny_heating_state
+            name: Local03 Glowny Ogrzewanie
+            icon: mdi:radiator
+          - type: tile
+            entity: sensor.local03_glowny_setpoint
+            name: Local03 Glowny Zadana
+            icon: mdi:thermometer
+
+          # Local 04
+          - type: tile
+            entity: sensor.local04_glowny_temperature
+            name: Local04 Glowny
+            icon: mdi:home
+          - type: tile
+            entity: sensor.local04_glowny_heating_state
+            name: Local04 Glowny Ogrzewanie
+            icon: mdi:radiator
+          - type: tile
+            entity: sensor.local04_glowny_setpoint
+            name: Local04 Glowny Zadana
+            icon: mdi:thermometer
+
+          # Local 05
+          - type: tile
+            entity: sensor.local05_glowny_temperature
+            name: Local05 Glowny
+            icon: mdi:home
+          - type: tile
+            entity: sensor.local05_glowny_heating_state
+            name: Local05 Glowny Ogrzewanie
+            icon: mdi:radiator
+          - type: tile
+            entity: sensor.local05_glowny_setpoint
+            name: Local05 Glowny Zadana
+            icon: mdi:thermometer
+
+          # Local 06
+          - type: tile
+            entity: sensor.local06_glowny_temperature
+            name: Local06 Glowny
+            icon: mdi:home
+          - type: tile
+            entity: sensor.local06_glowny_heating_state
+            name: Local06 Glowny Ogrzewanie
+            icon: mdi:radiator
+          - type: tile
+            entity: sensor.local06_glowny_setpoint
+            name: Local06 Glowny Zadana
+            icon: mdi:thermometer
+
+      # --- HEADING: Tesla Charging ---
+      - type: heading
+        heading: Tesla Charging
+
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: binary_sensor.pstryk_in_best_window
+            name: W Oknie Cenowym
+            icon: mdi:clock-check-outline
+            color: >
+              {% if is_state('binary_sensor.pstryk_in_best_window', 'on') %}
+                green
+              {% else %}
+                grey
+              {% endif %}
+
+          - type: tile
+            entity: sensor.tesla_y_charging
+            name: Tesla Ladowanie
+            icon: mdi:car-electric
+            color: >
+              {% if is_state('sensor.tesla_y_charging', 'on') %}
+                blue
+              {% else %}
+                grey
+              {% endif %}
+
+          - type: tile
+            entity: sensor.tesla_y_battery_level
+            name: Bateria
+            icon: mdi:battery
+            color: >
+              {% if states('sensor.tesla_y_battery_level') | float > 80 %}
+                green
+              {% elif states('sensor.tesla_y_battery_level') | float > 30 %}
+                orange
+              {% else %}
+                red
+              {% endif %}
+
+      # --- HEADING: Tesla Location ---
+      - type: heading
+        heading: Tesla Status
+
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: device_tracker.tesla_y_location
+            name: Lokalizacja
+            icon: mdi:map-marker
+          - type: tile
+            entity: sensor.tesla_y_charger_actual_range
+            name: Zasieg
+            icon: mdi:map-marker-distance
+
+      # --- HEADING: Pstryk Price Details ---
+      - type: heading
+        heading: Szczegoly Cenowe
+
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: Pstryk - Aktualne Ceny
+            entities:
+              - entity: sensor.pstryk_price_meter
+                name: Aktualna Cena
+                icon: mdi:currency-pln
+              - entity: sensor.pstryk_best_window
+                name: Najtańsze Okno 3h
+                icon: mdi:clock-outline
+              - entity: binary_sensor.pstryk_in_best_window
+                name: W Oknie Cenowym
+                icon: mdi:check-circle
+              - entity: sensor.pstryk_price_meter
+                name: JSON Debug
+                icon: mdi:code-json
+
+      # --- HEADING: HEATING ROUTINE CONTROLS ---
+      - type: heading
+        heading: Sterowanie Grzewaniem
+
+      - type: grid
+        columns: 3
+        cards:
+          - type: entity
+            entity: input_select.local01_main_heating_routine
+            name: Local01 Glowny
+          - type: entity
+            entity: input_select.local02_main_heating_routine
+            name: Local02 Glowny
+          - type: entity
+            entity: input_select.local03_main_heating_routine
+            name: Local03 Glowny
+          - type: entity
+            entity: input_select.local04_main_heating_routine
+            name: Local04 Glowny
+          - type: entity
+            entity: input_select.local05_main_heating_routine
+            name: Local05 Glowny
+          - type: entity
+            entity: input_select.local06_main_heating_routine
+            name: Local06 Glowny
+
+      # --- HEADING: MOTION LIGHTS CONTROL ---
+      - type: heading
+        heading: Swiatla - Kontrola
+
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: input_boolean.motion_lights_disabled
+            name: Motion Lights
+            icon: >
+              {% if is_state('input_boolean.motion_lights_disabled', 'on') %}
+                mdi:motion-sensor-off
+              {% else %}
+                mdi:motion-sensor
+              {% endif %}
+            color: >
+              {% if is_state('input_boolean.motion_lights_disabled', 'on') %}
+                red
+              {% else %}
+                green
+              {% endif %}
+            tap_action:
+              action: toggle
+
+      # --- HEADING: SCENES ---
+      - type: heading
+        heading: Sceny
+
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: scene.motion_lights_off
+            name: Motion OFF
+            icon: mdi:motion-sensor-off
+            color: red
+          - type: tile
+            entity: scene.motion_lights_on
+            name: Motion ON
+            icon: mdi:motion-sensor
+            color: green
+          - type: tile
+            entity: scene.zmierzch
+            name: Zmierzch
+            icon: mdi:weather-night
+          - type: tile
+            entity: scene.salon_kino_1
+            name: Salon Kino
+            icon: mdi:movie
+
+      # --- HEADING: LOCAL SENSORS AVERAGE ---
+      - type: heading
+        heading: Srednie Wartosci
+
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: sensor.local_01_sensors
+            name: Local 01 Srednia
+            icon: mdi:home-group
+          - type: tile
+            entity: sensor.local00_klatka1p_temperature
+            name: Klatka 1p
+            icon: mdi:door
+          - type: tile
+            entity: sensor.local00_klatka2p_temperature
+            name: Klatka 2p
+            icon: mdi:door

@@ -158,7 +158,7 @@ views:
     cards:
       - type: heading
         heading: Temperatura w Pomieszczeniach
-      
+
       - type: grid
         columns: 2
         square: false
@@ -173,7 +173,7 @@ views:
             footer:
               type: graph
               entity: sensor.local00_kuchnia_temperature_controller
-          
+
           - type: entities
             title: Salon
             entities:
@@ -197,7 +197,7 @@ views:
               entity: sensor.local00_sypialnia_temperature
 
           - type: entities
-            title: Łazienka
+            title: Mała Łazienka
             entities:
               - entity: sensor.local00_malalazienka_temperature
                 name: Temperatura
@@ -206,6 +206,94 @@ views:
             footer:
               type: graph
               entity: sensor.local00_malalazienka_temperature
+
+          - type: entities
+            title: Łazienka Duża
+            entities:
+              - entity: sensor.local00_lazienka_temperature
+                name: Temperatura
+              - entity: sensor.local00_lazienka_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_lazienka_temperature
+
+          - type: entities
+            title: Gabinet
+            entities:
+              - entity: sensor.local00_gabinet_temperature
+                name: Temperatura
+              - entity: sensor.local00_gabinet_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_gabinet_temperature
+
+          - type: entities
+            title: Klara
+            entities:
+              - entity: sensor.local00_klara_temperature
+                name: Temperatura
+              - entity: sensor.local00_klara_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_klara_temperature
+
+          - type: entities
+            title: Nikola
+            entities:
+              - entity: sensor.local00_nikola_temperature
+                name: Temperatura
+              - entity: sensor.local00_nikola_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_nikola_temperature
+
+          - type: entities
+            title: Wiatrołap
+            entities:
+              - entity: sensor.local00_wiatrolap_temperature
+                name: Temperatura
+              - entity: sensor.local00_wiatrolap_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_wiatrolap_temperature
+
+          - type: entities
+            title: Hol Wejście
+            entities:
+              - entity: sensor.local00_holwejscie_temperature
+                name: Temperatura
+              - entity: sensor.local00_holwejscie_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_holwejscie_temperature
+
+          - type: entities
+            title: Hol Sypialnia
+            entities:
+              - entity: sensor.local00_holsypialnia_temperature
+                name: Temperatura
+              - entity: sensor.local00_holsypialnia_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_holsypialnia_temperature
+
+          - type: entities
+            title: Gospodarcze
+            entities:
+              - entity: sensor.local00_gospodarcze_temperature
+                name: Temperatura
+              - entity: sensor.local00_gospodarcze_heating_state
+                name: Grzanie
+            footer:
+              type: graph
+              entity: sensor.local00_gospodarcze_temperature
 
   - title: Energia
     path: pstryk

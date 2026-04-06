@@ -1,7 +1,8 @@
 title: Dom
 views:
-  - title: Home
+  - title: Dom
     path: dol
+    icon: mdi:home
     cards:
       - square: false
         type: grid
@@ -9,7 +10,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_kuchnia_temperature_controller
+                name: Temperatura
               - entity: sensor.local00_kuchnia_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Kuchnia
             show_header_toggle: true
@@ -24,7 +27,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_salon_temperature
+                name: Temperatura
               - entity: sensor.local00_salon_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Salon
             show_header_toggle: true
@@ -39,7 +44,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_malalazienka_temperature
+                name: Temperatura
               - entity: sensor.local00_malalazienka_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Mała Łazienka
             show_header_toggle: true
@@ -54,7 +61,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_wiatrolap_temperature
+                name: Temperatura
               - entity: sensor.local00_wiatrolap_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Wiatrołap
             show_header_toggle: true
@@ -69,7 +78,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_gabinet_temperature
+                name: Temperatura
               - entity: sensor.local00_gabinet_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Gabinet
             show_header_toggle: true
@@ -84,7 +95,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_holsypialnia_temperature
+                name: Temperatura
               - entity: sensor.local00_holsypialnia_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Hol Sypialnia
             show_header_toggle: true
@@ -99,7 +112,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_holwejscie_temperature
+                name: Temperatura
               - entity: sensor.local00_holwejscie_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Hol Wejście
             show_header_toggle: true
@@ -114,7 +129,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_klara_temperature
+                name: Temperatura
               - entity: sensor.local00_klara_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Klara
             show_header_toggle: true
@@ -129,7 +146,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_sypialnia_temperature
+                name: Temperatura
               - entity: sensor.local00_sypialnia_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Sypialnia
             show_header_toggle: true
@@ -144,7 +163,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_nikola_temperature
+                name: Temperatura
               - entity: sensor.local00_nikola_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Nikola
             show_header_toggle: true
@@ -153,9 +174,9 @@ views:
               entity: sensor.local00_nikola_temperature
               hours_to_show: 12
         columns: 1
-    icon: mdi:home
   - title: Wynajem
     path: all
+    icon: mdi:home-city
     badges: []
     cards:
       - square: false
@@ -164,7 +185,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_klatka1p_controler_temperature
+                name: Temperatura
               - entity: sensor.local00_klatka1p_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Klatka 1 P
             show_header_toggle: true
@@ -179,7 +202,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_klatka2p_controler_temperature
+                name: Temperatura
               - entity: sensor.local00_klatka2p_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Klatka 2 P
             show_header_toggle: true
@@ -194,7 +219,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local01_glowny_temperature_controller
+                name: Temperatura
               - entity: sensor.local01_glowny_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Główny Lokal 01
             show_header_toggle: true
@@ -210,7 +237,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local01_sypialnia_temperature
+                name: Temperatura
               - entity: sensor.local01_sypialnia_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Sypialnia Lokal 01
             show_header_toggle: true
@@ -225,7 +254,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local01_lazienka_temperature
+                name: Temperatura
               - entity: sensor.local01_lazienka_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Łazienka Lokal 01
             show_header_toggle: true
@@ -239,7 +270,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local02_glowny_temperature_controller
+                name: Temperatura
               - entity: sensor.local02_glowny_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Główny Lokal 02
             show_header_toggle: true
@@ -255,7 +288,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local02_sypialnia_temperature
+                name: Temperatura
               - entity: sensor.local02_sypialnia_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Sypialnia Lokal 02
             show_header_toggle: true
@@ -270,7 +305,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local02_lazienka_temperature
+                name: Temperatura
               - entity: sensor.local02_lazienka_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Łazienka Lokal 02
             show_header_toggle: true
@@ -284,7 +321,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local03_glowny_temperature_controller
+                name: Temperatura
               - entity: sensor.local03_glowny_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Główny Lokal 03
             show_header_toggle: true
@@ -300,7 +339,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local03_sypialnia_temperature
+                name: Temperatura
               - entity: sensor.local03_sypialnia_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Sypialnia Lokal 03
             show_header_toggle: true
@@ -315,7 +356,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local03_lazienka_temperature
+                name: Temperatura
               - entity: sensor.local03_lazienka_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Łazienka Lokal 03
             show_header_toggle: true
@@ -329,7 +372,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local04_glowny_temperature_controller
+                name: Temperatura
               - entity: sensor.local04_glowny_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Główny Lokal 04
             show_header_toggle: true
@@ -345,7 +390,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local04_sypialnia_temperature
+                name: Temperatura
               - entity: sensor.local04_sypialnia_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Sypialnia Lokal 04
             show_header_toggle: true
@@ -360,7 +407,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local04_lazienka_temperature
+                name: Temperatura
               - entity: sensor.local04_lazienka_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Łazienka Lokal 04
             show_header_toggle: true
@@ -374,7 +423,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local05_glowny_temperature_controller
+                name: Temperatura
               - entity: sensor.local05_glowny_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Główny Lokal 05
             show_header_toggle: true
@@ -390,7 +441,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local05_sypialnia_temperature
+                name: Temperatura
               - entity: sensor.local05_sypialnia_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Sypialnia Lokal 05
             show_header_toggle: true
@@ -405,7 +458,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local05_lazienka_temperature
+                name: Temperatura
               - entity: sensor.local05_lazienka_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Łazienka Lokal 05
             show_header_toggle: true
@@ -419,7 +474,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local06_glowny_temperature_controller
+                name: Temperatura
               - entity: sensor.local06_glowny_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Główny Lokal 06
             show_header_toggle: true
@@ -435,7 +492,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local06_sypialnia_temperature
+                name: Temperatura
               - entity: sensor.local06_sypialnia_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Sypialnia Lokal 06
             show_header_toggle: true
@@ -450,7 +509,9 @@ views:
           - type: entities
             entities:
               - entity: sensor.local06_lazienka_temperature
+                name: Temperatura
               - entity: sensor.local06_lazienka_heating_state
+                name: Grzanie
                 icon: mdi:power
             title: Łazienka Lokal 06
             show_header_toggle: true
@@ -460,6 +521,7 @@ views:
               hours_to_show: 12
   - title: LOKAL 01
     path: lokal-01
+    icon: mdi:numeric-1-box
     badges: []
     cards:
       - square: false
@@ -468,16 +530,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local01_glowny_temperature_controller
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local01_glowny_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local01_glowny_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local01_main_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local01_glowny_routine
-                name: Routine read
+                name: Obecny harmonogram
             title: Główny
             show_header_toggle: true
             footer:
@@ -486,7 +548,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local01_glowny_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -495,16 +557,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local01_sypialnia_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local01_sypialnia_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local01_sypialnia_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local01_bedroom_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local01_sypialnia_routine
-                name: Routine read
+                name: Obecny harmonogram
             title: Sypialnia
             show_header_toggle: true
             footer:
@@ -513,7 +575,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local01_sypialnia_termostat
-            name: Thermostat
+            name: Termostat
       - square: false
         type: grid
         columns: 1
@@ -521,16 +583,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local01_lazienka_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local01_lazienka_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local01_lazienka_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local01_bathroom_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local01_lazienka_routine
-                name: Routine read
+                name: Obecny harmonogram
             title: Lazienka
             show_header_toggle: true
             footer:
@@ -540,9 +602,10 @@ views:
               detail: 2
           - type: thermostat
             entity: climate.local01_lazienka_termostat
-            name: Thermostat
+            name: Termostat
   - path: default_view
-    title: LOKAL 2
+    title: LOKAL 02
+    icon: mdi:numeric-2-box
     badges: []
     cards:
       - square: false
@@ -551,16 +614,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local02_glowny_temperature_controller
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local02_glowny_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local02_glowny_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local02_main_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local02_glowny_routine
-                name: Routine read
+                name: Harmonogram read
             title: Główny
             show_header_toggle: true
             footer:
@@ -569,7 +632,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local02_glowny_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -578,16 +641,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local02_sypialnia_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local02_sypialnia_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local02_sypialnia_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local02_bedroom_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local02_sypialnia_routine
-                name: Routine read
+                name: Harmonogram read
             title: Sypialnia
             show_header_toggle: true
             footer:
@@ -596,7 +659,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local02_sypialnia_termostat
-            name: Thermostat
+            name: Termostat
       - square: false
         type: grid
         columns: 1
@@ -604,16 +667,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local02_lazienka_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local02_lazienka_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: sensor.local02_lazienka_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: input_select.local02_bathroom_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local02_lazienka_routine
-                name: Routine read
+                name: Harmonogram read
             title: Lazienka
             show_header_toggle: true
             footer:
@@ -622,9 +685,10 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local02_lazienka_termostat
-            name: Thermostat
+            name: Termostat
   - title: LOKAL 03
     path: lokal-03
+    icon: mdi:numeric-3-box
     badges: []
     cards:
       - square: false
@@ -633,16 +697,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local03_glowny_temperature_controller
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local03_glowny_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local03_glowny_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local03_main_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local03_glowny_routine
-                name: Routine read
+                name: Harmonogram read
             title: Główny
             show_header_toggle: true
             footer:
@@ -651,7 +715,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local03_glowny_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -660,16 +724,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local03_sypialnia_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local03_sypialnia_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local03_sypialnia_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local03_bedroom_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local03_sypialnia_routine
-                name: Routine read
+                name: Harmonogram read
             title: Sypialnia
             show_header_toggle: true
             footer:
@@ -678,7 +742,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local03_sypialnia_termostat
-            name: Thermostat
+            name: Termostat
       - square: false
         type: grid
         columns: 1
@@ -686,16 +750,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local03_lazienka_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local03_lazienka_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: sensor.local03_lazienka_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: input_select.local03_bathroom_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local03_lazienka_routine
-                name: Routine read
+                name: Harmonogram read
             title: Lazienka
             show_header_toggle: true
             footer:
@@ -704,9 +768,10 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local03_lazienka_termostat
-            name: Thermostat
+            name: Termostat
   - title: LOKAL 04
     path: lokal-04
+    icon: mdi:numeric-4-box
     badges: []
     cards:
       - square: false
@@ -715,16 +780,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local04_glowny_temperature_controller
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local04_glowny_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local04_glowny_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local04_main_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local04_glowny_routine
-                name: Routine read
+                name: Harmonogram read
             title: Główny
             show_header_toggle: true
             footer:
@@ -733,7 +798,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local04_glowny_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -742,16 +807,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local04_sypialnia_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local04_sypialnia_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local04_sypialnia_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local04_bedroom_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local04_sypialnia_routine
-                name: Routine read
+                name: Harmonogram read
             title: Sypialnia
             show_header_toggle: true
             footer:
@@ -760,7 +825,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local04_sypialnia_termostat
-            name: Thermostat
+            name: Termostat
       - square: false
         type: grid
         columns: 1
@@ -768,16 +833,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local04_lazienka_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local04_lazienka_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: sensor.local04_lazienka_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: input_select.local04_bathroom_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local04_lazienka_routine
-                name: Routine read
+                name: Harmonogram read
             title: Lazienka
             show_header_toggle: true
             footer:
@@ -786,9 +851,10 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local04_lazienka_termostat
-            name: Thermostat
+            name: Termostat
   - title: LOKAL 05
     path: lokal-05
+    icon: mdi:numeric-5-box
     badges: []
     cards:
       - square: false
@@ -797,16 +863,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local05_glowny_temperature_controller
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local05_glowny_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local05_glowny_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local05_main_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local05_glowny_routine
-                name: Routine read
+                name: Harmonogram read
             title: Główny
             show_header_toggle: true
             footer:
@@ -815,7 +881,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local05_glowny_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -824,16 +890,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local05_sypialnia_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local05_sypialnia_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local05_sypialnia_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local05_bedroom_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local05_sypialnia_routine
-                name: Routine read
+                name: Harmonogram read
             title: Sypialnia
             show_header_toggle: true
             footer:
@@ -842,7 +908,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local05_sypialnia_termostat
-            name: Thermostat
+            name: Termostat
       - square: false
         type: grid
         columns: 1
@@ -850,16 +916,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local05_lazienka_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local05_lazienka_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: sensor.local05_lazienka_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: input_select.local05_bathroom_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local05_lazienka_routine
-                name: Routine read
+                name: Harmonogram read
             title: Lazienka
             show_header_toggle: true
             footer:
@@ -868,9 +934,10 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local05_lazienka_termostat
-            name: Thermostat
+            name: Termostat
   - title: LOKAL 06
     path: lokal-06
+    icon: mdi:numeric-6-box
     badges: []
     cards:
       - square: false
@@ -879,16 +946,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local06_glowny_temperature_controller
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local06_glowny_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local06_glowny_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local06_main_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local06_glowny_routine
-                name: Routine read
+                name: Harmonogram read
             title: Główny
             show_header_toggle: true
             footer:
@@ -897,7 +964,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local06_glowny_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -906,16 +973,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local06_sypialnia_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local06_sypialnia_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local06_sypialnia_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local06_bedroom_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local06_sypialnia_routine
-                name: Routine read
+                name: Harmonogram read
             title: Sypialnia
             show_header_toggle: true
             footer:
@@ -924,7 +991,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local06_sypialnia_termostat
-            name: Thermostat
+            name: Termostat
       - square: false
         type: grid
         columns: 1
@@ -932,16 +999,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local06_lazienka_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local06_lazienka_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: sensor.local06_lazienka_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: input_select.local06_bathroom_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local06_lazienka_routine
-                name: Routine read
+                name: Harmonogram read
             title: Lazienka
             show_header_toggle: true
             footer:
@@ -950,9 +1017,10 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local06_lazienka_termostat
-            name: Thermostat
-  - title: Details
+            name: Termostat
+  - title: Szczegóły
     path: details
+    icon: mdi:format-list-bulleted
     badges: []
     cards:
       - type: entities
@@ -998,6 +1066,7 @@ views:
           - sensor.local06_sypialnia_heating_state
   - title: Klatki
     path: klatki
+    icon: mdi:stairs
     badges: []
     cards:
       - square: false
@@ -1007,12 +1076,12 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_klatka1p_controler_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_klatka1p_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_klatka1p_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_klatka1p_heating_routine
             title: Klatka 1P
             show_header_toggle: true
@@ -1027,12 +1096,12 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_klatka2p_controler_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_klatka2p_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_klatka2p_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_klatka2p_heating_routine
             title: Klatka 2P
             show_header_toggle: true
@@ -1054,8 +1123,9 @@ views:
           - switch.520a_record_audio
           - number.520a_volume
         title: 520A
-  - title: Home2
+  - title: Dom - Termostaty
     path: home2
+    icon: mdi:thermostat
     badges: []
     cards:
       - square: false
@@ -1064,16 +1134,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_kuchnia_temperature_controller
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_kuchnia_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_kuchnia_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_kuchnia_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local00_kuchnia_routine
-                name: Routine read
+                name: Harmonogram read
             title: Kuchnia
             show_header_toggle: true
             footer:
@@ -1082,7 +1152,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local00_kuchnia_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -1090,16 +1160,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_salon_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_salon_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_salon_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_salon_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local00_salon_routine
-                name: Routine read
+                name: Harmonogram read
             title: Salon
             show_header_toggle: true
             footer:
@@ -1108,7 +1178,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local00_salon_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -1116,16 +1186,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_sypialnia_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_sypialnia_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_sypialnia_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_sypialnia_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local00_sypialnia_routine
-                name: Routine read
+                name: Harmonogram read
             title: Sypialnia
             show_header_toggle: true
             footer:
@@ -1134,7 +1204,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local00_sypialnia_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -1142,16 +1212,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_lazienka_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_lazienka_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_lazienka_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_lazienka_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local00_lazienka_routine
-                name: Routine read
+                name: Harmonogram read
             title: Łazienka
             show_header_toggle: true
             footer:
@@ -1160,7 +1230,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local00_lazienka_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -1168,16 +1238,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_malalazienka_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_malalazienka_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_malalazienka_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_malalazienka_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local00_malalazienka_routine
-                name: Routine read
+                name: Harmonogram read
             title: Mała łazienka
             show_header_toggle: true
             footer:
@@ -1186,7 +1256,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local00_malalazienka_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -1194,16 +1264,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_klara_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_klara_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_klara_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_klara_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local00_klara_routine
-                name: Routine read
+                name: Harmonogram read
             title: Klara
             show_header_toggle: true
             footer:
@@ -1212,7 +1282,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local00_klara_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -1220,16 +1290,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_nikola_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_nikola_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_nikola_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_nikola_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local00_nikola_routine
-                name: Routine read
+                name: Harmonogram read
             title: Nikola
             show_header_toggle: true
             footer:
@@ -1238,7 +1308,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local00_nikola_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -1246,16 +1316,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_gabinet_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_gabinet_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_gabinet_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_gabinet_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local00_gabinet_routine
-                name: Routine read
+                name: Harmonogram read
             title: Gabinet
             show_header_toggle: true
             footer:
@@ -1264,7 +1334,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local00_gabinet_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -1272,16 +1342,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_gospodarcze_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_gospodarcze_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_gospodarcze_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_gospodarcze_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local00_gospodarcze_routine
-                name: Routine read
+                name: Harmonogram read
             title: Gospodarcze
             show_header_toggle: true
             footer:
@@ -1290,7 +1360,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local00_gospodarcze_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -1298,16 +1368,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_wiatrolap_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_wiatrolap_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_wiatrolap_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_wiatrolap_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local00_wiatrolap_routine
-                name: Routine read
+                name: Harmonogram read
             title: Wiatrołap
             show_header_toggle: true
             footer:
@@ -1316,7 +1386,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local00_wiatrolap_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -1324,16 +1394,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_holwejscie_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_holwejscie_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_holwejscie_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_holwejscie_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local00_holwejscie_routine
-                name: Routine read
+                name: Harmonogram read
             title: Hol Wejście
             show_header_toggle: true
             footer:
@@ -1342,7 +1412,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local00_holwejscie_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -1350,16 +1420,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_holsypialnia_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_holsypialnia_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_holsypialnia_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_holsypialnia_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local00_holsypialnia_routine
-                name: Routine read
+                name: Harmonogram read
             title: Hol Sypialnia
             show_header_toggle: true
             footer:
@@ -1368,7 +1438,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local00_holsypialnia_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -1376,16 +1446,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_klatka1p_controler_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_klatka1p_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_klatka1p_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_klatka1p_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local00_klatka1p_routine
-                name: Routine read
+                name: Harmonogram read
             title: Klatka 1P
             show_header_toggle: true
             footer:
@@ -1394,7 +1464,7 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local00_klatka1p_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
       - square: false
         type: grid
@@ -1402,16 +1472,16 @@ views:
           - type: entities
             entities:
               - entity: sensor.local00_klatka2p_controler_temperature
-                name: Temperature
+                name: Temperatura
               - entity: sensor.local00_klatka2p_heating_state
-                name: Heating State
+                name: Grzanie
                 icon: mdi:power
               - entity: sensor.local00_klatka2p_setpoint
-                name: Setpoint
+                name: Temperatura zadana
               - entity: input_select.local00_klatka2p_heating_routine
-                name: Routine
+                name: Harmonogram
               - entity: sensor.local00_klatka2p_routine
-                name: Routine read
+                name: Harmonogram read
             title: Klatka 2P
             show_header_toggle: true
             footer:
@@ -1420,5 +1490,5 @@ views:
               hours_to_show: 12
           - type: thermostat
             entity: climate.local00_klatka2p_termostat
-            name: Thermostat
+            name: Termostat
         columns: 1
