@@ -2301,14 +2301,7 @@
       %} {% if nastepny_wywoz != None %}\n  {{ (as_timestamp(nastepny_wywoz) - as_timestamp(now()))
       / 3600 < 15 }}\n{% else %}\n  false\n{% endif %}\n"
   actions:
-  - data:
-      title: "\U0001F69B Jutro rano odbiór odpadów!"
-      message: 'Jutro rano odbierają: {{ state_attr(''calendar.odpady'', ''message'')
-        }}.  Wystaw pojemnik/worek przed posesję do godziny 6:00.
-
-        '
-      data:
-        notification_icon: mdi:trash-can
-        color: '#2196F3'
-    action: notify.mobile_app_twoj_telefon
+  - action: notify.all_devices
+    data:
+      message: Śmieci
   mode: single
