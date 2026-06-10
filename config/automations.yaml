@@ -2202,13 +2202,13 @@
 - id: daily_energy_price_notification
   alias: 'Energy: Daily Price Forecast Notification'
   description: Sends a notification at 22:00 with the cheapest energy price window
-    for the next available time.
+    for the next available time. Uses dół installation (pricing is identical for both).
   trigger:
   - platform: time
     at: '22:00:00'
   action:
   - variables:
-      sensor_entity: sensor.pstryk_best_window
+      sensor_entity: sensor.pstryk_best_window_dol
       start_attr: '{{ state_attr(sensor_entity, ''start_time'') }}'
       end_attr: '{{ state_attr(sensor_entity, ''end_time'') }}'
       gross_min: '{{ state_attr(sensor_entity, ''gross_min'') }}'
@@ -2275,7 +2275,7 @@
   triggers:
   - trigger: state
     entity_id:
-    - binary_sensor.pstryk_in_best_window
+    - binary_sensor.pstryk_in_best_window_dol
     to:
     - 'on'
   conditions:

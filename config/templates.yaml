@@ -1,37 +1,70 @@
 - sensor:
-    - name: "Pstryk Best Window"
-      unique_id: pstryk_best_window
-      # Directly pull from the script's pre-calculated window
+    # --- dół (lower/ground floor) ---
+    - name: "Pstryk Best Window Dol"
+      unique_id: pstryk_best_window_dol
       state: >
-        {% set start = state_attr('sensor.pstryk_price_meter', 'start') %}
-        {% set end = state_attr('sensor.pstryk_price_meter', 'end') %}
+        {% set start = state_attr('sensor.pstryk_price_meter_dol', 'start') %}
+        {% set end = state_attr('sensor.pstryk_price_meter_dol', 'end') %}
         {% if start and end %}
           {{ as_timestamp(start) | timestamp_custom('%H:%M') }} - {{ (as_timestamp(end) + 3600) | timestamp_custom('%H:%M') }}
         {% else %}
           unavailable
         {% endif %}
       attributes:
-        start_time: "{{ state_attr('sensor.pstryk_price_meter', 'start') }}"
-        end_time: "{{ (as_timestamp(state_attr('sensor.pstryk_price_meter', 'end')) + 3600) | timestamp_custom('%Y-%m-%dT%H:%M:%SZ') if state_attr('sensor.pstryk_price_meter', 'end') }}"
-        duration_hours: "{{ state_attr('sensor.pstryk_price_meter', 'duration_hours') }}"
-        min_price: "{{ (state_attr('sensor.pstryk_price_meter', 'gross') | map(attribute='min') | first) if state_attr('sensor.pstryk_price_meter', 'gross') else 'unavailable' }}"
-        # Helper attributes for easier automation access
-        gross_min: "{{ state_attr('sensor.pstryk_price_meter', 'gross')['min'] if state_attr('sensor.pstryk_price_meter', 'gross') else 'N/A' }}"
-        gross_avg: "{{ state_attr('sensor.pstryk_price_meter', 'gross')['avg'] if state_attr('sensor.pstryk_price_meter', 'gross') else 'N/A' }}"
+        start_time: "{{ state_attr('sensor.pstryk_price_meter_dol', 'start') }}"
+        end_time: "{{ (as_timestamp(state_attr('sensor.pstryk_price_meter_dol', 'end')) + 3600) | timestamp_custom('%Y-%m-%dT%H:%M:%SZ') if state_attr('sensor.pstryk_price_meter_dol', 'end') }}"
+        duration_hours: "{{ state_attr('sensor.pstryk_price_meter_dol', 'duration_hours') }}"
+        gross_min: "{{ state_attr('sensor.pstryk_price_meter_dol', 'gross')['min'] if state_attr('sensor.pstryk_price_meter_dol', 'gross') else 'N/A' }}"
+        gross_avg: "{{ state_attr('sensor.pstryk_price_meter_dol', 'gross')['avg'] if state_attr('sensor.pstryk_price_meter_dol', 'gross') else 'N/A' }}"
+    # --- góra (upper floor) ---
+    - name: "Pstryk Best Window Gora"
+      unique_id: pstryk_best_window_gora
+      state: >
+        {% set start = state_attr('sensor.pstryk_price_meter_gora', 'start') %}
+        {% set end = state_attr('sensor.pstryk_price_meter_gora', 'end') %}
+        {% if start and end %}
+          {{ as_timestamp(start) | timestamp_custom('%H:%M') }} - {{ (as_timestamp(end) + 3600) | timestamp_custom('%H:%M') }}
+        {% else %}
+          unavailable
+        {% endif %}
+      attributes:
+        start_time: "{{ state_attr('sensor.pstryk_price_meter_gora', 'start') }}"
+        end_time: "{{ (as_timestamp(state_attr('sensor.pstryk_price_meter_gora', 'end')) + 3600) | timestamp_custom('%Y-%m-%dT%H:%M:%SZ') if state_attr('sensor.pstryk_price_meter_gora', 'end') }}"
+        duration_hours: "{{ state_attr('sensor.pstryk_price_meter_gora', 'duration_hours') }}"
+        gross_min: "{{ state_attr('sensor.pstryk_price_meter_gora', 'gross')['min'] if state_attr('sensor.pstryk_price_meter_gora', 'gross') else 'N/A' }}"
+        gross_avg: "{{ state_attr('sensor.pstryk_price_meter_gora', 'gross')['avg'] if state_attr('sensor.pstryk_price_meter_gora', 'gross') else 'N/A' }}"
 
 - binary_sensor:
-    - name: "Pstryk In Best Window"
-      unique_id: pstryk_in_best_window
+    # --- dół ---
+    - name: "Pstryk In Best Window Dol"
+      unique_id: pstryk_in_best_window_dol
       state: >
-        {% set start = state_attr('sensor.pstryk_best_window', 'start_time') %}
-        {% set end = state_attr('sensor.pstryk_best_window', 'end_time') %}
+        {% set start = state_attr('sensor.pstryk_best_window_dol', 'start_time') %}
+        {% set end = state_attr('sensor.pstryk_best_window_dol', 'end_time') %}
         {% if start and end %}
           {{ as_timestamp(start, 0) <= as_timestamp(now(), 0) < as_timestamp(end, 0) }}
         {% else %}
           false
         {% endif %}
       icon: >
-        {% if is_state('binary_sensor.pstryk_in_best_window', 'on') %}
+        {% if is_state('binary_sensor.pstryk_in_best_window_dol', 'on') %}
+          mdi:flash
+        {% else %}
+          mdi:flash-outline
+        {% endif %}
+    # --- góra ---
+    - name: "Pstryk In Best Window Gora"
+      unique_id: pstryk_in_best_window_gora
+      state: >
+        {% set start = state_attr('sensor.pstryk_best_window_gora', 'start_time') %}
+        {% set end = state_attr('sensor.pstryk_best_window_gora', 'end_time') %}
+        {% if start and end %}
+          {{ as_timestamp(start, 0) <= as_timestamp(now(), 0) < as_timestamp(end, 0) }}
+        {% else %}
+          false
+        {% endif %}
+      icon: >
+        {% if is_state('binary_sensor.pstryk_in_best_window_gora', 'on') %}
           mdi:flash
         {% else %}
           mdi:flash-outline

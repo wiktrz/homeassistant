@@ -167,7 +167,9 @@ latitude_home: 52.34453253634735
 longitude_home: 21.099288761615757
 Camera_URL: "http://10.20.2.7/cgi-bin/api.cgi?..."
 CameraFront_Source: "rtsp://homeAssistant:waders@10.20.2.7:554/..."
-pstryk_api_key: "sk-CBIAWYF07YO6D8MIP47IKQI8X8AFYY19LWBR5B07"
+# Two separate Pstryk installations:
+pstryk_api_key_dol: "sk-BT59VQSTTHMNIRBL26B52YLCW3NMOG3YEUVDL4K5"    # dół
+pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 ```
 
 ## Energy Pricing (Pstryk)
@@ -175,13 +177,19 @@ pstryk_api_key: "sk-CBIAWYF07YO6D8MIP47IKQI8X8AFYY19LWBR5B07"
 **Script:** `config/pstryk_pricing.py`
 **API:** Polish energy provider integration
 **Update Interval:** 3600 seconds (hourly)
+**Two installations:** dół (lower/ground floor) and góra (upper floor)
 
 **Sensors:**
-- `sensor.pstryk_price_meter` - Current energy price (PLN/kWh)
-- `sensor.pstryk_best_window` - Cheapest 3-hour window
-- `binary_sensor.pstryk_in_best_window` - ON when in optimal window
+- `sensor.pstryk_price_meter_dol` - Current energy price dół (PLN/kWh)
+- `sensor.pstryk_price_meter_gora` - Current energy price góra (PLN/kWh)
+- `sensor.pstryk_best_window_dol` - Cheapest window for dół
+- `sensor.pstryk_best_window_gora` - Cheapest window for góra
+- `binary_sensor.pstryk_in_best_window_dol` - ON when dół is in optimal window
+- `binary_sensor.pstryk_in_best_window_gora` - ON when góra is in optimal window
 
-**Automation:** `daily_energy_price_notification` - Sends Polish summary at 20:00
+**Automations:**
+- `daily_energy_price_notification` - Sends Polish summary at 22:00 (uses dół sensor, pricing is identical)
+- `Tesla Charging Best Window` - triggers on `binary_sensor.pstryk_in_best_window_dol`
 
 ## Important Files
 

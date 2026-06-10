@@ -47,10 +47,33 @@ script: !include scripts.yaml
 template: !include templates.yaml
 
 command_line:
+  # Installation: dół (lower/ground floor)
   - sensor:
-      name: Pstryk Price Meter
-      unique_id: pstryk_price_meter_unified_v1
-      command: !secret pstryk_command
+      name: Pstryk Price Meter Dol
+      unique_id: pstryk_price_meter_dol_v1
+      command: !secret pstryk_command_dol
+      scan_interval: 3600
+      unit_of_measurement: "PLN/kWh"
+      value_template: >
+        {% if value_json.current_price is defined and value_json.current_price is not none %}
+          {{ value_json.current_price }}
+        {% else %}
+          0.0
+        {% endif %}
+      json_attributes:
+        - all_prices
+        - debug
+        - start
+        - end
+        - duration_hours
+        - net
+        - gross
+        - error
+  # Installation: góra (upper floor)
+  - sensor:
+      name: Pstryk Price Meter Gora
+      unique_id: pstryk_price_meter_gora_v1
+      command: !secret pstryk_command_gora
       scan_interval: 3600
       unit_of_measurement: "PLN/kWh"
       value_template: >
