@@ -65,22 +65,20 @@ views:
           - entity: sensor.nastepny_wywoz_odpadow
             name: Odpady
             icon: mdi:truck-clock
-      - type: grid
+      - square: false
+        type: grid
         columns: 3
-        square: false
         cards:
           - type: light
-            entity: light.salon_mqtt
-            name: Salon Główne
+            entity: light.boneio_32_l_07_new_light_01
+            name: Wejście
           - type: light
-            entity: light.boneio_32_l_07_new_light_18
-            name: Salon Dodatkowe
-          - type: light
-            entity: light.boneio_dr_8ch_03_2c7fbc_chl_04
-            name: Kuchnia
+            entity: light.bulb_1
           - type: light
             entity: light.boneio_dr_8ch_03_2c7fbc_chr_04
-            name: Kuchnia (Prawa)
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_04
+            name: kuchnia
           - type: light
             entity: light.boneio_32_l_07_new_light_05
             name: Wyspa
@@ -142,7 +140,6 @@ views:
             type: picture-entity
             entity: camera.520a_plynny
             name: Ogród
-        title: Klatka 2P
   - title: Klimat
     path: klimat
     icon: mdi:thermometer
