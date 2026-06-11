@@ -54,12 +54,12 @@ views:
       - type: entities
         title: Energia i Info
         entities:
-          - entity: sensor.pstryk_price_meter
+          - entity: sensor.pstryk_price_meter_dol
             name: Cena Energii
             icon: mdi:currency-pln
           - entity: sensor.pstryk_daily_financial_balance
             name: Bilans Dziś
-          - entity: binary_sensor.pstryk_in_best_window
+          - entity: binary_sensor.pstryk_in_best_window_dol
             name: Okno Cenowe
             icon: mdi:clock-check
           - entity: sensor.nastepny_wywoz_odpadow
@@ -414,12 +414,12 @@ views:
         square: false
         cards:
           - type: tile
-            entity: sensor.pstryk_price_meter
+            entity: sensor.pstryk_price_meter_dol
             name: Kupno
             color: |
-              {% if states('sensor.pstryk_price_meter') | float > 0.7 %}
+              {% if states('sensor.pstryk_price_meter_dol') | float > 0.7 %}
                 red
-              {% elif states('sensor.pstryk_price_meter') | float > 0.5 %}
+              {% elif states('sensor.pstryk_price_meter_dol') | float > 0.5 %}
                 orange
               {% else %}
                 green
@@ -441,15 +441,15 @@ views:
             entity: sensor.pstryk_sell_daily_average
             name: Średnia Sprzedaż
           - type: tile
-            entity: sensor.pstryk_best_window
+            entity: sensor.pstryk_best_window_dol
             name: Najlepsze Okno
             icon: mdi:clock-check-outline
             color: purple
           - type: tile
-            entity: binary_sensor.pstryk_in_best_window
+            entity: binary_sensor.pstryk_in_best_window_dol
             name: W Oknie
             color: |
-              {% if is_state('binary_sensor.pstryk_in_best_window', 'on') %}
+              {% if is_state('binary_sensor.pstryk_in_best_window_dol', 'on') %}
                 green
               {% else %}
                 grey
