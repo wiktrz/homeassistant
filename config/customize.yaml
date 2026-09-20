@@ -4,56 +4,127 @@ climate.downstairs:
   entity_picture: /local/icons/Ecobee.png
 
 climate.local00_salon_termostat:
+  friendly_name: "Salon — Termostat"
   aliases:
     - "Salon"
 climate.local00_sypialnia_termostat:
+  friendly_name: "Sypialnia — Termostat"
   aliases:
     - "Sypialnia"
 climate.local00_lazienka_termostat:
+  friendly_name: "Łazienka — Termostat"
   aliases:
     - "Łazienka"
 climate.local00_klara_termostat:
+  friendly_name: "Pokój Klary — Termostat"
   aliases:
     - "Klara"
     - "u Klary"
     - "pokój dziecka"
 climate.local00_nikola_termostat:
+  friendly_name: "Pokój Nikoli — Termostat"
   aliases:
     - "Nikola"
     - "u Nikoli"
 climate.local00_gabinet_termostat:
+  friendly_name: "Gabinet — Termostat"
   aliases:
     - "Gabinet"
     - "biuro"
 climate.local00_klatka1p_termostat:
+  friendly_name: "Klatka Schodowa Piętro 1 — Termostat"
   aliases:
     - "klatka schodowa parter"
     - "klatka na dole"
 climate.local00_klatka2p_termostat:
+  friendly_name: "Klatka Schodowa Piętro 2 — Termostat"
   aliases:
     - "klatka schodowa piętro"
     - "klatka na górze"
+
+# --- TEMPERATURY I NASTAWY ---
 sensor.local00_kuchnia_temperature:
+  friendly_name: "Kuchnia — Temperatura"
   aliases:
     - "temperatura w kuchni"
 sensor.local00_kuchnia_setpoint:
+  friendly_name: "Kuchnia — Temperatura Zadana"
   aliases:
     - "zadana temperatura w kuchni"
+sensor.local00_kuchnia_pressure:
+  friendly_name: "Kuchnia — Ciśnienie"
+sensor.local00_kuchnia_temperature_controller:
+  friendly_name: "Kuchnia — Sterownik Temperatura"
+
+sensor.local00_salon_temperature:
+  friendly_name: "Salon — Temperatura"
+sensor.local00_salon_setpoint:
+  friendly_name: "Salon — Temperatura Zadana"
+
+sensor.local00_sypialnia_temperature:
+  friendly_name: "Sypialnia — Temperatura"
+sensor.local00_sypialnia_setpoint:
+  friendly_name: "Sypialnia — Temperatura Zadana"
+
+sensor.local00_lazienka_temperature:
+  friendly_name: "Łazienka — Temperatura"
+sensor.local00_lazienka_setpoint:
+  friendly_name: "Łazienka — Temperatura Zadana"
+
 sensor.local00_malalazienka_temperature:
+  friendly_name: "Mała Łazienka — Temperatura"
   aliases:
     - "temperatura w małej łazience"
+sensor.local00_malalazienka_setpoint:
+  friendly_name: "Mała Łazienka — Temperatura Zadana"
+
+sensor.local00_klara_temperature:
+  friendly_name: "Pokój Klary — Temperatura"
+sensor.local00_klara_setpoint:
+  friendly_name: "Pokój Klary — Temperatura Zadana"
+
+sensor.local00_nikola_temperature:
+  friendly_name: "Pokój Nikoli — Temperatura"
+sensor.local00_nikola_setpoint:
+  friendly_name: "Pokój Nikoli — Temperatura Zadana"
+
+sensor.local00_gabinet_temperature:
+  friendly_name: "Gabinet — Temperatura"
+sensor.local00_gabinet_setpoint:
+  friendly_name: "Gabinet — Temperatura Zadana"
+
 sensor.local00_gospodarcze_temperature:
+  friendly_name: "Gospodarcze — Temperatura"
   aliases:
     - "temperatura w pomieszczeniu gospodarczym"
+sensor.local00_gospodarcze_setpoint:
+  friendly_name: "Gospodarcze — Temperatura Zadana"
+
 sensor.local00_wiatrolap_temperature:
+  friendly_name: "Wiatrołap — Temperatura"
   aliases:
     - "temperatura w wiatrołapie"
+sensor.local00_wiatrolap_setpoint:
+  friendly_name: "Wiatrołap — Temperatura Zadana"
+
 sensor.local00_holwejscie_temperature:
+  friendly_name: "Hol Wejściowy — Temperatura"
   aliases:
     - "temperatura w holu wejściowym"
+sensor.local00_holwejscie_setpoint:
+  friendly_name: "Hol Wejściowy — Temperatura Zadana"
+
 sensor.local00_holsypialnia_temperature:
+  friendly_name: "Hol przy Sypialniach — Temperatura"
   aliases:
     - "temperatura w holu przy sypialniach"
+sensor.local00_holsypialnia_setpoint:
+  friendly_name: "Hol przy Sypialniach — Temperatura Zadana"
+
+sensor.local00_klatka1p_controler_temperature:
+  friendly_name: "Klatka Schodowa Piętro 1 — Temperatura"
+sensor.local00_klatka2p_controler_temperature:
+  friendly_name: "Klatka Schodowa Piętro 2 — Temperatura"
 # --- SALON ---
 light.salon_mqtt:
   friendly_name: "Salon Główne"
@@ -342,6 +413,10 @@ sensor.local00_holwejscie_heating_state:
   friendly_name: "Hol Wejściowy — Stan Grzania"
 sensor.local00_holsypialnia_heating_state:
   friendly_name: "Hol przy Sypialniach — Stan Grzania"
+sensor.local00_klatka1p_heating_state:
+  friendly_name: "Klatka Schodowa Piętro 1 — Stan Grzania"
+sensor.local00_klatka2p_heating_state:
+  friendly_name: "Klatka Schodowa Piętro 2 — Stan Grzania"
 
 sensor.local00_kuchnia_routine:
   friendly_name: "Kuchnia — Program Grzewczy"
