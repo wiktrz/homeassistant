@@ -39,9 +39,9 @@ roller_bedroom_on:
     entity_id: 61a94e2cc0792d6f9b6b66b4815e6c8d
     domain: switch
   description: ''
-  alias: Roller Bedroom UP
+  alias: Roleta w Sypialni — w górę
 roller_bedroom_down:
-  alias: Roller Bedroom DOWN
+  alias: Roleta w Sypialni — w dół
   sequence:
   - type: turn_on
     device_id: ffbfc79a8746e627343698b0cecbdf88
@@ -78,7 +78,7 @@ roller_bedroom_down_almost:
     domain: switch
   description: ''
 all_lights_off:
-  alias: All Lights OFF
+  alias: Wszystkie Światła — wyłącz
   sequence:
   - action: switch.turn_off
     metadata: {}
@@ -368,7 +368,7 @@ run_next_script_in_sequence:
       cycle: true
     action: input_select.select_next
 shelly_living_room_decoration_turn_off:
-  alias: Shelly Living Room Decoration Turn OFF
+  alias: Dekoracje w Salonie — wyłącz
   sequence:
   - type: turn_off
     device_id: ac3535288e91bae346a47746931fc013
@@ -388,7 +388,7 @@ shelly_living_room_decoration_turn_off:
     domain: light
   description: ''
 shelly_living_room_decoration_turn_on:
-  alias: Shelly Living Room Decoration Turn ON
+  alias: Dekoracje w Salonie — włącz
   sequence:
   - type: turn_on
     device_id: ac3535288e91bae346a47746931fc013
@@ -843,7 +843,7 @@ shelly_rgbw_animation_rock:
   description: Breathing wave animation - lights expand from center outward, then
     contract inward
 bedroom_cinema_on:
-  alias: Bedroom cinema ON
+  alias: Tryb Kino w Sypialni — włącz
   sequence:
   - type: turn_on
     device_id: c3f1dabf82ca1677bb51ea54196f64b1
@@ -853,7 +853,7 @@ bedroom_cinema_on:
     data: {}
   description: ''
 bedroom_cinema_off:
-  alias: Bedroom cinema OFF
+  alias: Tryb Kino w Sypialni — wyłącz
   sequence:
   - type: turn_off
     device_id: c3f1dabf82ca1677bb51ea54196f64b1

@@ -3,3 +3,58 @@ climate.downstairs:
   friendly_name: Downstairs
   entity_picture: /local/icons/Ecobee.png
 
+climate.local00_salon_termostat:
+  aliases:
+    - "Salon"
+climate.local00_sypialnia_termostat:
+  aliases:
+    - "Sypialnia"
+climate.local00_lazienka_termostat:
+  aliases:
+    - "Łazienka"
+climate.local00_klara_termostat:
+  aliases:
+    - "Klara"
+    - "u Klary"
+    - "pokój dziecka"
+climate.local00_nikola_termostat:
+  aliases:
+    - "Nikola"
+    - "u Nikoli"
+climate.local00_gabinet_termostat:
+  aliases:
+    - "Gabinet"
+    - "biuro"
+climate.local00_klatka1p_termostat:
+  aliases:
+    - "klatka schodowa parter"
+    - "klatka na dole"
+climate.local00_klatka2p_termostat:
+  aliases:
+    - "klatka schodowa piętro"
+    - "klatka na górze"
+sensor.local00_kuchnia_temperature:
+  aliases:
+    - "temperatura w kuchni"
+sensor.local00_kuchnia_setpoint:
+  aliases:
+    - "zadana temperatura w kuchni"
+sensor.local00_malalazienka_temperature:
+  aliases:
+    - "temperatura w małej łazience"
+sensor.local00_gospodarcze_temperature:
+  aliases:
+    - "temperatura w pomieszczeniu gospodarczym"
+sensor.local00_wiatrolap_temperature:
+  aliases:
+    - "temperatura w wiatrołapie"
+sensor.local00_holwejscie_temperature:
+  aliases:
+    - "temperatura w holu wejściowym"
+sensor.local00_holsypialnia_temperature:
+  aliases:
+    - "temperatura w holu przy sypialniach"
+light.salon_mqtt:
+  aliases:
+    - "światło w salonie"
+    - "lampa w salonie"

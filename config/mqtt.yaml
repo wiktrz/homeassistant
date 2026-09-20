@@ -24,7 +24,7 @@
   - light:
     # schema: template
       unique_id: salon_mqtt
-      name: "Salon MQTT"
+      name: "Salon Światło"
     #   command_topic: "shellies/shellyrgbw2-814843/color/0/command"
       qos: 2
       rgbw_command_topic: "shellies/shellyrgbw2-814843/color/0/set"
@@ -87,10 +87,12 @@
 #       json_attributes_template: "{{ value_json.temperature | tojson }}"
 #     # Heating States
   - sensor:
+      unique_id: local00_klatka1p_heating_state
       name: "local00 Klatka1P Heating State"
       state_topic: "heating_controller/+/local00/Klatka1P/state"
       # RoutineNames
   - sensor:
+      unique_id: local00_klatka1p_controler_temperature
       name: "local00 Klatka1P Controler Temperature"
       state_topic: "room00_staircase_1/sensor/temperature/state"
       unit_of_measurement: "°C"
@@ -101,7 +103,7 @@
 #       value_template: "{{ value_json.routineName }}"
   - climate:
       unique_id: local00_klatka1p_termostat
-      name: Klatka1P Termostat
+      name: Klatka Schodowa Piętro 1 Termostat
       # send_if_off: false
       mode_state_topic: "local00/Klatka1P/details"
       mode_state_template: "{{ value_json['mode'] }}"
@@ -132,9 +134,11 @@
 #       json_attributes_template: "{{ value_json.temperature | tojson }}"
 #     # Heating States
   - sensor:
+      unique_id: local00_klatka2p_heating_state
       name: "local00 Klatka2P Heating State"
       state_topic: "heating_controller/+/local00/Klatka2P/state"
   - sensor:
+      unique_id: local00_klatka2p_controler_temperature
       name: "local00 Klatka2P Controler Temperature"
       state_topic: "room00_staircase_2/sensor/temperature/state"
       unit_of_measurement: "°C"
@@ -145,7 +149,7 @@
 #       value_template: "{{ value_json.routineName }}"
   - climate:
       unique_id: local00_klatka2p_termostat
-      name: Klatka2P Termostat
+      name: Klatka Schodowa Piętro 2 Termostat
       # send_if_off: false
       mode_state_topic: "local00/Klatka2P/details"
       mode_state_template: "{{ value_json['mode'] }}"
@@ -197,6 +201,7 @@
 
     # -------- Kuchnia -------
   - sensor:
+      unique_id: local00_kuchnia_setpoint
       name: "local00 Kuchnia Setpoint"
       state_topic: "local00/Kuchnia/details"
       unit_of_measurement: "°C"
@@ -204,6 +209,7 @@
       json_attributes_topic: "local00/Kuchnia/details"
       json_attributes_template: "{{ value_json.setpoint | tojson }}"
   - sensor:
+      unique_id: local00_kuchnia_temperature
       name: "local00 Kuchnia Temperature"
       state_topic: "local00/Kuchnia/details"
       unit_of_measurement: "°C"
@@ -211,6 +217,7 @@
       json_attributes_topic: "local00/Kuchnia/details"
       json_attributes_template: "{{ value_json.temperature | tojson }}"
   - sensor:
+      unique_id: local00_kuchnia_pressure
       name: "local00 Kuchnia Pressure"
       state_topic: "local00/Kuchnia/details"
       # unit_of_measurement: "°C"
@@ -219,12 +226,14 @@
       json_attributes_template: "{{ value_json.pressure | tojson }}"
       device_class: "pressure"
   - sensor:
+      unique_id: local00_kuchnia_temperature_controller
       name: "local00 Kuchnia Temperature Controller"
       state_topic: "room00_kitchen/sensor/temperature/state"
       unit_of_measurement: "°C"
       
     # -------- Salon -------
   - sensor:
+      unique_id: local00_salon_setpoint
       name: "local00 Salon Setpoint"
       state_topic: "local00/Salon/details"
       unit_of_measurement: "°C"
@@ -232,12 +241,14 @@
       json_attributes_topic: "local00/Salon/details"
       json_attributes_template: "{{ value_json.setpoint | tojson }}"
   - sensor:
+      unique_id: local00_salon_temperature
       name: "local00 Salon Temperature"
       state_topic: "room00_living_room/sensor/temperature/state"
       unit_of_measurement: "°C"
 
       # -------- Sypialnia -------
   - sensor:
+      unique_id: local00_sypialnia_setpoint
       name: "local00 Sypialnia Setpoint"
       state_topic: "local00/Sypialnia/details"
       unit_of_measurement: "°C"
@@ -245,12 +256,14 @@
       json_attributes_topic: "local00/Sypialnia/details"
       json_attributes_template: "{{ value_json.setpoint | tojson }}"
   - sensor:
+      unique_id: local00_sypialnia_temperature
       name: "local00 Sypialnia Temperature"
       state_topic: "room00_bedroom/sensor/temperature/state"
       unit_of_measurement: "°C"
 
       # -------- Lazienka -------
   - sensor:
+      unique_id: local00_lazienka_setpoint
       name: "local00 Lazienka Setpoint"
       state_topic: "local00/Lazienka/details"
       unit_of_measurement: "°C"
@@ -258,12 +271,14 @@
       json_attributes_topic: "local00/Lazienka/details"
       json_attributes_template: "{{ value_json.setpoint | tojson }}"
   - sensor:
+      unique_id: local00_lazienka_temperature
       name: "local00 Lazienka Temperature"
       state_topic: "room00_bathroom/sensor/temperature/state"
       unit_of_measurement: "°C"
 
       # -------- MalaLazienka -------
   - sensor:
+      unique_id: local00_malalazienka_setpoint
       name: "local00 MalaLazienka Setpoint"
       state_topic: "local00/MalaLazienka/details"
       unit_of_measurement: "°C"
@@ -271,12 +286,14 @@
       json_attributes_topic: "local00/MalaLazienka/details"
       json_attributes_template: "{{ value_json.setpoint | tojson }}"
   - sensor:
+      unique_id: local00_malalazienka_temperature
       name: "local00 MalaLazienka Temperature"
       state_topic: "room00_small_bathroom/sensor/temperature/state"
       unit_of_measurement: "°C"
 
       # -------- Klara -------
   - sensor:
+      unique_id: local00_klara_setpoint
       name: "local00 Klara Setpoint"
       state_topic: "local00/Klara/details"
       unit_of_measurement: "°C"
@@ -284,12 +301,14 @@
       json_attributes_topic: "local00/Klara/details"
       json_attributes_template: "{{ value_json.setpoint | tojson }}"
   - sensor:
+      unique_id: local00_klara_temperature
       name: "local00 Klara Temperature"
       state_topic: "room00_klara_room/sensor/temperature/state"
       unit_of_measurement: "°C"
 
       # -------- Nikola -------
   - sensor:
+      unique_id: local00_nikola_setpoint
       name: "local00 Nikola Setpoint"
       state_topic: "local00/Nikola/details"
       unit_of_measurement: "°C"
@@ -297,12 +316,14 @@
       json_attributes_topic: "local00/Nikola/details"
       json_attributes_template: "{{ value_json.setpoint | tojson }}"
   - sensor:
+      unique_id: local00_nikola_temperature
       name: "local00 Nikola Temperature"
       state_topic: "room00_nikola_room/sensor/temperature/state"
       unit_of_measurement: "°C"
 
       # -------- Gabinet -------
   - sensor:
+      unique_id: local00_gabinet_setpoint
       name: "local00 Gabinet Setpoint"
       state_topic: "local00/Gabinet/details"
       unit_of_measurement: "°C"
@@ -310,12 +331,14 @@
       json_attributes_topic: "local00/Gabinet/details"
       json_attributes_template: "{{ value_json.setpoint | tojson }}"
   - sensor:
+      unique_id: local00_gabinet_temperature
       name: "local00 Gabinet Temperature"
       state_topic: "room00_office/sensor/temperature/state"
       unit_of_measurement: "°C"
 
       # -------- Gospodarcze -------
   - sensor:
+      unique_id: local00_gospodarcze_setpoint
       name: "local00 Gospodarcze Setpoint"
       state_topic: "local00/Gospodarcze/details"
       unit_of_measurement: "°C"
@@ -323,12 +346,14 @@
       json_attributes_topic: "local00/Gospodarcze/details"
       json_attributes_template: "{{ value_json.setpoint | tojson }}"
   - sensor:
+      unique_id: local00_gospodarcze_temperature
       name: "local00 Gospodarcze Temperature"
       state_topic: "room00_utility_room/sensor/temperature/state"
       unit_of_measurement: "°C"
 
       # -------- Wiatrolap -------
   - sensor:
+      unique_id: local00_wiatrolap_setpoint
       name: "local00 Wiatrolap Setpoint"
       state_topic: "local00/Wiatrolap/details"
       unit_of_measurement: "°C"
@@ -336,12 +361,14 @@
       json_attributes_topic: "local00/Wiatrolap/details"
       json_attributes_template: "{{ value_json.setpoint | tojson }}"
   - sensor:
+      unique_id: local00_wiatrolap_temperature
       name: "local00 Wiatrolap Temperature"
       state_topic: "room00_vestibule/sensor/temperature/state"
       unit_of_measurement: "°C"
 
       # -------- HolWejscie -------
   - sensor:
+      unique_id: local00_holwejscie_setpoint
       name: "local00 HolWejscie Setpoint"
       state_topic: "local00/HolWejscie/details"
       unit_of_measurement: "°C"
@@ -349,12 +376,14 @@
       json_attributes_topic: "local00/HolWejscie/details"
       json_attributes_template: "{{ value_json.setpoint | tojson }}"
   - sensor:
+      unique_id: local00_holwejscie_temperature
       name: "local00 HolWejscie Temperature"
       state_topic: "room00_hall_entrance/sensor/temperature/state"
       unit_of_measurement: "°C"
 
       # -------- HolSypialnia -------
   - sensor:
+      unique_id: local00_holsypialnia_setpoint
       name: "local00 HolSypialnia Setpoint"
       state_topic: "local00/HolSypialnia/details"
       unit_of_measurement: "°C"
@@ -362,6 +391,7 @@
       json_attributes_topic: "local00/HolSypialnia/details"
       json_attributes_template: "{{ value_json.setpoint | tojson }}"
   - sensor:
+      unique_id: local00_holsypialnia_temperature
       name: "local00 HolSypialnia Temperature"
       state_topic: "room00_hall_bedroom/sensor/temperature/state"
       unit_of_measurement: "°C"
@@ -370,89 +400,113 @@
 
     # Heating States
   - sensor:
+      unique_id: local00_kuchnia_heating_state
       name: "local00 Kuchnia Heating State"
       state_topic: "heating_controller/+/local00/Kuchnia/state"
   - sensor:
+      unique_id: local00_salon_heating_state
       name: "local00 Salon Heating State"
       state_topic: "heating_controller/+/local00/Salon/state"
   - sensor:
+      unique_id: local00_sypialnia_heating_state
       name: "local00 Sypialnia Heating State"
       state_topic: "heating_controller/+/local00/Sypialnia/state"
   - sensor:
+      unique_id: local00_lazienka_heating_state
       name: "local00 Lazienka Heating State"
       state_topic: "heating_controller/+/local00/Lazienka/state"
   - sensor:
+      unique_id: local00_malalazienka_heating_state
       name: "local00 MalaLazienka Heating State"
       state_topic: "heating_controller/+/local00/MalaLazienka/state"
   - sensor:
+      unique_id: local00_klara_heating_state
       name: "local00 Klara Heating State"
       state_topic: "heating_controller/+/local00/Klara/state"
   - sensor:
+      unique_id: local00_nikola_heating_state
       name: "local00 Nikola Heating State"
       state_topic: "heating_controller/+/local00/Nikola/state"
   - sensor:
+      unique_id: local00_gabinet_heating_state
       name: "local00 Gabinet Heating State"
       state_topic: "heating_controller/+/local00/Gabinet/state"
   - sensor:
+      unique_id: local00_gospodarcze_heating_state
       name: "local00 Gospodarcze Heating State"
       state_topic: "heating_controller/+/local00/Gospodarcze/state"
   - sensor:
+      unique_id: local00_wiatrolap_heating_state
       name: "local00 Wiatrolap Heating State"
       state_topic: "heating_controller/+/local00/Wiatrolap/state"
   - sensor:
+      unique_id: local00_holwejscie_heating_state
       name: "local00 HolWejscie Heating State"
       state_topic: "heating_controller/+/local00/HolWejscie/state"
   - sensor:
+      unique_id: local00_holsypialnia_heating_state
       name: "local00 HolSypialnia Heating State"
       state_topic: "heating_controller/+/local00/HolSypialnia/state"
 
       
       # RoutineNames
   - sensor:
+      unique_id: local00_kuchnia_routine
       name: "local00 Kuchnia Routine"
       state_topic: "local00/Kuchnia/details"
       value_template: "{{ value_json.routineName }}"
   - sensor:
+      unique_id: local00_salon_routine
       name: "local00 Salon Routine"
       state_topic: "local00/Salon/details"
       value_template: "{{ value_json.routineName }}"
   - sensor:
+      unique_id: local00_sypialnia_routine
       name: "local00 Sypialnia Routine"
       state_topic: "local00/Sypialnia/details"
       value_template: "{{ value_json.routineName }}"
   - sensor:
+      unique_id: local00_lazienka_routine
       name: "local00 Lazienka Routine"
       state_topic: "local00/Lazienka/details"
       value_template: "{{ value_json.routineName }}"
   - sensor:
+      unique_id: local00_malalazienka_routine
       name: "local00 MalaLazienka Routine"
       state_topic: "local00/MalaLazienka/details"
       value_template: "{{ value_json.routineName }}"
   - sensor:
+      unique_id: local00_klara_routine
       name: "local00 Klara Routine"
       state_topic: "local00/Klara/details"
       value_template: "{{ value_json.routineName }}"
   - sensor:
+      unique_id: local00_nikola_routine
       name: "local00 Nikola Routine"
       state_topic: "local00/Nikola/details"
       value_template: "{{ value_json.routineName }}"
   - sensor:
+      unique_id: local00_gabinet_routine
       name: "local00 Gabinet Routine"
       state_topic: "local00/Gabinet/details"
       value_template: "{{ value_json.routineName }}"
   - sensor:
+      unique_id: local00_gospodarcze_routine
       name: "local00 Gospodarcze Routine"
       state_topic: "local00/Gospodarcze/details"
       value_template: "{{ value_json.routineName }}"
   - sensor:
+      unique_id: local00_wiatrolap_routine
       name: "local00 Wiatrolap Routine"
       state_topic: "local00/Wiatrolap/details"
       value_template: "{{ value_json.routineName }}"
   - sensor:
+      unique_id: local00_holwejscie_routine
       name: "local00 HolWejscie Routine"
       state_topic: "local00/HolWejscie/details"
       value_template: "{{ value_json.routineName }}"
   - sensor:
+      unique_id: local00_holsypialnia_routine
       name: "local00 HolSypialnia Routine"
       state_topic: "local00/HolSypialnia/details"
       value_template: "{{ value_json.routineName }}"
@@ -490,7 +544,7 @@
 
   - climate:
       unique_id: local00_lazienka_termostat
-      name: Lazienka Termostat
+      name: Łazienka Termostat
       mode_state_topic: "local00/Lazienka/details"
       mode_state_template: "{{ value_json['mode'] }}"
       current_temperature_topic: "local00/Lazienka/details"
@@ -505,7 +559,7 @@
 
   - climate:
       unique_id: local00_klara_termostat
-      name: Klara Termostat
+      name: Pokój Klary Termostat
       mode_state_topic: "local00/Klara/details"
       mode_state_template: "{{ value_json['mode'] }}"
       current_temperature_topic: "local00/Klara/details"
@@ -520,7 +574,7 @@
 
   - climate:
       unique_id: local00_nikola_termostat
-      name: Nikola Termostat
+      name: Pokój Nikoli Termostat
       mode_state_topic: "local00/Nikola/details"
       mode_state_template: "{{ value_json['mode'] }}"
       current_temperature_topic: "local00/Nikola/details"
