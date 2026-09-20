@@ -58,3 +58,54 @@ light.salon_mqtt:
   aliases:
     - "światło w salonie"
     - "lampa w salonie"
+
+sensor.local00_kuchnia_heating_state:
+  friendly_name: "Kuchnia — Stan Grzania"
+sensor.local00_salon_heating_state:
+  friendly_name: "Salon — Stan Grzania"
+sensor.local00_sypialnia_heating_state:
+  friendly_name: "Sypialnia — Stan Grzania"
+sensor.local00_lazienka_heating_state:
+  friendly_name: "Łazienka — Stan Grzania"
+sensor.local00_malalazienka_heating_state:
+  friendly_name: "Mała Łazienka — Stan Grzania"
+sensor.local00_klara_heating_state:
+  friendly_name: "Pokój Klary — Stan Grzania"
+sensor.local00_nikola_heating_state:
+  friendly_name: "Pokój Nikoli — Stan Grzania"
+sensor.local00_gabinet_heating_state:
+  friendly_name: "Gabinet — Stan Grzania"
+sensor.local00_gospodarcze_heating_state:
+  friendly_name: "Gospodarcze — Stan Grzania"
+sensor.local00_wiatrolap_heating_state:
+  friendly_name: "Wiatrołap — Stan Grzania"
+sensor.local00_holwejscie_heating_state:
+  friendly_name: "Hol Wejściowy — Stan Grzania"
+sensor.local00_holsypialnia_heating_state:
+  friendly_name: "Hol przy Sypialniach — Stan Grzania"
+
+sensor.local00_kuchnia_routine:
+  friendly_name: "Kuchnia — Program Grzewczy"
+sensor.local00_salon_routine:
+  friendly_name: "Salon — Program Grzewczy"
+sensor.local00_sypialnia_routine:
+  friendly_name: "Sypialnia — Program Grzewczy"
+sensor.local00_lazienka_routine:
+  friendly_name: "Łazienka — Program Grzewczy"
+sensor.local00_malalazienka_routine:
+  friendly_name: "Mała Łazienka — Program Grzewczy"
+sensor.local00_klara_routine:
+  friendly_name: "Pokój Klary — Program Grzewczy"
+sensor.local00_nikola_routine:
+  friendly_name: "Pokój Nikoli — Program Grzewczy"
+sensor.local00_gabinet_routine:
+  friendly_name: "Gabinet — Program Grzewczy"
+sensor.local00_gospodarcze_routine:
+  friendly_name: "Gospodarcze — Program Grzewczy"
+sensor.local00_wiatrolap_routine:
+  friendly_name: "Wiatrołap — Program Grzewczy"
+sensor.local00_holwejscie_routine:
+  friendly_name: "Hol Wejściowy — Program Grzewczy"
+sensor.local00_holsypialnia_routine:
+  friendly_name: "Hol przy Sypialniach — Program Grzewczy"
+
