@@ -1329,7 +1329,7 @@
     data: {}
   mode: single
 - id: '1748463392108'
-  alias: Night time
+  alias: Night time roller down
   description: ''
   triggers:
   - trigger: time
@@ -1829,7 +1829,7 @@
   mode: restart
 - id: '1754679474193'
   alias: Dimmer Rorate Right
-  description: 'to be improved'
+  description: to be improved
   triggers:
   - device_id: fd19b93043d59ad90f9560eca9ee5072
     domain: zha
