@@ -54,10 +54,269 @@ sensor.local00_holwejscie_temperature:
 sensor.local00_holsypialnia_temperature:
   aliases:
     - "temperatura w holu przy sypialniach"
+# --- SALON ---
 light.salon_mqtt:
+  friendly_name: "Salon Główne"
   aliases:
     - "światło w salonie"
     - "lampa w salonie"
+    - "salon główne"
+    - "światło salon"
+
+light.boneio_32_l_07_new_light_18:
+  friendly_name: "Salon Dodatkowe"
+  aliases:
+    - "dodatkowe w salonie"
+    - "światło dodatkowe salon"
+    - "boczne w salonie"
+    - "kinkiety w salonie"
+
+light.shellyrgbw2_salon:
+  friendly_name: "Salon LED"
+  aliases:
+    - "led w salonie"
+    - "pasek led w salonie"
+    - "ledy salon"
+    - "podświetlenie salon"
+
+light.shellyplusrgbwpm_9451dc0a83b4_light_0:
+  friendly_name: "Salon Dekoracje Kanał 1"
+  aliases:
+    - "salon dekoracje 1"
+    - "dekoracje w salonie kanał 1"
+
+light.shellyplusrgbwpm_9451dc0a83b4_light_1:
+  friendly_name: "Salon Dekoracje Kanał 2"
+  aliases:
+    - "salon dekoracje 2"
+    - "dekoracje w salonie kanał 2"
+
+light.shellyplusrgbwpm_9451dc0a83b4_light_2:
+  friendly_name: "Salon Dekoracje Kanał 3"
+  aliases:
+    - "salon dekoracje 3"
+    - "dekoracje w salonie kanał 3"
+
+light.shellyplusrgbwpm_9451dc0a83b4_light_3:
+  friendly_name: "Salon Dekoracje Kanał 4"
+  aliases:
+    - "salon dekoracje 4"
+    - "dekoracje w salonie kanał 4"
+
+# --- SYPIALNIA ---
+light.boneio_32_l_07_new_light_17:
+  friendly_name: "Sypialnia Główne"
+  aliases:
+    - "światło w sypialni"
+    - "lampa w sypialni"
+    - "sypialnia główne"
+    - "sypialnia"
+
+light.boneio_32_l_07_new_light_08:
+  friendly_name: "Sypialnia Dekoracyjne"
+  aliases:
+    - "światło dekoracyjne w sypialni"
+    - "dekoracje sypialnia"
+    - "sypialnia kinkiety"
+
+light.boneio_32_l_07_new_light_07:
+  friendly_name: "Sypialnia Garderoba"
+  aliases:
+    - "garderoba"
+    - "światło w garderobie"
+    - "szafa w sypialni"
+    - "garderoba w sypialni"
+
+# --- ŁAZIENKA MAŁA ---
+light.boneio_32_l_07_new_light_20:
+  friendly_name: "Mała Łazienka Główne"
+  aliases:
+    - "światło w małej łazience"
+    - "mała łazienka"
+    - "mała łazienka główne"
+    - "dolna łazienka"
+    - "zgaś małą łazienkę"
+    - "włącz małą łazienkę"
+
+light.boneio_dr_8ch_03_2c7fbc_chr_02:
+  friendly_name: "Mała Łazienka Dekoracyjne"
+  aliases:
+    - "lustro w małej łazience"
+    - "mała łazienka lustro"
+    - "dekoracje mała łazienka"
+    - "kinkiet mała łazienka"
+
+light.shellyrgbw2_c8c9a3399f35:
+  friendly_name: "Mała Łazienka LED Kanał 1"
+  aliases:
+    - "led mała łazienka 1"
+    - "ledy w małej łazience 1"
+
+light.shellyrgbw2_c8c9a3399f35_channel_2:
+  friendly_name: "Mała Łazienka LED Kanał 2"
+  aliases:
+    - "led mała łazienka 2"
+    - "ledy w małej łazience 2"
+
+# --- KUCHNIA I JADALNIA ---
+light.boneio_dr_8ch_03_2c7fbc_chl_04:
+  friendly_name: "Kuchnia Główne"
+  aliases:
+    - "światło w kuchni"
+    - "kuchnia"
+    - "kuchnia główne"
+    - "zgaś kuchnię"
+    - "włącz kuchnię"
+
+light.boneio_32_l_07_new_light_05:
+  friendly_name: "Kuchnia Wyspa"
+  aliases:
+    - "wyspa"
+    - "wyspa w kuchni"
+    - "światło nad wyspą"
+    - "kuchnia wyspa"
+
+light.boneio_dr_8ch_03_2c7fbc_chr_04:
+  friendly_name: "Kuchnia Blat"
+  aliases:
+    - "blat w kuchni"
+    - "kuchnia blat"
+    - "pod szafkami w kuchni"
+    - "kuchnia prawa"
+
+light.shellyrgbw2_814843:
+  friendly_name: "Kuchnia LED"
+  aliases:
+    - "led w kuchni"
+    - "pasek led w kuchni"
+    - "ledy kuchnia"
+
+light.boneio_32_l_07_new_light_06:
+  friendly_name: "Jadalnia Główne"
+  aliases:
+    - "jadalnia"
+    - "stół w jadalni"
+    - "światło nad stołem"
+    - "światło w jadalni"
+
+# --- KORYTARZE I WIATROŁAP ---
+light.boneio_32_l_07_new_light_01:
+  friendly_name: "Wiatrołap Główne"
+  aliases:
+    - "wiatrołap"
+    - "światło w wiatrołapie"
+    - "wejście"
+    - "światło przy wejściu"
+
+light.boneio_dr_8ch_03_2c7fbc_chl_01:
+  friendly_name: "Korytarz Wejściowy"
+  aliases:
+    - "korytarz wejście"
+    - "światło w holu"
+    - "hol wejściowy"
+    - "przedpokój"
+
+light.boneio_dr_8ch_03_2c7fbc_chl_02:
+  friendly_name: "Korytarz Sypialnie"
+  aliases:
+    - "korytarz sypialnia"
+    - "korytarz przy sypialniach"
+    - "hol sypialnie"
+    - "korytarz sypialnie"
+
+light.boneio_dr_8ch_03_2c7fbc_chr_01:
+  friendly_name: "Korytarz Ściana"
+  aliases:
+    - "korytarz ściana"
+    - "kinkiety w korytarzu"
+    - "podświetlenie ściany w korytarzu"
+
+# --- POKOJE DZIECIĘCE ---
+light.boneio_32_l_07_new_light_16:
+  friendly_name: "Pokój Klary Główne"
+  aliases:
+    - "pokój Klary"
+    - "u Klary"
+    - "światło u Klary"
+    - "Klara główne"
+
+light.boneio_32_l_07_new_light_14:
+  friendly_name: "Pokój Nikoli Główne"
+  aliases:
+    - "pokój Nikoli"
+    - "u Nikoli"
+    - "światło u Nikoli"
+    - "Nikola główne"
+
+# --- GOSPODARCZE I INNE ---
+light.boneio_32_l_07_new_light_10:
+  friendly_name: "Duża Łazienka Główne"
+  aliases:
+    - "duża łazienka"
+    - "światło w dużej łazience"
+    - "duża łazienka główne"
+    - "łazienka na piętrze"
+    - "łazienka na górze"
+
+light.boneio_32_l_07_new_light_09:
+  friendly_name: "Pralnia Główne"
+  aliases:
+    - "pralnia"
+    - "światło w pralni"
+    - "pomieszczenie gospodarcze"
+
+light.boneio_32_l_07_new_light_19:
+  friendly_name: "Gabinet Nocne"
+  aliases:
+    - "gabinet nocne"
+    - "biuro nocne"
+    - "światło w gabinecie"
+    - "biuro"
+
+# --- TARAS I NA ZEWNĄTRZ ---
+light.bulb_1:
+  friendly_name: "Taras Lampa Lewa"
+  aliases:
+    - "taras strona 1"
+    - "taras lewa"
+    - "lampa lewa taras"
+
+light.bulb_2:
+  friendly_name: "Taras Lampa Prawa"
+  aliases:
+    - "taras strona 2"
+    - "taras prawa"
+    - "lampa prawa taras"
+
+light.boneio_32_l_07_new_light_11:
+  friendly_name: "Taras Zasilanie"
+  aliases:
+    - "zasilanie taras"
+    - "taras"
+    - "światło na tarasie"
+    - "włącz taras"
+
+light.boneio_32_l_07_new_light_12:
+  friendly_name: "Podjazd Główne"
+  aliases:
+    - "podjazd"
+    - "światło na podjeździe"
+    - "oświetlenie podjazdu"
+    - "latarnia podjazd"
+
+light.boneio_32_l_07_73bbd8_door_23_relay:
+  friendly_name: "Rygiel Drzwi Wejściowych"
+  aliases:
+    - "otwórz drzwi"
+    - "rygiel drzwi"
+    - "domofon"
+    - "drzwi rygiel"
+
+light.520a_infra_red_lights_in_night_mode:
+  friendly_name: "Podczerwień Kamery Front"
+  aliases:
+    - "podczerwień kamery"
+    - "ir kamery"
 
 sensor.local00_kuchnia_heating_state:
   friendly_name: "Kuchnia — Stan Grzania"

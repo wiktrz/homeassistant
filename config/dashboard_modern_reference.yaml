@@ -115,9 +115,12 @@ views:
             type: picture-entity
             entity: camera.reolink_duo_floodlight_poe_plynny_2
             name: Podwórze
-          - type: picture-entity
-            entity: camera.rlc_822a_plynny
+          - show_state: true
+            show_name: true
             camera_view: auto
+            fit_mode: cover
+            type: picture-entity
+            entity: camera.rlc_822a_plynny
             name: Wejście
           - show_state: true
             show_name: true
@@ -132,14 +135,15 @@ views:
             fit_mode: cover
             type: picture-entity
             entity: camera.rlc_820a_niska_rozdzielczosc
-            name: Ogród
+            name: Klatka 1p
           - show_state: true
             show_name: true
             camera_view: auto
             fit_mode: cover
             type: picture-entity
             entity: camera.520a_plynny
-            name: Ogród
+            name:
+              type: entity
   - title: Klimat
     path: klimat
     icon: mdi:thermometer
