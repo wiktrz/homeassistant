@@ -2313,7 +2313,9 @@
 
 - id: 'pstryk_best_window_voice_announcement'
   alias: 'Powiadomienie Głosowe: Rozpoczęcie Okna Cenowego Pstryk'
-  description: 'Odtwarza komunikat głosowy na Home Assistant Voice PE w chwili rozpoczęcia najtańszego okna cenowego energii.'
+  description: >-
+    Odtwarza komunikat głosowy na Home Assistant Voice PE w chwili rozpoczęcia
+    najtańszego okna cenowego energii.
   triggers:
     - trigger: state
       entity_id: binary_sensor.pstryk_in_best_window_dol
@@ -2323,9 +2325,10 @@
       target:
         entity_id: tts.home_assistant_cloud
       data:
-        media_player_entity_id: media_player.home_assistant_voice_0a9bfd
+        media_player_entity_id: media_player.home_assistant_voice_0a9bfd_media_player
         message: >-
-          Zaczyna się {{ state_attr('sensor.pstryk_best_window_dol', 'duration_hours') | int(1) }} godzinne okno cenowe
+          Zaczyna się {{ state_attr('sensor.pstryk_best_window_dol',
+          'duration_hours') | int(1) }} godzinne okno cenowe
         cache: true
   mode: single
 
