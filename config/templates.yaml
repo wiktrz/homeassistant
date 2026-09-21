@@ -95,3 +95,16 @@
             {% else %} white
             {% endif %}
         icon: "mdi:trash-can"
+
+- lock:
+    - name: "Rygiel Drzwi Wejściowych"
+      unique_id: rygiel_drzwi_wejsciowych_lock
+      state: "{{ is_state('light.boneio_32_l_07_73bbd8_door_23_relay', 'off') }}"
+      lock:
+        action: light.turn_off
+        target:
+          entity_id: light.boneio_32_l_07_73bbd8_door_23_relay
+      unlock:
+        action: input_button.press
+        target:
+          entity_id: input_button.btn_entrance_door
