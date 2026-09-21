@@ -124,6 +124,10 @@ input_boolean:
   motion_lights_disabled:
     name: Motion Lights Disabled
     icon: mdi:motion-sensor-off
+  kitchen_helper:
+    name: Kitchen Helper
+  hall_entrance_input_manual:
+    name: Hall Entrance Input Manual
 
 input_select:
   local01_main_heating_routine:
@@ -355,6 +359,101 @@ input_select:
       - testBathroom
       - testBedroom
     initial: 'off'
+  shelly_mode:
+    name: Shelly Mode
+    options:
+      - 'Off'
+      - 'ON'
+      - Animation
+    initial: 'Off'
+  shelly_animation_type:
+    name: Shelly Animation Type
+    options:
+      - script_1
+      - script_2
+      - script_3
+      - script_4
+      - script_5
+    initial: script_1
+  salon_kolor_wybor:
+    name: Salon Wybór Koloru
+    options:
+      - script.light_salon_color_1
+      - script.light_salon_color_2
+      - script.light_salon_white_red_loop_20
+      - script.light_salon_white_off
+    initial: script.light_salon_color_1
+
+input_datetime:
+  pora_nocna:
+    name: Pora Nocna
+    has_date: false
+    has_time: true
+    initial: "23:00:00"
+  pora_pobudka:
+    name: Pora Pobudka
+    has_date: false
+    has_time: true
+    initial: "06:45:00"
+  pora_pobudka_weekend:
+    name: Pora Pobudka Weekend
+    has_date: false
+    has_time: true
+    initial: "08:30:00"
+  pora_switu:
+    name: Pora Świtu
+    has_date: false
+    has_time: true
+    initial: "06:00:00"
+  pora_zmroku:
+    name: Pora Zmroku
+    has_date: false
+    has_time: true
+    initial: "18:00:00"
+  pora_zmroku_na_zewnatrz:
+    name: Pora Zmroku na Zewnątrz
+    has_date: false
+    has_time: true
+    initial: "17:30:00"
+
+input_number:
+  shelly_brightness:
+    name: Shelly Brightness
+    min: 1
+    max: 100
+    step: 1
+    initial: 50
+  kolor_bialy_salon:
+    name: Kolor Biały Salon
+    min: 0
+    max: 255
+    step: 5
+    initial: 120
+
+input_button:
+  btn_entrance_door:
+    name: Przycisk Drzwi Wejściowe
+    icon: mdi:door-open
+  roleta_sypialnia_up:
+    name: Roleta Sypialnia Góra
+  roleta_sypialnia_down:
+    name: Roleta Sypialnia Dół
+  shelly_animation_toggle:
+    name: Shelly Animation Toggle
+
+lock:
+  - platform: template
+    name: "Rygiel Drzwi Wejściowych"
+    unique_id: rygiel_drzwi_wejsciowych_lock
+    value_template: "{{ is_state('light.boneio_32_l_07_73bbd8_door_23_relay', 'off') }}"
+    lock:
+      action: light.turn_off
+      target:
+        entity_id: light.boneio_32_l_07_73bbd8_door_23_relay
+    unlock:
+      action: input_button.press
+      target:
+        entity_id: input_button.btn_entrance_door
 
 
 camera:
@@ -381,3 +480,101 @@ camera:
   #   name: Front-Reolink520A
   #   still_image_url: !secret Camera_URL
   #   stream_source: !secret CameraFront_Source 
+
+intent_script:
+  OtworzRygiel:
+    speech:
+      text: "Otwieram rygiel drzwi wejściowych"
+    action:
+      - action: input_button.press
+        target:
+          entity_id: input_button.btn_entrance_door
+
+  OtworzBrame:
+    speech:
+      text: "Otwieram bramę wjazdową"
+    action:
+      - action: cover.open_cover
+        target:
+          entity_id: cover.brama_wynajem_zaslona
+
+  ZamknijBrame:
+    speech:
+      text: "Zamykam bramę wjazdową"
+    action:
+      - action: cover.close_cover
+        target:
+          entity_id: cover.brama_wynajem_zaslona
+
+  UchylRoleteSypialnia:
+    speech:
+      text: "Uchylam roletę w sypialni"
+    action:
+      - action: script.roller_bedroom_up_1_5
+
+  OtworzRoleteSypialnia:
+    speech:
+      text: "Otwieram roletę w sypialni"
+    action:
+      - action: script.roller_bedroom_on
+
+  ZamknijRoleteSypialnia:
+    speech:
+      text: "Zasłaniam roletę w sypialni"
+    action:
+      - action: script.roller_bedroom_down
+
+  ZatrzymajRoleteSypialnia:
+    speech:
+      text: "Zatrzymuję roletę w sypialni"
+    action:
+      - action: script.turn_off
+        target:
+          entity_id:
+            - script.roller_bedroom_on
+            - script.roller_bedroom_down
+            - script.roller_bedroom_down_almost
+            - script.roller_bedroom_up_1_3
+            - script.roller_bedroom_up_1_5
+
+  ZapytajTaniPrad:
+    speech:
+      text: >
+        {% set best = states('sensor.pstryk_best_window_dol') %}
+        {% set price = states('sensor.pstryk_price_meter_dol') %}
+        {% if best not in ['unavailable', 'unknown', 'None'] %}
+          Najtańszy prąd będzie w godzinach {{ best }}. Aktualna cena wynosi {{ price }} zł za kilowatogodzinę.
+        {% else %}
+          Aktualna cena prądu wynosi {{ price }} zł za kilowatogodzinę.
+        {% endif %}
+
+  ZapytajSmieci:
+    speech:
+      text: >
+        {% set next_waste = states('sensor.nastepny_wywoz_odpadow') %}
+        {% set days = state_attr('sensor.nastepny_wywoz_odpadow', 'dni_pozostalo') %}
+        {% if next_waste not in ['unavailable', 'unknown', 'Brak danych'] %}
+          Najbliższy odbiór to {{ next_waste }}, za {{ days }} dni.
+        {% else %}
+          Brak informacji o najbliższym wywozie śmieci.
+        {% endif %}
+
+  TrybDobranoc:
+    speech:
+      text: "Dobranoc. Gaszę światła i opuszczam roletę w sypialni."
+    action:
+      - action: script.all_lights_off
+      - action: script.roller_bedroom_down_almost
+
+  TrybDzienDobry:
+    speech:
+      text: "Dzień dobry. Podnoszę roletę w sypialni."
+    action:
+      - action: script.roller_bedroom_on
+
+  TrybWychodze:
+    speech:
+      text: "Wszystkie światła zostały wyłączone. Do zobaczenia."
+    action:
+      - action: script.all_lights_off
+

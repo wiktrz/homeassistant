@@ -1,0 +1,82 @@
+language: "pl"
+intents:
+  OtworzRygiel:
+    data:
+      - sentences:
+          - "otwórz (drzwi|rygiel|domofon)"
+          - "wpuść gości"
+          - "otwórz drzwi wejściowe"
+
+  OtworzBrame:
+    data:
+      - sentences:
+          - "otwórz bramę"
+          - "otwórz wjazd"
+
+  ZamknijBrame:
+    data:
+      - sentences:
+          - "zamknij bramę"
+          - "zamknij wjazd"
+
+  UchylRoleteSypialnia:
+    data:
+      - sentences:
+          - "uchyl roletę (w sypialni|)"
+          - "podnieś roletę trochę (w sypialni|)"
+
+  OtworzRoleteSypialnia:
+    data:
+      - sentences:
+          - "otwórz roletę (w sypialni|)"
+          - "podnieś roletę (w sypialni|)"
+
+  ZamknijRoleteSypialnia:
+    data:
+      - sentences:
+          - "zamknij roletę (w sypialni|)"
+          - "zasłoń roletę (w sypialni|)"
+          - "opuść roletę (w sypialni|)"
+
+  ZatrzymajRoleteSypialnia:
+    data:
+      - sentences:
+          - "zatrzymaj roletę (w sypialni|)"
+          - "stop roleta"
+
+  ZapytajTaniPrad:
+    data:
+      - sentences:
+          - "kiedy (jest|będzie) najtańszy prąd"
+          - "ile kosztuje teraz prąd"
+          - "jaka jest cena prądu"
+          - "kiedy najlepiej włączyć pralkę"
+
+  ZapytajSmieci:
+    data:
+      - sentences:
+          - "kiedy (jest|będzie) wywóz śmieci"
+          - "jakie śmieci jutro"
+          - "jakie odpady jutro"
+          - "kiedy przyjadą po śmieci"
+
+  TrybDobranoc:
+    data:
+      - sentences:
+          - "dobranoc"
+          - "idę spać"
+          - "pora spać"
+
+  TrybDzienDobry:
+    data:
+      - sentences:
+          - "dzień dobry"
+          - "wstałem"
+          - "pobudka"
+
+  TrybWychodze:
+    data:
+      - sentences:
+          - "wychodzę (z domu|)"
+          - "wychodzimy"
+          - "zabezpiecz dom"

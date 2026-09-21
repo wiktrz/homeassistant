@@ -73,14 +73,20 @@
       - name: "Następny wywóz odpadów"
         unique_id: nastepny_wywoz_odpadow
         state: >
-          {{ state_attr('calendar.smieci_i_alarmy', 'message') }}
+          {{ state_attr('calendar.smieci_i_alarmy', 'message') or 'Brak danych' }}
         attributes:
           data: >
-            {{ as_timestamp(state_attr('calendar.smieci_i_alarmy', 'start_time')) | timestamp_custom('%d.%m.%Y') }}
+            {% set st = state_attr('calendar.smieci_i_alarmy', 'start_time') %}
+            {{ as_timestamp(st, 0) | timestamp_custom('%d.%m.%Y') if st else 'N/A' }}
           dni_pozostalo: >
-            {{ ((as_timestamp(state_attr('calendar.smieci_i_alarmy', 'start_time')) - as_timestamp(now())) / 86400) | int + 1 }}
+            {% set st = state_attr('calendar.smieci_i_alarmy', 'start_time') %}
+            {% if st %}
+              {{ ((as_timestamp(st, 0) - as_timestamp(now(), 0)) / 86400) | int + 1 }}
+            {% else %}
+              0
+            {% endif %}
           kolor: >
-            {% set msg = state_attr('calendar.smieci_i_alarmy', 'message') | lower %}
+            {% set msg = (state_attr('calendar.smieci_i_alarmy', 'message') or '') | lower %}
             {% if 'niesegregowane' in msg %} grey
             {% elif 'bio' in msg %} brown
             {% elif 'plastik' in msg %} yellow

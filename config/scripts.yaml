@@ -80,23 +80,54 @@ roller_bedroom_down_almost:
 all_lights_off:
   alias: Wszystkie Światła — wyłącz
   sequence:
-  - action: switch.turn_off
+  - action: automation.turn_off
     metadata: {}
     data: {}
     target:
-      floor_id: parter
-  - action: light.turn_off
-    metadata: {}
-    data: {}
-    target:
-      label_id: swiatlo
+      entity_id: automation.shelly_rgbw_continuous_animation_loop
   - action: input_select.select_option
     metadata: {}
     data:
       option: 'Off'
     target:
       entity_id: input_select.shelly_mode
-  description: ''
+  - action: light.turn_off
+    target:
+      entity_id:
+        - light.salon_mqtt
+        - light.shellyrgbw2_salon
+        - light.shellyrgbw2_814843
+        - light.shellyrgbw2_c8c9a3399f35
+        - light.shellyplusrgbwpm_9451dc0a83b4_light_0
+        - light.shellyplusrgbwpm_9451dc0a83b4_light_1
+        - light.shellyplusrgbwpm_9451dc0a83b4_light_2
+        - light.shellyplusrgbwpm_9451dc0a83b4_light_3
+        - light.boneio_32_l_07_new_light_01
+        - light.boneio_32_l_07_new_light_02
+        - light.boneio_32_l_07_new_light_03
+        - light.boneio_32_l_07_new_light_04
+        - light.boneio_32_l_07_new_light_05
+        - light.boneio_32_l_07_new_light_06
+        - light.boneio_32_l_07_new_light_07
+        - light.boneio_32_l_07_new_light_08
+        - light.boneio_32_l_07_new_light_09
+        - light.boneio_32_l_07_new_light_10
+        - light.boneio_32_l_07_new_light_14
+        - light.boneio_32_l_07_new_light_15
+        - light.boneio_32_l_07_new_light_16
+        - light.boneio_32_l_07_new_light_17
+        - light.boneio_32_l_07_new_light_18
+        - light.boneio_32_l_07_new_light_19
+        - light.boneio_32_l_07_new_light_20
+        - light.boneio_dr_8ch_03_2c7fbc_chl_01
+        - light.boneio_dr_8ch_03_2c7fbc_chl_02
+        - light.boneio_dr_8ch_03_2c7fbc_chl_03
+        - light.boneio_dr_8ch_03_2c7fbc_chl_04
+        - light.boneio_dr_8ch_03_2c7fbc_chr_01
+        - light.boneio_dr_8ch_03_2c7fbc_chr_02
+        - light.boneio_dr_8ch_03_2c7fbc_chr_03
+        - light.boneio_dr_8ch_03_2c7fbc_chr_04
+  description: 'Wyłącza wszystkie światła, zatrzymuje pętlę animacji i ustawia tryb Shelly na Off'
   icon: mdi:ceiling-light-multiple
 roller_bedroom_up_1_3:
   alias: Roller Bedroom UP 1/3

@@ -376,12 +376,16 @@ light.boneio_32_l_07_new_light_12:
     - "latarnia podjazd"
 
 light.boneio_32_l_07_73bbd8_door_23_relay:
+  friendly_name: "Rygiel Drzwi Wejściowych (Przekaźnik)"
+
+lock.rygiel_drzwi_wejsciowych:
   friendly_name: "Rygiel Drzwi Wejściowych"
   aliases:
     - "otwórz drzwi"
     - "rygiel drzwi"
     - "domofon"
     - "drzwi rygiel"
+    - "zamek w drzwiach"
 
 light.520a_infra_red_lights_in_night_mode:
   friendly_name: "Podczerwień Kamery Front"

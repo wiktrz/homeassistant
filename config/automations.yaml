@@ -210,7 +210,7 @@
       payload: '{"mode":"color","red": 0,"green":0,"blue": 0,"gain": 0,"white": 15,"effect":
         0,"turn":"on"}'
   id: 68d4d324410c46e8a24520c38014613b
-- alias: Dimming Lights Up when morning outside
+- alias: "Dimming Lights: Poranny świt (Shelly RGBW)"
   trigger:
   - platform: numeric_state
     entity_id: sun.sun
@@ -220,12 +220,12 @@
   - service: mqtt.publish
     data:
       topic: shellies/shellyrgbw2-814843/color/0/set
-      retain: true
+      retain: false
       payload: '{"mode":"color","red": 0,"green":0,"blue": 0,"gain": 0,"white": 100,"effect":
         0,"turn":"on"}'
   id: d31bdcaa032d42628e404ca935baa872
 - id: 9c3c8f9c510041ec87050e35fc301091
-  alias: Dimming Lights Up when morning outside
+  alias: "Dimming Lights: Wschód słońca (Shelly RGBW)"
   triggers:
   - entity_id: sun.sun
     attribute: elevation
@@ -2281,7 +2281,7 @@
   conditions:
   - condition: state
     entity_id: device_tracker.tesl_y_location
-    state: []
+    state: 'home'
   actions:
   - action: switch.turn_on
     metadata: {}
@@ -2297,11 +2297,16 @@
     trigger: time
   conditions:
   - condition: template
-    value_template: "{% set nastepny_wywoz = state_attr('calendar.odpady', 'start_time')
-      %} {% if nastepny_wywoz != None %}\n  {{ (as_timestamp(nastepny_wywoz) - as_timestamp(now()))
-      / 3600 < 15 }}\n{% else %}\n  false\n{% endif %}\n"
+    value_template: >
+      {% set nastepny_wywoz = state_attr('calendar.smieci_i_alarmy', 'start_time') %}
+      {% if nastepny_wywoz %}
+        {{ (as_timestamp(nastepny_wywoz, 0) - as_timestamp(now(), 0)) / 3600 < 15 }}
+      {% else %}
+        false
+      {% endif %}
   actions:
   - action: notify.all_devices
     data:
-      message: Śmieci
+      title: "Wywóz śmieci"
+      message: "Jutro rano odbiór odpadów: {{ states('sensor.nastepny_wywoz_odpadow') }}"
   mode: single
