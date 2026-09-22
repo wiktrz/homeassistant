@@ -210,7 +210,7 @@
       payload: '{"mode":"color","red": 0,"green":0,"blue": 0,"gain": 0,"white": 15,"effect":
         0,"turn":"on"}'
   id: 68d4d324410c46e8a24520c38014613b
-- alias: "Dimming Lights: Poranny świt (Shelly RGBW)"
+- alias: 'Dimming Lights: Poranny świt (Shelly RGBW)'
   trigger:
   - platform: numeric_state
     entity_id: sun.sun
@@ -225,7 +225,7 @@
         0,"turn":"on"}'
   id: d31bdcaa032d42628e404ca935baa872
 - id: 9c3c8f9c510041ec87050e35fc301091
-  alias: "Dimming Lights: Wschód słońca (Shelly RGBW)"
+  alias: 'Dimming Lights: Wschód słońca (Shelly RGBW)'
   triggers:
   - entity_id: sun.sun
     attribute: elevation
@@ -2281,7 +2281,7 @@
   conditions:
   - condition: state
     entity_id: device_tracker.tesl_y_location
-    state: 'home'
+    state: home
   actions:
   - action: switch.turn_on
     metadata: {}
@@ -2297,29 +2297,25 @@
     trigger: time
   conditions:
   - condition: template
-    value_template: >
-      {% set nastepny_wywoz = state_attr('calendar.smieci_i_alarmy', 'start_time') %}
-      {% if nastepny_wywoz %}
-        {{ (as_timestamp(nastepny_wywoz, 0) - as_timestamp(now(), 0)) / 3600 < 15 }}
-      {% else %}
-        false
-      {% endif %}
+    value_template: "{% set nastepny_wywoz = state_attr('calendar.smieci_i_alarmy',
+      'start_time') %} {% if nastepny_wywoz %}\n  {{ (as_timestamp(nastepny_wywoz,
+      0) - as_timestamp(now(), 0)) / 3600 < 15 }}\n{% else %}\n  false\n{% endif %}\n"
   actions:
   - action: notify.all_devices
     data:
-      title: "Wywóz śmieci"
-      message: "Jutro rano odbiór odpadów: {{ states('sensor.nastepny_wywoz_odpadow') }}"
+      title: Wywóz śmieci
+      message: 'Jutro rano odbiór odpadów: {{ states(''sensor.nastepny_wywoz_odpadow'')
+        }}'
   mode: single
-
-- id: 'pstryk_best_window_voice_announcement'
+- id: pstryk_best_window_voice_announcement
   alias: 'Powiadomienie Głosowe: Rozpoczęcie Okna Cenowego Pstryk'
   description: >-
     Odtwarza komunikat głosowy na Home Assistant Voice PE w chwili rozpoczęcia
     najtańszego okna cenowego energii.
   triggers:
-    - trigger: state
-      entity_id: binary_sensor.pstryk_in_best_window_dol
-      to: 'on'
+  - trigger: state
+    entity_id: binary_sensor.pstryk_in_best_window_dol
+    to: 'on'
   actions:
     - action: tts.speak
       target:
@@ -2331,4 +2327,3 @@
           'duration_hours') | int(1) }} godzinne okno cenowe
         cache: true
   mode: single
-
