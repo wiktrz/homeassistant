@@ -108,3 +108,56 @@
         action: input_button.press
         target:
           entity_id: input_button.btn_entrance_door
+
+- switch:
+    - name: "Zasilanie Salon Dodatkowe"
+      unique_id: zasilanie_salon_dodatkowe
+      state: "{{ is_state('light.boneio_32_l_07_new_light_18', 'on') }}"
+      turn_on:
+        action: light.turn_on
+        target:
+          entity_id: light.boneio_32_l_07_new_light_18
+      turn_off:
+        action: light.turn_off
+        target:
+          entity_id: light.boneio_32_l_07_new_light_18
+      icon: mdi:power-socket-eu
+
+    - name: "Zasilanie Sypialnia Garderoba"
+      unique_id: zasilanie_sypialnia_garderoba
+      state: "{{ is_state('light.boneio_32_l_07_new_light_07', 'on') }}"
+      turn_on:
+        action: light.turn_on
+        target:
+          entity_id: light.boneio_32_l_07_new_light_07
+      turn_off:
+        action: light.turn_off
+        target:
+          entity_id: light.boneio_32_l_07_new_light_07
+      icon: mdi:power-socket-eu
+
+    - name: "Zasilanie Mała Łazienka"
+      unique_id: zasilanie_mala_lazienka
+      state: "{{ is_state('light.boneio_32_l_07_new_light_20', 'on') }}"
+      turn_on:
+        action: light.turn_on
+        target:
+          entity_id: light.boneio_32_l_07_new_light_20
+      turn_off:
+        action: light.turn_off
+        target:
+          entity_id: light.boneio_32_l_07_new_light_20
+      icon: mdi:power-socket-eu
+
+    - name: "Zasilanie Taras"
+      unique_id: zasilanie_taras
+      state: "{{ is_state('light.boneio_32_l_07_new_light_11', 'on') }}"
+      turn_on:
+        action: light.turn_on
+        target:
+          entity_id: light.boneio_32_l_07_new_light_11
+      turn_off:
+        action: light.turn_off
+        target:
+          entity_id: light.boneio_32_l_07_new_light_11
+      icon: mdi:power-socket-eu
