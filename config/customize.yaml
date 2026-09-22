@@ -135,12 +135,12 @@ light.salon_mqtt:
     - "światło salon"
 
 light.boneio_32_l_07_new_light_18:
-  friendly_name: "Salon Dodatkowe"
+  friendly_name: "Zasilanie Salon Dodatkowe"
+  icon: mdi:power-socket-eu
   aliases:
-    - "dodatkowe w salonie"
-    - "światło dodatkowe salon"
-    - "boczne w salonie"
-    - "kinkiety w salonie"
+    - "zasilanie salon dodatkowe"
+    - "zasilanie salonu dodatkowe"
+    - "zasilacz salon"
 
 light.shellyrgbw2_salon:
   friendly_name: "Salon LED"
@@ -191,23 +191,21 @@ light.boneio_32_l_07_new_light_08:
     - "sypialnia kinkiety"
 
 light.boneio_32_l_07_new_light_07:
-  friendly_name: "Sypialnia Garderoba"
+  friendly_name: "Zasilanie Sypialnia Garderoba"
+  icon: mdi:power-socket-eu
   aliases:
-    - "garderoba"
-    - "światło w garderobie"
-    - "szafa w sypialni"
-    - "garderoba w sypialni"
+    - "zasilanie sypialnia garderoba"
+    - "zasilanie garderoba"
+    - "zasilacz garderoba"
 
 # --- ŁAZIENKA MAŁA ---
 light.boneio_32_l_07_new_light_20:
-  friendly_name: "Mała Łazienka Główne"
+  friendly_name: "Zasilanie Mała Łazienka"
+  icon: mdi:power-socket-eu
   aliases:
-    - "światło w małej łazience"
-    - "mała łazienka"
-    - "mała łazienka główne"
-    - "dolna łazienka"
-    - "zgaś małą łazienkę"
-    - "włącz małą łazienkę"
+    - "zasilanie mała łazienka"
+    - "zasilanie w małej łazience"
+    - "zasilacz mała łazienka"
 
 light.boneio_dr_8ch_03_2c7fbc_chr_02:
   friendly_name: "Mała Łazienka Dekoracyjne"
@@ -370,12 +368,12 @@ light.bulb_2:
     - "lampa prawa taras"
 
 light.boneio_32_l_07_new_light_11:
-  friendly_name: "Taras Zasilanie"
+  friendly_name: "Zasilanie Taras"
+  icon: mdi:power-socket-eu
   aliases:
     - "zasilanie taras"
-    - "taras"
-    - "światło na tarasie"
-    - "włącz taras"
+    - "zasilanie tarasu"
+    - "zasilacz taras"
 
 light.boneio_32_l_07_new_light_12:
   friendly_name: "Podjazd Główne"

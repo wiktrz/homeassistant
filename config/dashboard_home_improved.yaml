@@ -68,7 +68,8 @@ views:
             name: Salon Główne
           - type: tile
             entity: light.boneio_32_l_07_new_light_18
-            name: Salon Dodatkowe
+            name: Zasilanie Salon Dodatkowe
+            icon: mdi:power-socket-eu
           - type: tile
             entity: light.boneio_dr_8ch_03_2c7fbc_chl_04
             name: Kuchnia

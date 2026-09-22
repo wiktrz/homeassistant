@@ -92,6 +92,9 @@ all_lights_off:
     target:
       entity_id: input_select.shelly_mode
   - action: light.turn_off
+    # UWAGA: Przekaźniki zasilaczy świateł (Zasilanie Salon Dodatkowe new_light_18,
+    # Zasilanie Sypialnia Garderoba new_light_07, Zasilanie Mała Łazienka new_light_20,
+    # Zasilanie Taras new_light_11) są celowo wykluczone z wyłączania świateł.
     target:
       entity_id:
         - light.salon_mqtt

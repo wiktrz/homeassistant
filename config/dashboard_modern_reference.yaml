@@ -314,7 +314,8 @@ views:
             name: Salon Główne
           - type: light
             entity: light.boneio_32_l_07_new_light_18
-            name: Salon Dodatkowe
+            name: Zasilanie Salon Dodatkowe
+            icon: mdi:power-socket-eu
           - type: light
             entity: light.shellyrgbw2_salon
             name: Salon LED
@@ -333,7 +334,8 @@ views:
             name: Sypialnia Dekoracyjne
           - type: light
             entity: light.boneio_32_l_07_new_light_07
-            name: Sypialnia Garderoba
+            name: Zasilanie Sypialnia Garderoba
+            icon: mdi:power-socket-eu
       - type: grid
         columns: 2
         square: false
@@ -343,7 +345,8 @@ views:
             name: Łazienka M. Dekor.
           - type: light
             entity: light.boneio_32_l_07_new_light_20
-            name: Zasilanie Łaz. M.
+            name: Zasilanie Mała Łazienka
+            icon: mdi:power-socket-eu
           - type: light
             entity: light.shellyrgbw2_c8c9a3399f35
             name: LED Łazienka Ch1
@@ -392,6 +395,7 @@ views:
           - type: light
             entity: light.boneio_32_l_07_new_light_11
             name: Zasilanie Taras
+            icon: mdi:power-socket-eu
       - type: grid
         columns: 2
         square: false

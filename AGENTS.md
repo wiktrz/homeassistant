@@ -127,11 +127,16 @@ homeassistant:
 
 **BoneIO Hardware & Entity Mappings:**
 - **BoneIO 32x10 Relay Board (`boneio-32-l-07` - 230V Relays):**
-  - `light.boneio_32_l_07_new_light_01`: Wejście (Wiatrołap Główne)
-  - `light.boneio_32_l_07_new_light_05`: **Kuchnia Wyspa** (lampa wisząca nad wyspą)
-  - `light.boneio_32_l_07_new_light_06`: Jadalnia (lampa nad stołem)
-  - `light.boneio_32_l_07_new_light_12`: Podjazd (oświetlenie podjazdu)
-  - `light.boneio_32_l_07_new_light_18`: Salon Dodatkowe
+  - **Oświetlenie (Lights):**
+    - `light.boneio_32_l_07_new_light_01`: Wejście (Wiatrołap Główne)
+    - `light.boneio_32_l_07_new_light_05`: **Kuchnia Wyspa** (lampa wisząca nad wyspą)
+    - `light.boneio_32_l_07_new_light_06`: Jadalnia (lampa nad stołem)
+    - `light.boneio_32_l_07_new_light_12`: Podjazd (oświetlenie podjazdu)
+  - **Zasilacze Oświetlenia (Power Supplies - EXCLUDED from All Lights Off scripts):**
+    - `light.boneio_32_l_07_new_light_18` / `switch.zasilanie_salon_dodatkowe`: **Zasilanie Salon Dodatkowe**
+    - `light.boneio_32_l_07_new_light_07` / `switch.zasilanie_sypialnia_garderoba`: **Zasilanie Sypialnia Garderoba**
+    - `light.boneio_32_l_07_new_light_20` / `switch.zasilanie_mala_lazienka`: **Zasilanie Mała Łazienka**
+    - `light.boneio_32_l_07_new_light_11` / `switch.zasilanie_taras`: **Zasilanie Taras**
 - **BoneIO 8ch LED Dimmer (`boneio-dr-8ch-03-2c7fbc` - 24V PWM Dimmer):**
   - `light.boneio_dr_8ch_03_2c7fbc_chl_01`: Korytarz Wejściowy
   - `light.boneio_dr_8ch_03_2c7fbc_chl_02`: Korytarz Sypialnie
