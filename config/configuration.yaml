@@ -46,6 +46,14 @@ scene: !include scenes.yaml
 script: !include scripts.yaml
 template: !include templates.yaml
 
+light:
+  - platform: group
+    name: "Taras Lampy"
+    unique_id: taras_lampy_group
+    entities:
+      - light.bulb_1
+      - light.bulb_2
+
 command_line:
   # Installation: dół (lower/ground floor)
   - sensor:

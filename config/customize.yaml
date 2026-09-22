@@ -247,14 +247,6 @@ light.boneio_32_l_07_new_light_05:
     - "światło nad wyspą"
     - "kuchnia wyspa"
 
-light.boneio_dr_8ch_03_2c7fbc_chr_04:
-  friendly_name: "Kuchnia Blat"
-  aliases:
-    - "blat w kuchni"
-    - "kuchnia blat"
-    - "pod szafkami w kuchni"
-    - "kuchnia prawa"
-
 light.shellyrgbw2_814843:
   friendly_name: "Kuchnia LED"
   aliases:
@@ -302,6 +294,16 @@ light.boneio_dr_8ch_03_2c7fbc_chr_01:
     - "kinkiety w korytarzu"
     - "podświetlenie ściany w korytarzu"
 
+light.boneio_dr_8ch_03_2c7fbc_chr_04:
+  friendly_name: "Korytarz Lustro"
+  aliases:
+    - "lustro"
+    - "lustro w korytarzu"
+    - "korytarz lustro"
+    - "lustro wejście"
+    - "światło nad lustrem"
+    - "lustro przedpokój"
+
 # --- POKOJE DZIECIĘCE ---
 light.boneio_32_l_07_new_light_16:
   friendly_name: "Pokój Klary Główne"
@@ -345,6 +347,14 @@ light.boneio_32_l_07_new_light_19:
     - "biuro"
 
 # --- TARAS I NA ZEWNĄTRZ ---
+light.taras_lampy:
+  friendly_name: "Taras (Lewa + Prawa)"
+  aliases:
+    - "taras lampy"
+    - "lampy taras"
+    - "oświetlenie tarasu"
+    - "taras lampa lewa i prawa"
+
 light.bulb_1:
   friendly_name: "Taras Lampa Lewa"
   aliases:

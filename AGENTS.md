@@ -119,11 +119,28 @@ homeassistant:
 ### Heating/Routine Automations (18)
 - Thermostat routine changes based on input_select for local01-local06
 
-### Lighting Automations
+### Lighting Automations & Architecture
 - Motion-triggered lights (PIR sensors)
 - Time-based dimming (sun elevation triggers)
 - Shelly RGBW animations (continuous loop, cycle, wave, chase, pulse, rock)
 - Light Salon MQTT control
+
+**BoneIO Hardware & Entity Mappings:**
+- **BoneIO 32x10 Relay Board (`boneio-32-l-07` - 230V Relays):**
+  - `light.boneio_32_l_07_new_light_01`: Wejście (Wiatrołap Główne)
+  - `light.boneio_32_l_07_new_light_05`: **Kuchnia Wyspa** (lampa wisząca nad wyspą)
+  - `light.boneio_32_l_07_new_light_06`: Jadalnia (lampa nad stołem)
+  - `light.boneio_32_l_07_new_light_12`: Podjazd (oświetlenie podjazdu)
+  - `light.boneio_32_l_07_new_light_18`: Salon Dodatkowe
+- **BoneIO 8ch LED Dimmer (`boneio-dr-8ch-03-2c7fbc` - 24V PWM Dimmer):**
+  - `light.boneio_dr_8ch_03_2c7fbc_chl_01`: Korytarz Wejściowy
+  - `light.boneio_dr_8ch_03_2c7fbc_chl_02`: Korytarz Sypialnie
+  - `light.boneio_dr_8ch_03_2c7fbc_chl_04`: Kuchnia Główne
+  - `light.boneio_dr_8ch_03_2c7fbc_chr_01`: Korytarz Ściana
+  - `light.boneio_dr_8ch_03_2c7fbc_chr_02`: Mała Łazienka Dekoracyjne
+  - `light.boneio_dr_8ch_03_2c7fbc_chr_04`: **Korytarz Lustro** (Lustro w korytarzu wejściowym)
+- **Taras Dual Lamps (`light.taras_lampy`):**
+  - Combines `light.bulb_1` (*Taras Lampa Lewa*) and `light.bulb_2` (*Taras Lampa Prawa*) into a unified light group toggled together from dashboard and voice.
 
 ### Security/Alarm Automations
 - Alarm trigger on door/windows breach

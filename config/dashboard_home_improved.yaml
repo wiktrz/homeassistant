@@ -74,7 +74,8 @@ views:
             name: Kuchnia
           - type: tile
             entity: light.boneio_dr_8ch_03_2c7fbc_chr_04
-            name: Kuchnia (Prawa)
+            name: Lustro
+            icon: mdi:mirror
           - type: tile
             entity: light.boneio_32_l_07_new_light_05
             name: Wyspa

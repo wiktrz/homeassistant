@@ -72,28 +72,46 @@ views:
           - type: light
             entity: light.boneio_32_l_07_new_light_01
             name: Wejście
-          - type: light
-            entity: light.bulb_1
-          - type: light
-            entity: light.boneio_dr_8ch_03_2c7fbc_chr_04
-          - type: light
-            entity: light.boneio_dr_8ch_03_2c7fbc_chl_04
-            name: kuchnia
-          - type: light
-            entity: light.boneio_32_l_07_new_light_05
-            name: Wyspa
-          - type: light
-            entity: light.boneio_32_l_07_new_light_06
-            name: Jadalnia
+            icon: mdi:door-open
           - type: light
             entity: light.boneio_dr_8ch_03_2c7fbc_chl_01
             name: Korytarz Wejście
+            icon: mdi:light-recessed
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chr_04
+            name: Lustro
+            icon: mdi:mirror
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_04
+            name: Kuchnia Główne
+            icon: mdi:ceiling-light
+          - type: light
+            entity: light.boneio_32_l_07_new_light_05
+            name: Kuchnia Wyspa
+            icon: mdi:island
+          - type: light
+            entity: light.boneio_32_l_07_new_light_06
+            name: Jadalnia
+            icon: mdi:table-chair
           - type: light
             entity: light.boneio_dr_8ch_03_2c7fbc_chl_02
             name: Korytarz Sypialnie
+            icon: mdi:bed-outline
+          - type: light
+            entity: light.bulb_1
+            name: Taras (Lewa + Prawa)
+            icon: mdi:lightbulb-group
+            tap_action:
+              action: perform-action
+              perform_action: light.toggle
+              target:
+                entity_id:
+                  - light.bulb_1
+                  - light.bulb_2
           - type: light
             entity: light.boneio_32_l_07_new_light_12
             name: Podjazd
+            icon: mdi:car-light-high
       - type: entities
         entities:
           - entity: input_select.shelly_mode
@@ -142,8 +160,7 @@ views:
             fit_mode: cover
             type: picture-entity
             entity: camera.520a_plynny
-            name:
-              type: entity
+            name: Front / Brama
   - title: Klimat
     path: klimat
     icon: mdi:thermometer
@@ -344,9 +361,6 @@ views:
             entity: light.boneio_32_l_07_new_light_05
             name: Kuchnia Wyspa
           - type: light
-            entity: light.boneio_dr_8ch_03_2c7fbc_chr_04
-            name: Kuchnia Prawa
-          - type: light
             entity: light.shellyrgbw2_814843
             name: LED Kuchnia
       - type: grid
@@ -356,6 +370,9 @@ views:
           - type: light
             entity: light.boneio_dr_8ch_03_2c7fbc_chl_01
             name: Korytarz Wejście
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chr_04
+            name: Lustro
           - type: light
             entity: light.boneio_dr_8ch_03_2c7fbc_chl_02
             name: Korytarz Sypialnia
