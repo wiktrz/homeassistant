@@ -943,6 +943,9 @@ stop_radio:
     - action: media_player.media_stop
       target:
         entity_id: media_player.home_assistant_voice_0a9bfd_media_player
+    - action: media_player.turn_off
+      target:
+        entity_id: media_player.home_assistant_voice_0a9bfd_media_player
   mode: single
   icon: mdi:stop-circle-outline
 tv_launch_app:
@@ -965,8 +968,11 @@ tv_launch_app:
     - action: remote.turn_on
       target:
         entity_id: remote.salon_2
+    - action: scene.turn_on
+      target:
+        entity_id: scene.salon_kino_1
     - delay:
-        milliseconds: 300
+        seconds: 2
     - action: media_player.play_media
       target:
         entity_id: media_player.salon_2
@@ -1002,6 +1008,11 @@ tv_show_camera:
             - condition: template
               value_template: "{{ camera in cam_map }}"
           sequence:
+            - action: remote.turn_on
+              target:
+                entity_id: remote.salon_2
+            - delay:
+                milliseconds: 500
             - action: camera.play_stream
               target:
                 entity_id: "{{ cam_map[camera] }}"
