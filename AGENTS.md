@@ -10,6 +10,7 @@ This is a Home Assistant deployment project using Docker for home automation con
 - **Home Assistant** - Main UI, automations, MQTT sensors/climate controls
 - **Zigbee2MQTT** - Zigbee device integration (Sonoff Zigbee 3.0 USB Dongle Plus V2)
 - **Pstryk Energy Pricing** - Dynamic energy pricing from Polish provider
+- **Home Assistant Voice PE** - Voice satellite device (ESPHome, Nabu Casa) for voice assistant and TTS announcements
 
 **Location:** `/Users/wtrzonkowski/Desktop/private/homeassistant/`
 
@@ -134,6 +135,15 @@ homeassistant:
 
 ### Energy/Pricing
 - Daily Pstryk price notification (20:00)
+- Tesla Charging Best Window automation
+- Pstryk Best Window Voice Announcement (`pstryk_best_window_voice_announcement` - plays dynamic TTS announcement on Home Assistant Voice PE `media_player.home_assistant_voice_0a9bfd_media_player` via Nabu Casa Cloud TTS)
+
+### Voice Assistant & Radio Playback
+- **Hardware:** Home Assistant Voice PE (`media_player.home_assistant_voice_0a9bfd_media_player`)
+- **Voice Intents:** `WlaczRadio`, `ZatrzymajRadio` (custom sentences in `config/custom_sentences/pl/dom_sentences.yaml` and `config/custom_sentences/en/dom_sentences.yaml`)
+- **Stateful Memory:** `input_select.last_radio_station` stores the last active station (resumed when saying *"włącz radio"* / *"play radio"* without specifying a station; defaults to Eska Rock on initial run)
+- **Scripts:** `script.play_radio` (resolves stream URL, updates helper, plays stream on Voice PE), `script.stop_radio`
+- **Supported Stations:** Eska Rock (default), RMF FM, Radio ZET, Antyradio, Radio 357, TOK FM, VOX FM, Polskie Radio Trójka
 
 ### Image Recognition
 - Camera snapshot with Google AI analysis
@@ -190,6 +200,7 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 **Automations:**
 - `daily_energy_price_notification` - Sends Polish summary at 22:00 (uses dół sensor, pricing is identical)
 - `Tesla Charging Best Window` - triggers on `binary_sensor.pstryk_in_best_window_dol`
+- `pstryk_best_window_voice_announcement` - triggers on `binary_sensor.pstryk_in_best_window_dol` to speak dynamic announcement on Home Assistant Voice PE speaker
 
 ## Important Files
 

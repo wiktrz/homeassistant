@@ -890,3 +890,59 @@ bedroom_cinema_off:
   - action: script.roller_bedroom_on
     data: {}
   description: ''
+play_radio:
+  alias: Odtwórz Stację Radiową
+  description: Odtwarza wybraną stację radiową lub wznawia ostatnio odtwarzaną na Home Assistant Voice PE
+  fields:
+    station:
+      description: ID stacji radiowej (opcjonalne)
+      example: eska_rock
+  sequence:
+    - variables:
+        station_map:
+          eska_rock:
+            url: "https://ic2.smcdn.pl/5380-1.mp3#ESKA_ROCK"
+          rmf_fm:
+            url: "http://195.150.20.9/RMFFM48"
+          radio_zet:
+            url: "https://r.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx?audio=5"
+          antyradio:
+            url: "https://n-4-2.dcs.redcdn.pl/sc/o2/Eurozet/live/antyradio.livx?audio=5"
+          radio_357:
+            url: "https://n-11-21.dcs.redcdn.pl/sc/o2/radio357/live/radio357_pr.livx?preroll=0"
+          tok_fm:
+            url: "https://radiostream.pl/tuba10-1.mp3#TOK_FM"
+          vox_fm:
+            url: "http://ic1.smcdn.pl/3990-1.aac"
+          trojka:
+            url: "http://stream3.polskieradio.pl:8904/"
+        target_station: >-
+          {% if station is defined and station in station_map %}
+            {{ station }}
+          {% else %}
+            {% set last = states('input_select.last_radio_station') %}
+            {{ last if last in station_map else 'eska_rock' }}
+          {% endif %}
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.last_radio_station
+      data:
+        option: "{{ target_station }}"
+    - action: media_player.play_media
+      target:
+        entity_id: media_player.home_assistant_voice_0a9bfd_media_player
+      data:
+        media_content_type: audio/mp3
+        media_content_id: "{{ station_map[target_station].url }}"
+  mode: restart
+  icon: mdi:radio
+stop_radio:
+  alias: Zatrzymaj Radio
+  description: Zatrzymuje odtwarzanie radia na Home Assistant Voice PE
+  sequence:
+    - action: media_player.media_stop
+      target:
+        entity_id: media_player.home_assistant_voice_0a9bfd_media_player
+  mode: single
+  icon: mdi:stop-circle-outline
+

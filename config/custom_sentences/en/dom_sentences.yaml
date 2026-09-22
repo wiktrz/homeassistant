@@ -1,0 +1,40 @@
+language: "en"
+lists:
+  radio_station:
+    values:
+      - in: "(eska rock|esca rock|eska)"
+        out: "eska_rock"
+      - in: "(rmf|rmf fm)"
+        out: "rmf_fm"
+      - in: "(radio zet|zet)"
+        out: "radio_zet"
+      - in: "(antyradio|anti radio)"
+        out: "antyradio"
+      - in: "(radio 357|three fifty seven)"
+        out: "radio_357"
+      - in: "(tok fm|tok)"
+        out: "tok_fm"
+      - in: "(vox fm|vox)"
+        out: "vox_fm"
+      - in: "(trojka|radio three)"
+        out: "trojka"
+
+intents:
+  WlaczRadio:
+    data:
+      - sentences:
+          - "play [the] radio [station] {radio_station}"
+          - "play {radio_station} [radio]"
+          - "play radio"
+          - "resume radio"
+          - "start radio"
+          - "turn on [the] radio"
+
+  ZatrzymajRadio:
+    data:
+      - sentences:
+          - "stop [the] radio"
+          - "stop playing [the] radio"
+          - "turn off [the] radio"
+          - "stop music"
+          - "stop"

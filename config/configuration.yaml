@@ -130,6 +130,19 @@ input_boolean:
     name: Hall Entrance Input Manual
 
 input_select:
+  last_radio_station:
+    name: Ostatnia Stacja Radiowa
+    options:
+      - eska_rock
+      - rmf_fm
+      - radio_zet
+      - antyradio
+      - radio_357
+      - tok_fm
+      - vox_fm
+      - trojka
+    initial: eska_rock
+    icon: mdi:radio
   local01_main_heating_routine:
     name: Heating Routine Local01 Main
     options:
@@ -564,4 +577,35 @@ intent_script:
       text: "Wszystkie światła zostały wyłączone. Do zobaczenia."
     action:
       - action: script.all_lights_off
+
+  WlaczRadio:
+    speech:
+      text: >-
+        {% set station_names = {
+          'eska_rock': 'radio Eska Rock',
+          'rmf_fm': 'radio RMF FM',
+          'radio_zet': 'Radio ZET',
+          'antyradio': 'Antyradio',
+          'radio_357': 'Radio 357',
+          'tok_fm': 'radio TOK FM',
+          'vox_fm': 'radio VOX FM',
+          'trojka': 'Polskie Radio Trójka'
+        } %}
+        {% if radio_station is defined and radio_station in station_names %}
+          Włączam {{ station_names[radio_station] }}
+        {% else %}
+          {% set last = states('input_select.last_radio_station') %}
+          {% set sel = last if last in station_names else 'eska_rock' %}
+          Wznawiam {{ station_names[sel] }}
+        {% endif %}
+    action:
+      - action: script.play_radio
+        data:
+          station: "{{ radio_station | default('') }}"
+
+  ZatrzymajRadio:
+    speech:
+      text: "Zatrzymuję radio"
+    action:
+      - action: script.stop_radio
 

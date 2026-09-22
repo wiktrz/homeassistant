@@ -1,4 +1,24 @@
 language: "pl"
+lists:
+  radio_station:
+    values:
+      - in: "(eska rock|eska rok|eski rock|eska)"
+        out: "eska_rock"
+      - in: "(rmf|rmf fm|er em ef)"
+        out: "rmf_fm"
+      - in: "(radio zet|zet|zetka)"
+        out: "radio_zet"
+      - in: "(antyradio|anty radio)"
+        out: "antyradio"
+      - in: "(radio 357|trzysta pięćdziesiąt siedem)"
+        out: "radio_357"
+      - in: "(tok fm|tok)"
+        out: "tok_fm"
+      - in: "(vox fm|vox)"
+        out: "vox_fm"
+      - in: "(trójka|trojka|polskie radio trójka)"
+        out: "trojka"
+
 intents:
   OtworzRygiel:
     data:
@@ -80,3 +100,30 @@ intents:
           - "wychodzę (z domu|)"
           - "wychodzimy"
           - "zabezpiecz dom"
+
+  WlaczRadio:
+    data:
+      - sentences:
+          - "włącz radio {radio_station}"
+          - "graj radio {radio_station}"
+          - "puść radio {radio_station}"
+          - "odtwórz radio {radio_station}"
+          - "włącz stację {radio_station}"
+          - "graj stację {radio_station}"
+          - "puść stację {radio_station}"
+          - "włącz radio"
+          - "graj radio"
+          - "puść radio"
+          - "wznów radio"
+          - "odtwórz radio"
+
+  ZatrzymajRadio:
+    data:
+      - sentences:
+          - "zatrzymaj radio"
+          - "wyłącz radio"
+          - "stop radio"
+          - "zatrzymaj odtwarzanie"
+          - "wyłącz muzykę"
+          - "stop muzyka"
+          - "stop"
