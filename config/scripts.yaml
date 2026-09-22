@@ -108,7 +108,6 @@ all_lights_off:
         - light.boneio_32_l_07_new_light_04
         - light.boneio_32_l_07_new_light_05
         - light.boneio_32_l_07_new_light_06
-        - light.boneio_32_l_07_new_light_07
         - light.boneio_32_l_07_new_light_08
         - light.boneio_32_l_07_new_light_09
         - light.boneio_32_l_07_new_light_10
@@ -116,9 +115,7 @@ all_lights_off:
         - light.boneio_32_l_07_new_light_15
         - light.boneio_32_l_07_new_light_16
         - light.boneio_32_l_07_new_light_17
-        - light.boneio_32_l_07_new_light_18
         - light.boneio_32_l_07_new_light_19
-        - light.boneio_32_l_07_new_light_20
         - light.boneio_dr_8ch_03_2c7fbc_chl_01
         - light.boneio_dr_8ch_03_2c7fbc_chl_02
         - light.boneio_dr_8ch_03_2c7fbc_chl_03
