@@ -493,20 +493,48 @@ views:
     path: media
     icon: mdi:television-play
     cards:
+      # --- KINO & TV GŁÓWNE ---
+      - type: heading
+        heading: Telewizor & Kino Domowe
+
       - type: horizontal-stack
         cards:
-          - type: media-control
+          - type: tile
+            entity: script.salon_cinema_mode
+            name: Tryb Kino (Zmrok)
+            icon: mdi:movie-open
+            color: purple
+            tap_action:
+              action: perform-action
+              perform_action: script.salon_cinema_mode
+              target:
+                entity_id: script.salon_cinema_mode
+          - type: tile
             entity: media_player.salon_2
-            name: Apple TV / Speaker
-          - type: media-control
-            entity: media_player.googletv8897_2
-            name: Google TV
-      - type: entities
-        entities:
-          - entity: remote.salon_2
-            name: Pilot Salon
+            name: Telewizor
+            icon: mdi:television
+            tap_action:
+              action: toggle
+
+      - type: tile
+        entity: media_player.salon_2
+        name: TCL Google TV
+        icon: mdi:television-classic
+        show_entity_picture: true
+        features:
+          - type: media-player-volume-slider
+          - type: media-player-commands
+            commands:
+              - play_pause
+              - next
+              - previous
+
+      # --- SCENY I NASTRÓJ ---
+      - type: heading
+        heading: Sceny i Nastrój
+
       - type: grid
-        columns: 2
+        columns: 4
         square: false
         cards:
           - type: tile
@@ -529,3 +557,303 @@ views:
             name: Ruch ON
             icon: mdi:motion-sensor
             color: green
+
+      # --- APLIKACJE STREAMINGOWE ---
+      - type: heading
+        heading: Aplikacje na Telewizorze
+
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: tile
+            entity: remote.salon_2
+            name: Netflix
+            icon: mdi:netflix
+            color: red
+            tap_action:
+              action: perform-action
+              perform_action: script.tv_launch_app
+              data:
+                app: netflix
+
+          - type: tile
+            entity: remote.salon_2
+            name: YouTube
+            icon: mdi:youtube
+            color: red
+            tap_action:
+              action: perform-action
+              perform_action: script.tv_launch_app
+              data:
+                app: youtube
+
+          - type: tile
+            entity: remote.salon_2
+            name: Disney+
+            icon: mdi:television-classic
+            color: blue
+            tap_action:
+              action: perform-action
+              perform_action: script.tv_launch_app
+              data:
+                app: disney
+
+          - type: tile
+            entity: remote.salon_2
+            name: Max
+            icon: mdi:movie-play
+            color: deep-purple
+            tap_action:
+              action: perform-action
+              perform_action: script.tv_launch_app
+              data:
+                app: max
+
+          - type: tile
+            entity: remote.salon_2
+            name: Spotify
+            icon: mdi:spotify
+            color: green
+            tap_action:
+              action: perform-action
+              perform_action: script.tv_launch_app
+              data:
+                app: spotify
+
+          - type: tile
+            entity: remote.salon_2
+            name: Prime Video
+            icon: mdi:amazon
+            color: light-blue
+            tap_action:
+              action: perform-action
+              perform_action: script.tv_launch_app
+              data:
+                app: prime_video
+
+      # --- PILOT FIZYCZNY (Karta warunkowa: tylko gdy TV włączony) ---
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: remote.salon_2
+            state_not: 'off'
+        card:
+          type: vertical-stack
+          cards:
+            - type: heading
+              heading: Pilot Telewizora
+            - type: grid
+              columns: 3
+              square: false
+              cards:
+                - type: button
+                  icon: mdi:arrow-left
+                  name: Wstecz
+                  tap_action:
+                    action: perform-action
+                    perform_action: remote.send_command
+                    target:
+                      entity_id: remote.salon_2
+                    data:
+                      command: BACK
+                - type: button
+                  icon: mdi:chevron-up
+                  name: Góra
+                  tap_action:
+                    action: perform-action
+                    perform_action: remote.send_command
+                    target:
+                      entity_id: remote.salon_2
+                    data:
+                      command: DPAD_UP
+                - type: button
+                  icon: mdi:home
+                  name: Home
+                  tap_action:
+                    action: perform-action
+                    perform_action: remote.send_command
+                    target:
+                      entity_id: remote.salon_2
+                    data:
+                      command: HOME
+                - type: button
+                  icon: mdi:chevron-left
+                  name: Lewo
+                  tap_action:
+                    action: perform-action
+                    perform_action: remote.send_command
+                    target:
+                      entity_id: remote.salon_2
+                    data:
+                      command: DPAD_LEFT
+                - type: button
+                  icon: mdi:circle
+                  name: OK
+                  tap_action:
+                    action: perform-action
+                    perform_action: remote.send_command
+                    target:
+                      entity_id: remote.salon_2
+                    data:
+                      command: DPAD_CENTER
+                - type: button
+                  icon: mdi:chevron-right
+                  name: Prawo
+                  tap_action:
+                    action: perform-action
+                    perform_action: remote.send_command
+                    target:
+                      entity_id: remote.salon_2
+                    data:
+                      command: DPAD_RIGHT
+                - type: button
+                  icon: mdi:volume-minus
+                  name: Ciszej
+                  tap_action:
+                    action: perform-action
+                    perform_action: remote.send_command
+                    target:
+                      entity_id: remote.salon_2
+                    data:
+                      command: VOLUME_DOWN
+                - type: button
+                  icon: mdi:chevron-down
+                  name: Dół
+                  tap_action:
+                    action: perform-action
+                    perform_action: remote.send_command
+                    target:
+                      entity_id: remote.salon_2
+                    data:
+                      command: DPAD_DOWN
+                - type: button
+                  icon: mdi:volume-plus
+                  name: Głośniej
+                  tap_action:
+                    action: perform-action
+                    perform_action: remote.send_command
+                    target:
+                      entity_id: remote.salon_2
+                    data:
+                      command: VOLUME_UP
+
+      # --- KAMERY I STRUMIENIOWANIE NA TV ---
+      - type: heading
+        heading: Kamery — Podgląd i Przesyłanie na TV
+
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: picture-glance
+            title: Podwórze
+            camera_image: camera.reolink_duo_floodlight_poe_plynny_2
+            camera_view: live
+            entities:
+              - entity: media_player.googletv8897_2
+                icon: mdi:cast-connected
+                tap_action:
+                  action: perform-action
+                  perform_action: script.tv_show_camera
+                  data:
+                    camera: podworko
+              - entity: media_player.googletv8897_2
+                icon: mdi:cast-off
+                tap_action:
+                  action: perform-action
+                  perform_action: script.tv_show_camera
+                  data:
+                    camera: stop
+
+          - type: picture-glance
+            title: Wejście
+            camera_image: camera.rlc_822a_plynny
+            camera_view: live
+            entities:
+              - entity: media_player.googletv8897_2
+                icon: mdi:cast-connected
+                tap_action:
+                  action: perform-action
+                  perform_action: script.tv_show_camera
+                  data:
+                    camera: wejscie
+              - entity: media_player.googletv8897_2
+                icon: mdi:cast-off
+                tap_action:
+                  action: perform-action
+                  perform_action: script.tv_show_camera
+                  data:
+                    camera: stop
+
+          - type: picture-glance
+            title: Taras
+            camera_image: camera.taras_plynny
+            camera_view: live
+            entities:
+              - entity: media_player.googletv8897_2
+                icon: mdi:cast-connected
+                tap_action:
+                  action: perform-action
+                  perform_action: script.tv_show_camera
+                  data:
+                    camera: taras
+              - entity: media_player.googletv8897_2
+                icon: mdi:cast-off
+                tap_action:
+                  action: perform-action
+                  perform_action: script.tv_show_camera
+                  data:
+                    camera: stop
+
+          - type: picture-glance
+            title: Ogród
+            camera_image: camera.rlc_820a_niska_rozdzielczosc
+            camera_view: live
+            entities:
+              - entity: media_player.googletv8897_2
+                icon: mdi:cast-connected
+                tap_action:
+                  action: perform-action
+                  perform_action: script.tv_show_camera
+                  data:
+                    camera: ogrod
+              - entity: media_player.googletv8897_2
+                icon: mdi:cast-off
+                tap_action:
+                  action: perform-action
+                  perform_action: script.tv_show_camera
+                  data:
+                    camera: stop
+
+          - type: picture-glance
+            title: Front / Brama
+            camera_image: camera.520a_plynny
+            camera_view: live
+            entities:
+              - entity: media_player.googletv8897_2
+                icon: mdi:cast-connected
+                tap_action:
+                  action: perform-action
+                  perform_action: script.tv_show_camera
+                  data:
+                    camera: front
+              - entity: media_player.googletv8897_2
+                icon: mdi:cast-off
+                tap_action:
+                  action: perform-action
+                  perform_action: script.tv_show_camera
+                  data:
+                    camera: stop
+
+      - type: tile
+        entity: media_player.googletv8897_2
+        name: Zatrzymaj Podgląd Kamery na TV
+        icon: mdi:cast-off
+        color: red
+        tap_action:
+          action: perform-action
+          perform_action: script.tv_show_camera
+          data:
+            camera: stop
+

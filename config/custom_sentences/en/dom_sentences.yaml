@@ -19,6 +19,34 @@ lists:
       - in: "(trojka|radio three)"
         out: "trojka"
 
+  streaming_app:
+    values:
+      - in: "(netflix)"
+        out: "netflix"
+      - in: "(youtube)"
+        out: "youtube"
+      - in: "(disney|disney plus)"
+        out: "disney"
+      - in: "(max|hbo|hbo max)"
+        out: "max"
+      - in: "(spotify)"
+        out: "spotify"
+      - in: "(prime|prime video|amazon prime)"
+        out: "prime_video"
+
+  camera_target:
+    values:
+      - in: "(backyard|yard)"
+        out: "podworko"
+      - in: "(entrance|front door|gate)"
+        out: "wejscie"
+      - in: "(patio|terrace)"
+        out: "taras"
+      - in: "(garden)"
+        out: "ogrod"
+      - in: "(front|driveway)"
+        out: "front"
+
 intents:
   WlaczRadio:
     data:
@@ -38,3 +66,59 @@ intents:
           - "turn off [the] radio"
           - "stop music"
           - "stop"
+
+  WlaczAplikacjeTV:
+    data:
+      - sentences:
+          - "open {streaming_app} [on the tv|on tv]"
+          - "play {streaming_app} [on the tv|on tv]"
+          - "launch {streaming_app} [on the tv|on tv]"
+          - "start {streaming_app} [on the tv|on tv]"
+
+  GlosniejTV:
+    data:
+      - sentences:
+          - "volume up [on the tv|on tv]"
+          - "turn up the tv [volume]"
+          - "louder [on the tv|on tv]"
+
+  CiszejTV:
+    data:
+      - sentences:
+          - "volume down [on the tv|on tv]"
+          - "turn down the tv [volume]"
+          - "quieter [on the tv|on tv]"
+
+  WyciszTV:
+    data:
+      - sentences:
+          - "mute [the] tv"
+
+  PokazKamereTV:
+    data:
+      - sentences:
+          - "show {camera_target} [camera] on [the] tv"
+          - "display {camera_target} [camera] on [the] tv"
+
+  ZatrzymajKamereTV:
+    data:
+      - sentences:
+          - "stop camera on [the] tv"
+          - "close camera on [the] tv"
+          - "turn off camera on [the] tv"
+
+  TrybKinoSalon:
+    data:
+      - sentences:
+          - "cinema mode [in living room]"
+          - "movie mode [in living room]"
+          - "start cinema mode [in living room]"
+          - "turn on cinema mode [in living room]"
+
+  ZatrzymajKinoSalon:
+    data:
+      - sentences:
+          - "turn off cinema mode [in living room]"
+          - "stop cinema mode [in living room]"
+
+

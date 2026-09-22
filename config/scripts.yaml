@@ -945,4 +945,112 @@ stop_radio:
         entity_id: media_player.home_assistant_voice_0a9bfd_media_player
   mode: single
   icon: mdi:stop-circle-outline
+tv_launch_app:
+  alias: Uruchom Aplikację na Telewizorze
+  description: Uruchamia wybraną aplikację streamingową na telewizorze w salonie
+  fields:
+    app:
+      description: Nazwa aplikacji (netflix, youtube, disney, max, spotify, prime_video)
+      example: netflix
+  sequence:
+    - variables:
+        app_map:
+          netflix: "com.netflix.ninja"
+          youtube: "https://www.youtube.com"
+          disney: "com.disney.disneyplus"
+          max: "https://play.max.com"
+          spotify: "spotify://"
+          prime_video: "https://app.primevideo.com"
+        target_app: "{{ app | default('netflix') }}"
+    - action: remote.turn_on
+      target:
+        entity_id: remote.salon_2
+    - delay:
+        milliseconds: 300
+    - action: media_player.play_media
+      target:
+        entity_id: media_player.salon_2
+      data:
+        media_content_type: app
+        media_content_id: "{{ app_map[target_app] }}"
+  mode: restart
+  icon: mdi:television-play
+tv_show_camera:
+  alias: Wyświetl Kamerę na Telewizorze
+  description: Streamuje obraz z wybranej kamery na telewizor lub zatrzymuje podgląd
+  fields:
+    camera:
+      description: ID kamery (podworko, wejscie, taras, ogrod, front, stop)
+      example: podworko
+  sequence:
+    - variables:
+        cam_map:
+          podworko: camera.reolink_duo_floodlight_poe_plynny_2
+          wejscie: camera.rlc_822a_plynny
+          taras: camera.taras_plynny
+          ogrod: camera.rlc_820a_niska_rozdzielczosc
+          front: camera.520a_plynny
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ camera == 'stop' }}"
+          sequence:
+            - action: media_player.media_stop
+              target:
+                entity_id: media_player.googletv8897_2
+        - conditions:
+            - condition: template
+              value_template: "{{ camera in cam_map }}"
+          sequence:
+            - action: camera.play_stream
+              target:
+                entity_id: "{{ cam_map[camera] }}"
+              data:
+                media_player: media_player.googletv8897_2
+                format: hls
+  mode: restart
+  icon: mdi:cctv
+salon_cinema_mode:
+  alias: Tryb Kino w Salonie
+  description: Włącza TV i dostosowuje oświetlenie salonu do pory zmroku
+  fields:
+    action_type:
+      description: on lub off
+      example: "on"
+  sequence:
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ action_type == 'off' }}"
+          sequence:
+            - action: remote.turn_off
+              target:
+                entity_id: remote.salon_2
+            - action: media_player.media_stop
+              target:
+                entity_id: media_player.googletv8897_2
+        - conditions:
+            - condition: template
+              value_template: "{{ action_type | default('on') == 'on' }}"
+          sequence:
+            - action: scene.turn_on
+              target:
+                entity_id: scene.salon_kino_1
+            - if:
+                - condition: time
+                  after: input_datetime.pora_zmroku
+                  before: input_datetime.pora_switu
+              then:
+                - action: input_select.select_option
+                  target:
+                    entity_id: input_select.salon_kolor_wybor
+                  data:
+                    option: script.light_salon_color_2
+                - action: script.light_salon_color_2
+                - action: light.turn_off
+                  target:
+                    entity_id: light.salon_mqtt
+  mode: single
+  icon: mdi:movie-open
+
 

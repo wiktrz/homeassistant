@@ -2328,14 +2328,14 @@
         cache: true
   mode: single
 - id: 'morning_radio_schedule'
-  alias: 'Poranne Radio: Radio ZET (Pn-Pt 7:00) i Antyradio (Sb-Nd 8:30)'
-  description: 'Włącza radio na Home Assistant Voice PE rano: od poniedziałku do piątku o 7:00 Radio ZET, w soboty i niedziele o 8:30 Antyradio.'
+  alias: 'Poranne Radio: Radio ZET (Pn-Pt Pora Pobudka) i Antyradio (Sb-Nd Pora Weekend)'
+  description: 'Włącza radio na Home Assistant Voice PE rano: w dni robocze o godzinie Pora Pobudka (Radio ZET), w weekendy o godzinie Pora Pobudka Weekend (Antyradio).'
   triggers:
     - trigger: time
-      at: '07:00:00'
+      at: input_datetime.pora_pobudka
       id: weekday_morning
     - trigger: time
-      at: '08:30:00'
+      at: input_datetime.pora_pobudka_weekend
       id: weekend_morning
   conditions: []
   actions:

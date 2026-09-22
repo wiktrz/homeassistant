@@ -609,3 +609,99 @@ intent_script:
     action:
       - action: script.stop_radio
 
+  WlaczAplikacjeTV:
+    speech:
+      text: >-
+        {% set app_names = {
+          'netflix': 'Netflix',
+          'youtube': 'YouTube',
+          'disney': 'Disney Plus',
+          'max': 'Max',
+          'spotify': 'Spotify',
+          'prime_video': 'Prime Video'
+        } %}
+        {% if streaming_app is defined and streaming_app in app_names %}
+          Włączam {{ app_names[streaming_app] }} na telewizorze
+        {% else %}
+          Uruchamiam aplikację na telewizorze
+        {% endif %}
+    action:
+      - action: script.tv_launch_app
+        data:
+          app: "{{ streaming_app | default('netflix') }}"
+
+  GlosniejTV:
+    speech:
+      text: "Zgłaśniam telewizor"
+    action:
+      - action: remote.send_command
+        target:
+          entity_id: remote.salon_2
+        data:
+          command: VOLUME_UP
+
+  CiszejTV:
+    speech:
+      text: "Ściszam telewizor"
+    action:
+      - action: remote.send_command
+        target:
+          entity_id: remote.salon_2
+        data:
+          command: VOLUME_DOWN
+
+  WyciszTV:
+    speech:
+      text: "Wyciszam telewizor"
+    action:
+      - action: remote.send_command
+        target:
+          entity_id: remote.salon_2
+        data:
+          command: MUTE
+
+  PokazKamereTV:
+    speech:
+      text: >-
+        {% set cam_names = {
+          'podworko': 'podwórza',
+          'wejscie': 'wejścia',
+          'taras': 'tarasu',
+          'ogrod': 'ogrodu',
+          'front': 'frontu'
+        } %}
+        {% if camera_target is defined and camera_target in cam_names %}
+          Wyświetlam kamerę {{ cam_names[camera_target] }} na telewizorze
+        {% else %}
+          Wyświetlam kamerę na telewizorze
+        {% endif %}
+    action:
+      - action: script.tv_show_camera
+        data:
+          camera: "{{ camera_target | default('podworko') }}"
+
+  ZatrzymajKamereTV:
+    speech:
+      text: "Zamykam podgląd kamery na telewizorze"
+    action:
+      - action: script.tv_show_camera
+        data:
+          camera: stop
+
+  TrybKinoSalon:
+    speech:
+      text: "Uruchamiam tryb kino w salonie. Przyjemnego seansu!"
+    action:
+      - action: script.salon_cinema_mode
+        data:
+          action_type: "on"
+
+  ZatrzymajKinoSalon:
+    speech:
+      text: "Wyłączam tryb kino"
+    action:
+      - action: script.salon_cinema_mode
+        data:
+          action_type: "off"
+
+

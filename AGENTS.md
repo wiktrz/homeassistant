@@ -46,6 +46,7 @@ config/
 ├── customize.yaml        # Entity customization
 ├── secrets.yaml          # Sensitive configuration
 ├── views.yaml            # View definitions
+├── dashboard_modern_reference.yaml # Dom iPad Modern dashboard (/dashboard-home)
 ├── dashboard_home_improved.yaml   # Home dashboard
 ├── dashboard_improved.yaml       # Main dashboard
 ├── dashboard_korytarze_improved.yaml  # Hallways dashboard
@@ -144,7 +145,28 @@ homeassistant:
 - **Stateful Memory:** `input_select.last_radio_station` stores the last active station (resumed when saying *"włącz radio"* / *"play radio"* without specifying a station; defaults to Eska Rock on initial run)
 - **Scripts:** `script.play_radio` (resolves stream URL, updates helper, plays stream on Voice PE), `script.stop_radio`
 - **Supported Stations:** Eska Rock (default), RMF FM, Radio ZET, Antyradio, Radio 357, TOK FM, VOX FM, Polskie Radio Trójka
-- **Scheduled Automations:** `morning_radio_schedule` (Mon-Fri 07:00 Radio ZET, Sat-Sun 08:30 Antyradio on Voice PE)
+- **Scheduled Automations:** `morning_radio_schedule` (Mon-Fri at `input_datetime.pora_pobudka` -> Radio ZET; Sat-Sun at `input_datetime.pora_pobudka_weekend` -> Antyradio on Voice PE)
+
+### Multimedia & TV Control (Salon TCL Google TV)
+- **Primary Entities:** `media_player.salon_2`, `remote.salon_2` (Android TV Remote integration)
+- **Cast Target:** `media_player.googletv8897_2` (Google Cast integration for camera streaming)
+- **Streaming Apps:** Netflix (`com.netflix.ninja`), YouTube (`https://www.youtube.com`), Disney+ (`com.disney.disneyplus`), Max (`https://play.max.com`), Spotify (`spotify://`), Prime Video (`https://app.primevideo.com`)
+- **Camera Streaming (5 cameras):**
+  - Podwórze: `camera.reolink_duo_floodlight_poe_plynny_2`
+  - Wejście: `camera.rlc_822a_plynny`
+  - Taras: `camera.taras_plynny`
+  - Ogród: `camera.rlc_820a_niska_rozdzielczosc`
+  - Front / Brama: `camera.520a_plynny`
+- **Scripts:**
+  - `script.tv_launch_app`: Launches streaming apps by key on `media_player.salon_2` via `remote.turn_on` and `media_player.play_media`
+  - `script.tv_show_camera`: Streams camera via `camera.play_stream` (format: HLS) to `media_player.googletv8897_2`, or stops stream (`camera: stop`)
+  - `script.salon_cinema_mode`: Turns on TV and activates `scene.salon_kino_1`. If after dark (`after: input_datetime.pora_zmroku, before: input_datetime.pora_switu`), sets `input_select.salon_kolor_wybor` to option 2 (`script.light_salon_color_2`), executes it, and turns off ceiling light `light.salon_mqtt`
+- **Dashboard View:** `/dashboard-home/media` in `config/dashboard_modern_reference.yaml` (Dom iPad Modern) and `config/dashboard_home_improved.yaml` featuring Cinema Mode toggle, TV tile with volume slider, 6-app quick launch grid, scenes & mood grid, conditional D-pad remote (when TV is on), and 5 camera glance cards with Cast / Stop buttons
+- **Voice Intents:**
+  - `WlaczAplikacjeTV`: *"włącz [aplikacja] na telewizorze"* / *"open [app] on tv"*
+  - `GlosniejTV`, `CiszejTV`, `WyciszTV`: *"głośniej / ciszej / wycisz telewizor"* / *"volume up / down / mute tv"*
+  - `PokazKamereTV`, `ZatrzymajKamereTV`: *"pokaż [kamera] na telewizorze"* / *"show [camera] on tv"*, *"zamknij podgląd kamery"*
+  - `TrybKinoSalon`, `ZatrzymajKinoSalon`: *"tryb kino w salonie"* / *"cinema mode in living room"*, *"wyłącz tryb kino"*
 
 ### Image Recognition
 - Camera snapshot with Google AI analysis

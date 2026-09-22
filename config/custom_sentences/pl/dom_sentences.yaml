@@ -19,6 +19,34 @@ lists:
       - in: "(trójka|trojka|polskie radio trójka)"
         out: "trojka"
 
+  streaming_app:
+    values:
+      - in: "(netflix|netfliksa|netfliksie)"
+        out: "netflix"
+      - in: "(youtube|jutub|jutuba|jutubie)"
+        out: "youtube"
+      - in: "(disney|disney plus|disneya)"
+        out: "disney"
+      - in: "(max|hbo|hbo max)"
+        out: "max"
+      - in: "(spotify|spotifaja)"
+        out: "spotify"
+      - in: "(prime|prime video|amazon)"
+        out: "prime_video"
+
+  camera_target:
+    values:
+      - in: "(podwórze|podworze|podwórko|podworko)"
+        out: "podworko"
+      - in: "(wejście|wejscie|drzwi wejściowe|furtka)"
+        out: "wejscie"
+      - in: "(taras|na tarasie)"
+        out: "taras"
+      - in: "(ogród|ogrod|w ogrodzie)"
+        out: "ogrod"
+      - in: "(front|brama|bramę|wjazd)"
+        out: "front"
+
 intents:
   OtworzRygiel:
     data:
@@ -127,3 +155,64 @@ intents:
           - "wyłącz muzykę"
           - "stop muzyka"
           - "stop"
+
+  WlaczAplikacjeTV:
+    data:
+      - sentences:
+          - "włącz {streaming_app} (na telewizorze|na tv|)"
+          - "odpal {streaming_app} (na telewizorze|na tv|)"
+          - "uruchom {streaming_app} (na telewizorze|na tv|)"
+          - "otwórz {streaming_app} (na telewizorze|na tv|)"
+
+  GlosniejTV:
+    data:
+      - sentences:
+          - "zrób głośniej (na telewizorze|telewizor|tv|)"
+          - "głośniej (na telewizorze|telewizor|tv|)"
+          - "podgłośnij (telewizor|tv|)"
+
+  CiszejTV:
+    data:
+      - sentences:
+          - "zrób ciszej (na telewizorze|telewizor|tv|)"
+          - "ciszej (na telewizorze|telewizor|tv|)"
+          - "ściasz (telewizor|tv|)"
+
+  WyciszTV:
+    data:
+      - sentences:
+          - "wycisz (telewizor|tv|)"
+
+  PokazKamereTV:
+    data:
+      - sentences:
+          - "pokaż {camera_target} (na telewizorze|na tv|)"
+          - "pokaż kamerę {camera_target} (na telewizorze|na tv|)"
+          - "pokaż obraz z (kamery |){camera_target} (na telewizorze|na tv|)"
+          - "wyświetl {camera_target} (na telewizorze|na tv|)"
+          - "wyświetl kamerę {camera_target} (na telewizorze|na tv|)"
+
+  ZatrzymajKamereTV:
+    data:
+      - sentences:
+          - "wyłącz kamerę na (telewizorze|tv)"
+          - "zamknij kamerę na (telewizorze|tv)"
+          - "zamknij podgląd (kamery|na telewizorze|na tv|)"
+          - "zatrzymaj podgląd (kamery|na telewizorze|na tv|)"
+          - "zatrzymaj kamerę na (telewizorze|tv)"
+
+  TrybKinoSalon:
+    data:
+      - sentences:
+          - "tryb kino (w salonie|)"
+          - "włącz tryb kino (w salonie|)"
+          - "uruchom kino (w salonie|)"
+          - "pora na film (w salonie|)"
+
+  ZatrzymajKinoSalon:
+    data:
+      - sentences:
+          - "wyłącz tryb kino (w salonie|)"
+          - "zatrzymaj tryb kino (w salonie|)"
+
+
