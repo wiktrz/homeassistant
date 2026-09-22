@@ -144,6 +144,7 @@ homeassistant:
 - **Stateful Memory:** `input_select.last_radio_station` stores the last active station (resumed when saying *"włącz radio"* / *"play radio"* without specifying a station; defaults to Eska Rock on initial run)
 - **Scripts:** `script.play_radio` (resolves stream URL, updates helper, plays stream on Voice PE), `script.stop_radio`
 - **Supported Stations:** Eska Rock (default), RMF FM, Radio ZET, Antyradio, Radio 357, TOK FM, VOX FM, Polskie Radio Trójka
+- **Scheduled Automations:** `morning_radio_schedule` (Mon-Fri 07:00 Radio ZET, Sat-Sun 08:30 Antyradio on Voice PE)
 
 ### Image Recognition
 - Camera snapshot with Google AI analysis

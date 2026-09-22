@@ -2327,3 +2327,43 @@
           'duration_hours') | int(1) }} godzinne okno cenowe
         cache: true
   mode: single
+- id: 'morning_radio_schedule'
+  alias: 'Poranne Radio: Radio ZET (Pn-Pt 7:00) i Antyradio (Sb-Nd 8:30)'
+  description: 'Włącza radio na Home Assistant Voice PE rano: od poniedziałku do piątku o 7:00 Radio ZET, w soboty i niedziele o 8:30 Antyradio.'
+  triggers:
+    - trigger: time
+      at: '07:00:00'
+      id: weekday_morning
+    - trigger: time
+      at: '08:30:00'
+      id: weekend_morning
+  conditions: []
+  actions:
+    - choose:
+        - conditions:
+            - condition: trigger
+              id: weekday_morning
+            - condition: time
+              weekday:
+                - mon
+                - tue
+                - wed
+                - thu
+                - fri
+          sequence:
+            - action: script.play_radio
+              data:
+                station: radio_zet
+        - conditions:
+            - condition: trigger
+              id: weekend_morning
+            - condition: time
+              weekday:
+                - sat
+                - sun
+          sequence:
+            - action: script.play_radio
+              data:
+                station: antyradio
+  mode: single
+
