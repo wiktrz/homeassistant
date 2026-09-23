@@ -1066,5 +1066,23 @@ salon_cinema_mode:
                     entity_id: light.salon_mqtt
   mode: single
   icon: mdi:movie-open
+radio_volume_up:
+  alias: Radio — Głośniej
+  description: Zwiększa głośność radia na Home Assistant Voice PE
+  sequence:
+    - action: media_player.volume_up
+      target:
+        entity_id: media_player.home_assistant_voice_0a9bfd_media_player
+  mode: single
+  icon: mdi:volume-plus
+radio_volume_down:
+  alias: Radio — Ciszej
+  description: Zmniejsza głośność radia na Home Assistant Voice PE
+  sequence:
+    - action: media_player.volume_down
+      target:
+        entity_id: media_player.home_assistant_voice_0a9bfd_media_player
+  mode: single
+  icon: mdi:volume-minus
 
 

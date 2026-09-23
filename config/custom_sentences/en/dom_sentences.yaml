@@ -67,6 +67,26 @@ intents:
           - "stop music"
           - "stop"
 
+  GlosniejRadio:
+    data:
+      - sentences:
+          - "volume up [the] radio"
+          - "turn up [the] radio [volume]"
+          - "radio volume up"
+          - "louder [on the] radio"
+          - "radio louder"
+          - "make [the] radio louder"
+
+  CiszejRadio:
+    data:
+      - sentences:
+          - "volume down [the] radio"
+          - "turn down [the] radio [volume]"
+          - "radio volume down"
+          - "quieter [on the] radio"
+          - "radio quieter"
+          - "make [the] radio quieter"
+
   WlaczAplikacjeTV:
     data:
       - sentences:

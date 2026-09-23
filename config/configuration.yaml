@@ -616,6 +616,18 @@ intent_script:
     action:
       - action: script.stop_radio
 
+  GlosniejRadio:
+    speech:
+      text: "Zgłaśniam radio"
+    action:
+      - action: script.radio_volume_up
+
+  CiszejRadio:
+    speech:
+      text: "Ściszam radio"
+    action:
+      - action: script.radio_volume_down
+
   WlaczAplikacjeTV:
     speech:
       text: >-

@@ -137,24 +137,67 @@ views:
     path: media
     icon: mdi:television-play
     cards:
-      # --- ODTWARZACZE & KONTROLA TV (Oryginalne karty z przyciskiem zasilania) ---
+      # --- KONTROLA MULTIMEDIÓW: TELEWIZOR & RADIO (1.A + 2.A) ---
       - type: horizontal-stack
         cards:
-          - type: media-control
-            entity: media_player.salon_2
-            name: Apple TV / Speaker
-          - type: media-control
-            entity: media_player.googletv8897_2
-            name: Google TV
+          # --- TELEWIZOR SALON (LEWA KOLUMNA) ---
+          - type: vertical-stack
+            cards:
+              - type: tile
+                entity: media_player.salon_2
+                name: Telewizor Salon
+                icon: mdi:television
+                color: blue
+                tap_action:
+                  action: perform-action
+                  perform_action: remote.toggle
+                  target:
+                    entity_id: remote.salon_2
+                features:
+                  - type: media-player-volume-slider
+              - type: grid
+                columns: 2
+                square: false
+                cards:
+                  - type: tile
+                    entity: script.salon_cinema_mode
+                    name: Tryb Kino
+                    icon: mdi:movie-open
+                    color: purple
+                    tap_action:
+                      action: perform-action
+                      perform_action: script.salon_cinema_mode
+                  - type: tile
+                    entity: remote.salon_2
+                    name: Zasilanie TV
+                    icon: mdi:power
+                    color: red
+                    tap_action:
+                      action: perform-action
+                      perform_action: remote.toggle
+                      target:
+                        entity_id: remote.salon_2
 
-      # --- GŁÓWNY WŁĄCZNIK & PILOT SALON (Przycisk włączania TV) ---
-      - type: entities
-        title: Zasilanie Telewizora
-        show_header_toggle: false
-        entities:
-          - entity: remote.salon_2
-            name: Pilot Salon (Włącznik / Wyłącznik TV)
-            icon: mdi:remote-tv
+          # --- RADIO INTERNETOWE VOICE PE (PRAWA KOLUMNA) ---
+          - type: vertical-stack
+            cards:
+              - type: tile
+                entity: media_player.home_assistant_voice_0a9bfd_media_player
+                name: Radio Voice PE
+                icon: mdi:radio
+                color: amber
+                tap_action:
+                  action: perform-action
+                  perform_action: script.play_radio
+                features:
+                  - type: media-player-playback-control
+                  - type: media-player-volume-slider
+              - type: entities
+                show_header_toggle: false
+                entities:
+                  - entity: input_select.last_radio_station
+                    name: Wybierz stację
+                    icon: mdi:radio-tower
 
       # --- SCENY I NASTRÓJ ---
       - type: grid
@@ -181,30 +224,6 @@ views:
             name: Ruch ON
             icon: mdi:motion-sensor
             color: green
-
-      # --- INTELIGENTNY TRYB KINO (Z CZASEM ZMROKU) ---
-      - type: horizontal-stack
-        cards:
-          - type: tile
-            entity: script.salon_cinema_mode
-            name: Tryb Kino (Automatyka Zmroku)
-            icon: mdi:movie-open
-            color: purple
-            tap_action:
-              action: perform-action
-              perform_action: script.salon_cinema_mode
-              target:
-                entity_id: script.salon_cinema_mode
-          - type: tile
-            entity: remote.salon_2
-            name: Przełącz Zasilanie TV
-            icon: mdi:power
-            color: red
-            tap_action:
-              action: perform-action
-              perform_action: remote.toggle
-              target:
-                entity_id: remote.salon_2
 
       # --- APLIKACJE STREAMINGOWE ---
       - type: heading

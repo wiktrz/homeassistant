@@ -2366,4 +2366,21 @@
               data:
                 station: antyradio
   mode: single
+- id: 'radio_station_changed_auto_play'
+  alias: 'Radio: Przełącz Stację po Zmianie Wyboru'
+  description: 'Gdy użytkownik zmieni wybraną stację w input_select podczas odtwarzania radia, automatycznie przełącza strumień na nową stację.'
+  triggers:
+    - trigger: state
+      entity_id: input_select.last_radio_station
+  conditions:
+    - condition: template
+      value_template: "{{ trigger.from_state is defined and trigger.to_state is defined and trigger.from_state.state != trigger.to_state.state }}"
+    - condition: state
+      entity_id: media_player.home_assistant_voice_0a9bfd_media_player
+      state: 'playing'
+  actions:
+    - action: script.play_radio
+      data:
+        station: "{{ states('input_select.last_radio_station') }}"
+  mode: restart
 

@@ -156,6 +156,28 @@ intents:
           - "stop muzyka"
           - "stop"
 
+  GlosniejRadio:
+    data:
+      - sentences:
+          - "zrób głośniej radio"
+          - "głośniej radio"
+          - "podgłośnij radio"
+          - "radio głośniej"
+          - "zrób głośniej na głośniku"
+          - "głośniej na głośniku"
+          - "podgłośnij głośnik"
+
+  CiszejRadio:
+    data:
+      - sentences:
+          - "zrób ciszej radio"
+          - "ciszej radio"
+          - "ścisz radio"
+          - "radio ciszej"
+          - "zrób ciszej na głośniku"
+          - "ciszej na głośniku"
+          - "ścisz głośnik"
+
   WlaczAplikacjeTV:
     data:
       - sentences:

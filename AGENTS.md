@@ -163,11 +163,19 @@ homeassistant:
 
 ### Voice Assistant & Radio Playback
 - **Hardware:** Home Assistant Voice PE (`media_player.home_assistant_voice_0a9bfd_media_player`)
-- **Voice Intents:** `WlaczRadio`, `ZatrzymajRadio` (custom sentences in `config/custom_sentences/pl/dom_sentences.yaml` and `config/custom_sentences/en/dom_sentences.yaml`)
+- **Voice Intents:**
+  - `WlaczRadio`, `ZatrzymajRadio` (custom sentences in `config/custom_sentences/pl/dom_sentences.yaml` and `config/custom_sentences/en/dom_sentences.yaml`)
+  - `GlosniejRadio`, `CiszejRadio` (*"głośniej radio"*, *"podgłośnij radio"*, *"ciszej radio"*, *"ściasz radio"* / *"volume up radio"*, *"radio volume down"*)
 - **Stateful Memory:** `input_select.last_radio_station` stores the last active station (resumed when saying *"włącz radio"* / *"play radio"* without specifying a station; defaults to Eska Rock on initial run)
-- **Scripts:** `script.play_radio` (resolves stream URL, updates helper, plays stream on Voice PE), `script.stop_radio`
+- **Scripts:**
+  - `script.play_radio`: resolves stream URL, updates helper, plays stream on Voice PE
+  - `script.stop_radio`: stops and turns off Voice PE playback
+  - `script.radio_volume_up`: increases volume on Voice PE via `media_player.volume_up`
+  - `script.radio_volume_down`: decreases volume on Voice PE via `media_player.volume_down`
 - **Supported Stations:** Eska Rock (default), RMF FM, Radio ZET, Antyradio, Radio 357, TOK FM, VOX FM, Polskie Radio Trójka
-- **Scheduled Automations:** `morning_radio_schedule` (Mon-Fri at `input_datetime.pora_pobudka` -> Radio ZET; Sat-Sun at `input_datetime.pora_pobudka_weekend` -> Antyradio on Voice PE)
+- **Automations:**
+  - `morning_radio_schedule`: Mon-Fri at `input_datetime.pora_pobudka` -> Radio ZET; Sat-Sun at `input_datetime.pora_pobudka_weekend` -> Antyradio on Voice PE
+  - `radio_station_changed_auto_play`: Automatically switches radio stream when user selects a different station in `input_select.last_radio_station` while radio is playing
 
 ### Multimedia & TV Control (Salon TCL Google TV)
 - **Primary Entities:** `media_player.salon_2`, `remote.salon_2` (Android TV Remote integration)
@@ -183,7 +191,7 @@ homeassistant:
   - `script.tv_launch_app`: Launches streaming apps by key on `media_player.salon_2` via `remote.turn_on` and `media_player.play_media`
   - `script.tv_show_camera`: Streams camera via `camera.play_stream` (format: HLS) to `media_player.googletv8897_2`, or stops stream (`camera: stop`)
   - `script.salon_cinema_mode`: Turns on TV and activates `scene.salon_kino_1`. If after dark (`after: input_datetime.pora_zmroku, before: input_datetime.pora_switu`), sets `input_select.salon_kolor_wybor` to option 2 (`script.light_salon_color_2`), executes it, and turns off ceiling light `light.salon_mqtt`
-- **Dashboard View:** `/dashboard-home/media` in `config/dashboard_modern_reference.yaml` (Dom iPad Modern) and `config/dashboard_home_improved.yaml` featuring Cinema Mode toggle, TV tile with volume slider, 6-app quick launch grid, scenes & mood grid, conditional D-pad remote (when TV is on), and 5 camera glance cards with Cast / Stop buttons
+- **Dashboard View:** `/dashboard-home/media` in `config/dashboard_modern_reference.yaml` (Dom iPad Modern) and `config/dashboard_home_improved.yaml` featuring side-by-side TV controls (tile with volume slider, Cinema Mode toggle, power toggle) and compact Radio Voice PE component (tile with playback controls and volume slider, reactive station dropdown selector), 6-app quick launch grid, scenes & mood grid, conditional D-pad remote, and 5 camera glance cards with Cast / Stop buttons
 - **Voice Intents:**
   - `WlaczAplikacjeTV`: *"włącz [aplikacja] na telewizorze"* / *"open [app] on tv"*
   - `GlosniejTV`, `CiszejTV`, `WyciszTV`: *"głośniej / ciszej / wycisz telewizor"* / *"volume up / down / mute tv"*
