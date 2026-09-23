@@ -22,6 +22,7 @@
 
 ### Currently Implemented
 - `google_generative_ai_conversation` for camera image recognition
+- Detailed architectural proposal & roadmap: [`CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md`](CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md) (Generic Camera AI Engine, face comparison with reference portraits, access control)
 
 ### Recommended Additions
 
