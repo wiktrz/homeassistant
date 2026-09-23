@@ -211,6 +211,6 @@ The installation uses industrial BoneIO DIN rail hardware:
 - [`llms.txt`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/llms.txt) — Global ecosystem index & architecture roadmap.
 - [`PLACES_AND_BEHAVIORS.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/PLACES_AND_BEHAVIORS.md) — Exhaustive place-by-place matrix, entity mapping, and automation rules.
 - [`AGENTS.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AGENTS.md) — Primary developer instructions & agent operating guidelines.
-- [`CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md) — Generic Camera AI & Biometric Face Recognition engine proposal.
+- [`CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md) — Generic Camera AI Vision Engine (Biometric Face Recognition & ALPR License Plate Recognition) proposal.
 - [`VOICE_AI_IMPROVEMENTS_PROPOSAL.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/VOICE_AI_IMPROVEMENTS_PROPOSAL.md) — Voice AI Polish intent remediation proposal.
 - [`/Users/wtrzonkowski/Desktop/private/home_automation/`](file:///Users/wtrzonkowski/Desktop/private/home_automation/) — ESP32 firmware & Node.js backend.

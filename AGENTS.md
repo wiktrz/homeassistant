@@ -213,9 +213,9 @@ homeassistant:
   - `PokazKamereTV`, `ZatrzymajKamereTV`: *"pokaż [kamera] na telewizorze"* / *"show [camera] on tv"*, *"zamknij podgląd kamery"*
   - `TrybKinoSalon`, `ZatrzymajKinoSalon`: *"tryb kino w salonie"* / *"cinema mode in living room"*, *"wyłącz tryb kino"*
 
-### Image Recognition & Face Recognition
-- Camera snapshot with Google AI analysis
-- **Proposal & Roadmap:** [`CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md`](CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md) — Generic Camera AI analysis engine (`script.camera_ai_analyze`) with biometric face recognition, known faces comparison against reference portraits, and automated door/gate action
+### Image Recognition, Face Recognition & License Plate Recognition (ALPR)
+- Camera snapshot with Google Generative AI (Gemini Vision) analysis
+- **Proposal & Roadmap:** [`CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md`](CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md) — Generic Camera AI Vision Engine (`script.camera_ai_analyze`) with biometric face recognition (door strike unlocking) and Automatic License Plate Recognition (ALPR/ANPR for sliding gate access and driveway illumination)
 
 ## Docker Commands
 
@@ -300,7 +300,7 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 - `llms.txt` - Standard LLM & human ecosystem overview
 - `PLACES_AND_BEHAVIORS.md` - Complete place/room behavioral map & entity directory
 - `AGENT.md` - Unified bridge between Home Assistant & ESP32/Node.js edge
-- `CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md` - Generic Camera AI & Face Recognition Engine proposal
+- `CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md` - Generic Camera AI Vision Engine (Face & ALPR) proposal
 - `VOICE_AI_IMPROVEMENTS_PROPOSAL.md` - Voice AI & entity remediation proposal
 - `/Users/wtrzonkowski/Desktop/private/ARCHITECTURE.md` - Technical architecture
 - `/Users/wtrzonkowski/Desktop/private/HOME_AUTOMATION_ECOSYSTEM.md` - System overview

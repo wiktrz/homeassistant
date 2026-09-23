@@ -456,6 +456,10 @@ flowchart TD
 | Camera: Front / Brama | `camera.520a_plynny` | Reolink 520A POE | Driveway & gate surveillance camera |
 | Garden Reed Contact | Reed sensor entity | Zigbee Sensor | Garden gate contact (`Merged Garden Reed Automation`) |
 | Terrace Motion PIR | Motion sensor entity | Zigbee PIR | Patio motion sensor (`Motion Taras ON/OFF`) |
+| Camera AI Last Plate | `sensor.camera_ai_last_plate` | Template Sensor | Last recognized license plate & vehicle attributes |
+| Camera AI Last Result | `sensor.camera_ai_last_result` | Template Sensor | Last vision AI result (face/plate/description) |
+| Camera AI Gate Auto-Open | `input_boolean.camera_ai_gate_auto_open` | HA Helper | Master enable switch for AI automatic gate opening |
+| Camera AI Gate Cooldown | `input_datetime.camera_ai_last_gate_trigger` | HA Helper | Timestamp of last gate trigger for debounce cooldown |
 
 #### Behaviors & Automations
 1. **Unified Terrace Lighting (`light.taras_lampy`):**
@@ -474,8 +478,15 @@ flowchart TD
    - Routes HLS live video streams directly to the Chromecast receiver on the TCL Google TV (`media_player.googletv8897_2`).
    - Voice command *"pokaż podwórze/wejście/taras/ogród/front na telewizorze"* turns on TV if off and begins casting.
    - Command *"zamknij podgląd kamery"* terminates the Cast stream.
-6. **Future Biometric Camera AI Engine (`CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md`):**
-   - Designed to run on `camera.taras_plynny` (Phase 1) using Gemini Multimodal Vision API to compare visible visitors against known portraits (`/config/known_faces/`) and auto-unlock the door strike when confidence >= 70%.
+6. **Future Camera AI Vision Engine: Face Recognition & ALPR Engine (`CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md`):**
+   - **Generic Decoupled Engine (`script.camera_ai_analyze`):** The core vision script acts strictly as an image capture and AI inference processor (Gemini Multimodal API). It performs zero hardcoded physical actions; instead, it broadcasts `event: camera_ai_analysis_complete` and populates telemetry sensors (`sensor.camera_ai_last_plate`, `sensor.camera_ai_last_result`).
+   - **Biometric Face Recognition (`task_type: face_recognition`):** Operates on `camera.taras_plynny` (Phase 1) or future entrance cameras, matching against `/config/known_faces/`.
+   - **Automatic License Plate Recognition (`task_type: plate_recognition`):** Operates on `camera.520a_plynny` and `camera.reolink_duo_floodlight_poe_plynny_2`, extracting plate text and vehicle attributes (make/model/color) for dual-factor anti-spoofing against `/config/known_plates.yaml`.
+   - **Modular Use-Case Proposals Catalog (User-Configured):** Downstream automations are modular proposals for the user to select and configure:
+     - *Access & Gate Control:* Automated sliding gate opening (`cover.brama_wynajem_zaslona`) with 180s debounce cooldown, rental guest temporary access (`valid_until`), and front door strike unlocking (`input_button.btn_entrance_door`).
+     - *Convenience & Ambient:* Driveway night lighting (`light.boneio_32_l_07_new_light_12`), Voice PE spoken arrival greetings (`media_player.home_assistant_voice_0a9bfd_media_player`), and living room TV camera pop-up banner.
+     - *Security & Deliveries:* Courier van identification (InPost, DHL, DPD, GLS), nighttime unknown vehicle alerts, and anti-spoofing alarm.
+     - *Energy & EV Charging:* Tesla arrival plug-in reminders synchronized with Pstryk cheapest electricity windows (`binary_sensor.pstryk_in_best_window_dol`).
 
 #### Interactive Controls
 - **Voice Intents (PL):** *"otwórz bramę"*, *"zamknij bramę"*, *"włącz lampy na tarasie"*, *"światło na podjeździe"*, *"pokaż [taras/wejście/podwórze/front/ogród] na telewizorze"*, *"zamknij podgląd kamery"*.
