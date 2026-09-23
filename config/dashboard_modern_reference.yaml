@@ -565,10 +565,35 @@ views:
                 color: amber
                 tap_action:
                   action: perform-action
-                  perform_action: script.play_radio
+                  perform_action: script.toggle_radio
+                  target:
+                    entity_id: script.toggle_radio
                 features:
-                  - type: media-player-playback
                   - type: media-player-volume-slider
+              - type: grid
+                columns: 2
+                square: false
+                cards:
+                  - type: tile
+                    entity: script.play_radio
+                    name: Włącz
+                    icon: mdi:play
+                    color: green
+                    tap_action:
+                      action: perform-action
+                      perform_action: script.play_radio
+                      target:
+                        entity_id: script.play_radio
+                  - type: tile
+                    entity: script.stop_radio
+                    name: Wyłącz
+                    icon: mdi:stop
+                    color: red
+                    tap_action:
+                      action: perform-action
+                      perform_action: script.stop_radio
+                      target:
+                        entity_id: script.stop_radio
               - type: entities
                 show_header_toggle: false
                 entities:

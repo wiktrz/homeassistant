@@ -931,6 +931,9 @@ play_radio:
         entity_id: input_select.last_radio_station
       data:
         option: "{{ target_station }}"
+    - action: media_player.turn_on
+      target:
+        entity_id: media_player.home_assistant_voice_0a9bfd_media_player
     - action: media_player.play_media
       target:
         entity_id: media_player.home_assistant_voice_0a9bfd_media_player
@@ -951,6 +954,20 @@ stop_radio:
         entity_id: media_player.home_assistant_voice_0a9bfd_media_player
   mode: single
   icon: mdi:stop-circle-outline
+toggle_radio:
+  alias: Przełącz Radio (Play / Stop)
+  description: Włącza lub wyłącza odtwarzanie radia na Voice PE w zależności od aktualnego stanu
+  sequence:
+    - if:
+        - condition: state
+          entity_id: media_player.home_assistant_voice_0a9bfd_media_player
+          state: 'playing'
+      then:
+        - action: script.stop_radio
+      else:
+        - action: script.play_radio
+  mode: restart
+  icon: mdi:radio
 tv_launch_app:
   alias: Uruchom Aplikację na Telewizorze
   description: Uruchamia wybraną aplikację streamingową na telewizorze w salonie

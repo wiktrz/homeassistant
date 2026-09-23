@@ -2383,4 +2383,51 @@
       data:
         station: "{{ states('input_select.last_radio_station') }}"
   mode: restart
+- id: 'voice_pe_media_playback_intercept'
+  alias: 'Voice PE: Przechwytywanie Przycisku Play/Pause z UI'
+  description: 'Gdy UI wyśle komendę media_play lub media_pause do Voice PE, uruchamia odpowiedni skrypt radia.'
+  triggers:
+    - trigger: event
+      event_type: call_service
+      event_data:
+        domain: media_player
+        service: media_play
+        service_data:
+          entity_id: media_player.home_assistant_voice_0a9bfd_media_player
+      id: play
+    - trigger: event
+      event_type: call_service
+      event_data:
+        domain: media_player
+        service: media_play_pause
+        service_data:
+          entity_id: media_player.home_assistant_voice_0a9bfd_media_player
+      id: toggle
+    - trigger: event
+      event_type: call_service
+      event_data:
+        domain: media_player
+        service: media_pause
+        service_data:
+          entity_id: media_player.home_assistant_voice_0a9bfd_media_player
+      id: stop
+  actions:
+    - choose:
+        - conditions:
+            - condition: trigger
+              id: play
+          sequence:
+            - action: script.play_radio
+        - conditions:
+            - condition: trigger
+              id: stop
+          sequence:
+            - action: script.stop_radio
+        - conditions:
+            - condition: trigger
+              id: toggle
+          sequence:
+            - action: script.toggle_radio
+  mode: restart
+
 
