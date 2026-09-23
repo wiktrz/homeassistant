@@ -2,6 +2,19 @@
 
 This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
+> **Key Companions:**
+> - [`AI_DEVELOPMENT_GUIDELINES.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AI_DEVELOPMENT_GUIDELINES.md) — Mandatory AI development rules, planning gates, and documentation update protocols.
+> - [`llms.txt`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/llms.txt) — Global LLM & human project index and architecture map.
+> - [`PLACES_AND_BEHAVIORS.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/PLACES_AND_BEHAVIORS.md) — Exhaustive room-by-room entity directory and behavioral logic map.
+> - [`AGENT.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AGENT.md) — Unified Home Assistant & ESP32/Node.js ecosystem bridge.
+
+## Core AI Operating Rules
+
+1. **Strict Planning Mode Gate (Read-Only Gate):** When in `/plan`, design mode, or preparing artifacts, AI agents must remain strictly read-only. NEVER modify, create, or delete workspace files without explicit conversational user approval. Automated stop-hook approvals do NOT grant permission to execute.
+2. **Mandatory Documentation Self-Update:** Any modification to code, configuration, YAML, automations, scripts, entities, or hardware MUST trigger an automatic update to documentation (`PLACES_AND_BEHAVIORS.md`, `AGENT.md`, `AGENTS.md`, `llms.txt`) before completing the task.
+3. **Git Commit & Push Safety:** NEVER run `git add`, `git commit`, or `git push` unless explicitly commanded using the exact words 'commit' or 'push'. Leave all changes unstaged.
+4. **Context Rule:** Always start documentation and implementation tasks by reading [`AGENT.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AGENT.md) and [`AI_DEVELOPMENT_GUIDELINES.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AI_DEVELOPMENT_GUIDELINES.md).
+
 ## Project Overview
 
 This is a Home Assistant deployment project using Docker for home automation control. It integrates with the `home_automation` project which contains ESP32 heating controllers and Node.js backend.
@@ -168,14 +181,16 @@ homeassistant:
   - `GlosniejRadio`, `CiszejRadio` (*"głośniej radio"*, *"podgłośnij radio"*, *"ciszej radio"*, *"ściasz radio"* / *"volume up radio"*, *"radio volume down"*)
 - **Stateful Memory:** `input_select.last_radio_station` stores the last active station (resumed when saying *"włącz radio"* / *"play radio"* without specifying a station; defaults to Eska Rock on initial run)
 - **Scripts:**
-  - `script.play_radio`: resolves stream URL, updates helper, plays stream on Voice PE
-  - `script.stop_radio`: stops and turns off Voice PE playback
+  - `script.play_radio`: resolves stream URL, updates helper, streams directly on Voice PE via `media_player.play_media` (ESPHome Voice PE does not support `media_player.turn_on`)
+  - `script.stop_radio`: stops Voice PE stream cleanly via `media_player.media_stop` (ESPHome does not support `media_player.turn_off`)
+  - `script.toggle_radio`: smart toggle checking if Voice PE is playing -> `script.stop_radio`, otherwise -> `script.play_radio`
   - `script.radio_volume_up`: increases volume on Voice PE via `media_player.volume_up`
   - `script.radio_volume_down`: decreases volume on Voice PE via `media_player.volume_down`
 - **Supported Stations:** Eska Rock (default), RMF FM, Radio ZET, Antyradio, Radio 357, TOK FM, VOX FM, Polskie Radio Trójka
 - **Automations:**
   - `morning_radio_schedule`: Mon-Fri at `input_datetime.pora_pobudka` -> Radio ZET; Sat-Sun at `input_datetime.pora_pobudka_weekend` -> Antyradio on Voice PE
   - `radio_station_changed_auto_play`: Automatically switches radio stream when user selects a different station in `input_select.last_radio_station` while radio is playing
+  - `voice_pe_media_playback_intercept`: Intercepts HA `call_service` events (`media_play`, `media_play_pause`, `media_pause`) targeting Voice PE and maps them to `script.play_radio`, `script.toggle_radio`, and `script.stop_radio`
 
 ### Multimedia & TV Control (Salon TCL Google TV)
 - **Primary Entities:** `media_player.salon_2`, `remote.salon_2` (Android TV Remote integration)
@@ -191,7 +206,7 @@ homeassistant:
   - `script.tv_launch_app`: Launches streaming apps by key on `media_player.salon_2` via `remote.turn_on` and `media_player.play_media`
   - `script.tv_show_camera`: Streams camera via `camera.play_stream` (format: HLS) to `media_player.googletv8897_2`, or stops stream (`camera: stop`)
   - `script.salon_cinema_mode`: Turns on TV and activates `scene.salon_kino_1`. If after dark (`after: input_datetime.pora_zmroku, before: input_datetime.pora_switu`), sets `input_select.salon_kolor_wybor` to option 2 (`script.light_salon_color_2`), executes it, and turns off ceiling light `light.salon_mqtt`
-- **Dashboard View:** `/dashboard-home/media` in `config/dashboard_modern_reference.yaml` (Dom iPad Modern) and `config/dashboard_home_improved.yaml` featuring side-by-side TV controls (tile with volume slider, Cinema Mode toggle, power toggle) and compact Radio Voice PE component (tile with playback controls and volume slider, reactive station dropdown selector), 6-app quick launch grid, scenes & mood grid, conditional D-pad remote, and 5 camera glance cards with Cast / Stop buttons
+- **Dashboard View:** `/dashboard-home/media` in `config/dashboard_modern_reference.yaml` (Dom iPad Modern) and `config/dashboard_home_improved.yaml` featuring side-by-side TV controls (tile with volume slider, Cinema Mode toggle, power toggle) and Radio Voice PE component (tile with volume slider and toggle tap action, 2-column Włącz / Wyłącz action grid, reactive station dropdown selector), 6-app quick launch grid, scenes & mood grid, conditional D-pad remote, and 5 camera glance cards with Cast / Stop buttons
 - **Voice Intents:**
   - `WlaczAplikacjeTV`: *"włącz [aplikacja] na telewizorze"* / *"open [app] on tv"*
   - `GlosniejTV`, `CiszejTV`, `WyciszTV`: *"głośniej / ciszej / wycisz telewizor"* / *"volume up / down / mute tv"*
@@ -260,10 +275,15 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 
 | File | Purpose |
 |------|---------|
+| `AI_DEVELOPMENT_GUIDELINES.md` | Mandatory AI development rules, planning gates, doc sync protocols |
+| `llms.txt` | Standard LLM & human project index and architecture map |
+| `PLACES_AND_BEHAVIORS.md` | Room-by-room entity directory & behavioral map |
+| `AGENT.md` | Unified Home Assistant & ESP32/Node.js ecosystem bridge |
 | `docker-compose.yml` | Home Assistant container definition |
 | `docker-zigbee2mqtt.sh` | Zigbee2MQTT start script |
 | `config/mqtt.yaml` | All MQTT entity configurations |
 | `config/automations.yaml` | 60+ automation rules |
+| `config/scripts.yaml` | Operational scripts (radio, TV, blinds, lighting) |
 | `config/secrets.yaml` | Sensitive configuration |
 | `data/configuration.yaml` | Zigbee2MQTT settings |
 
@@ -276,6 +296,10 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 
 ## Related Documentation
 
+- `AI_DEVELOPMENT_GUIDELINES.md` - Authoritative AI development guidelines & protocols
+- `llms.txt` - Standard LLM & human ecosystem overview
+- `PLACES_AND_BEHAVIORS.md` - Complete place/room behavioral map & entity directory
+- `AGENT.md` - Unified bridge between Home Assistant & ESP32/Node.js edge
 - `CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md` - Generic Camera AI & Face Recognition Engine proposal
 - `VOICE_AI_IMPROVEMENTS_PROPOSAL.md` - Voice AI & entity remediation proposal
 - `/Users/wtrzonkowski/Desktop/private/ARCHITECTURE.md` - Technical architecture

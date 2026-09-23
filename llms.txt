@@ -1,0 +1,52 @@
+# Home Assistant Automation Ecosystem
+
+> Advanced, distributed Home Assistant ecosystem controlling a primary residence (`local00`) and six rental apartments (`local01`–`local06`). Integrates BoneIO 230V relays & 24V PWM dimmers, ESP32 PID heating controllers with TTGO TFT displays, Shelly WiFi RGBW ambient drivers, Reolink 4K/wide surveillance cameras, Home Assistant Voice PE satellite with stateful radio streaming, TCL Google TV automation, and Pstryk dynamic Polish energy tariff optimization.
+
+## Key Facts & System Topology
+
+- **Primary Residence (`local00`):** 12 physical rooms and zones including Salon, Kuchnia & Jadalnia, Sypialnia, Mała Łazienka, Duża Łazienka, Pralnia, Wiatrołap, Korytarz Wejściowy, Korytarz Sypialnie, Pokój Klary, Pokój Nikoli, Gabinet, and outdoor perimeter (Taras, Ogród, Podjazd).
+- **Rental Suites (`local01` through `local06`):** 6 independent apartments, each equipped with 3 climate zones (Glowny, Lazienka, Sypialnia) controlled via ESP32 dev boards, TTGO T4 color displays, and dedicated `input_select` routine schedule selectors.
+- **Relay & Dimmer Boards (DIN Rail):**
+  - **BoneIO 32x10 Relay Board (`boneio-32-l-07`):** 32 × 230V relays (`light.boneio_32_l_07_new_light_01` to `_20`), 32 × digital inputs (reeds, PIRs). Includes 4 protected power supply relays (`switch.zasilanie_*`) excluded from all-off scripts.
+  - **BoneIO 8-Channel PWM Dimmer (`boneio-dr-8ch-03-2c7fbc`):** 8 × 24V PWM dimming channels for architectural recessed lines, mirror lights, and kitchen spots.
+- **Voice Satellite & Audio Streaming:**
+  - **Home Assistant Voice PE (`media_player.home_assistant_voice_0a9bfd_media_player`):** Custom wake words, Nabu Casa Cloud Polish TTS, stateful radio player (`input_select.last_radio_station`) with 8 Polish presets (Eska Rock, RMF FM, Radio ZET, Antyradio, Radio 357, TOK FM, VOX FM, Trójka), and morning wake-up schedules.
+- **Living Room Multimedia & TV Control:**
+  - **Salon TCL Google TV:** Controlled via Android TV Remote (`remote.salon_2`, `media_player.salon_2`) and Google Cast (`media_player.googletv8897_2`). Launches 6 streaming apps (Netflix, YouTube, Disney+, Max, Spotify, Prime Video), streams live HLS feeds from 5 Reolink cameras, and runs automated cinema mode.
+- **Access Control & Physical Security:**
+  - **Front Door Strike Lock:** Wired to BoneIO relay 23, wrapped in `lock.rygiel_drzwi_wejsciowych_lock`, triggered via `input_button.btn_entrance_door` with 2-minute safety auto-off, exterior RFID tags with alarm disarm logic, and perimeter siren `siren.reolink_duo_floodlight_poe_syrena`.
+- **Dynamic Electricity Pricing (Pstryk):**
+  - Hourly real-time Polish market tariffs (`sensor.pstryk_price_meter_dol` & `_gora`), cheapest price window calculation, automated Tesla vehicle charging (`switch.tesl_y_charge`), and dynamic spoken voice alerts.
+
+---
+
+## Core Documentation Index
+
+- [AI_DEVELOPMENT_GUIDELINES.md](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AI_DEVELOPMENT_GUIDELINES.md): Mandatory AI development rules, strict planning mode gates, documentation self-update protocols, and hardware invariants.
+- [AGENTS.md](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AGENTS.md): Primary developer guidelines, operational safety rules, Docker container management, and entity mapping directory for Home Assistant agents.
+- [AGENT.md](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AGENT.md): Unified bridge specification between Home Assistant and the ESP32/Node.js edge firmware (`newHeatingController`, `heatingStation`, `nodeApi`).
+- [PLACES_AND_BEHAVIORS.md](file:///Users/wtrzonkowski/Desktop/private/homeassistant/PLACES_AND_BEHAVIORS.md): Exhaustive room-by-room entity directory, automation behaviors, triggers, conditions, actions, voice intents, and safety constraints for every physical space in the ecosystem.
+- [CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md](file:///Users/wtrzonkowski/Desktop/private/homeassistant/CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md): Generic Camera AI analysis engine (`script.camera_ai_analyze`) utilizing Google Generative AI (Gemini Vision) for biometric face recognition against reference portraits and automatic door strike unlocking.
+- [VOICE_AI_IMPROVEMENTS_PROPOSAL.md](file:///Users/wtrzonkowski/Desktop/private/homeassistant/VOICE_AI_IMPROVEMENTS_PROPOSAL.md): Architectural proposal for Polish Voice AI intent remediation, entity aliasing, and area classification across the ecosystem.
+- [HA_IMPROVEMENTS_RESEARCH.md](file:///Users/wtrzonkowski/Desktop/private/homeassistant/HA_IMPROVEMENTS_RESEARCH.md): Research notes and audit findings on Home Assistant modern configurations and dashboard modernization.
+
+---
+
+## Lovelace Dashboards & User Interfaces
+
+- **Dom iPad Modern (`/dashboard-home`):** Configured in [`config/dashboard_modern_reference.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/dashboard_modern_reference.yaml) and [`config/dashboard_home_improved.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/dashboard_home_improved.yaml). Features dedicated views for Dom (`/dom`), Klimat (`/klimat`), Oświetlenie (`/oswietlenie`), Energia (`/energia`), and Multimedia (`/media`) with TV controls, radio player tile, and live camera glance cards.
+- **Korytarze i Pokoje (`/dashboard-korytarze`):** Configured in [`config/dashboard_korytarze_improved.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/dashboard_korytarze_improved.yaml). Compact lighting matrix organized by physical rooms with Shelly animation controls.
+- **Main & Rental Overview (`/dashboard-improved`):** Configured in [`config/dashboard_improved.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/dashboard_improved.yaml). Comprehensive multi-apartment view displaying climate setpoints, routines, and temperatures across `local00`–`local06`.
+
+---
+
+## Key Configuration Files
+
+- [`config/configuration.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/configuration.yaml): Root HA settings, input helpers, light groups (`light.taras_lampy`), Pstryk command-line sensors, and custom voice intents (`intent_script`).
+- [`config/mqtt.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/mqtt.yaml): MQTT integration defining 26+ climate entities, 40+ temperature/heating state sensors, and `light.salon_mqtt`.
+- [`config/automations.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/automations.yaml): 60+ automation rules governing motion lighting, door strike timeouts, RFID security, morning radio, Pstryk alerts, and rental heating schedules.
+- [`config/scripts.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/scripts.yaml): Operational scripts including `play_radio`, `stop_radio`, `tv_launch_app`, `tv_show_camera`, `salon_cinema_mode`, `all_lights_off`, and bedroom roller shutter controls.
+- [`config/customize.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/customize.yaml): Entity customization providing Polish friendly names, voice aliases, and icon assignments.
+- [`config/templates.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/templates.yaml): Template sensors for Pstryk cheapest windows, waste collection countdown, template lock, and protected power supply switches.
+- [`config/custom_sentences/pl/dom_sentences.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/custom_sentences/pl/dom_sentences.yaml): Polish voice sentence triggers for radio, TV streaming apps, camera casting, cinema mode, blinds, and gates.
+- [`config/custom_sentences/en/dom_sentences.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/custom_sentences/en/dom_sentences.yaml): English voice sentence triggers mirroring the Polish intent set.
