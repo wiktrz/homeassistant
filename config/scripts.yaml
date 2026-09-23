@@ -931,9 +931,6 @@ play_radio:
         entity_id: input_select.last_radio_station
       data:
         option: "{{ target_station }}"
-    - action: media_player.turn_on
-      target:
-        entity_id: media_player.home_assistant_voice_0a9bfd_media_player
     - action: media_player.play_media
       target:
         entity_id: media_player.home_assistant_voice_0a9bfd_media_player
@@ -947,9 +944,6 @@ stop_radio:
   description: Zatrzymuje odtwarzanie radia na Home Assistant Voice PE
   sequence:
     - action: media_player.media_stop
-      target:
-        entity_id: media_player.home_assistant_voice_0a9bfd_media_player
-    - action: media_player.turn_off
       target:
         entity_id: media_player.home_assistant_voice_0a9bfd_media_player
   mode: single
