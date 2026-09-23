@@ -567,7 +567,7 @@ views:
                   action: perform-action
                   perform_action: script.play_radio
                 features:
-                  - type: media-player-playback-control
+                  - type: media-player-playback
                   - type: media-player-volume-slider
               - type: entities
                 show_header_toggle: false
