@@ -1,0 +1,25 @@
+id: test_pstryk_price_meter_dol_state
+area: pstryk
+description: "Verify that sensor.pstryk_price_meter_dol correctly reflects energy pricing values"
+tags: [pstryk, energy, pricing, local00, regression]
+status: active
+
+preconditions:
+  entities:
+    sensor.pstryk_price_meter_dol:
+      state: "0.65"
+      attributes:
+        unit_of_measurement: "PLN/kWh"
+        friendly_name: "Pstryk Price Meter Dol"
+        start: "2026-09-23T22:00:00"
+
+action:
+  type: set_state
+  entity_id: sensor.pstryk_price_meter_dol
+  state: "0.42"
+
+wait_seconds: 0.5
+
+assertions:
+  - entity: sensor.pstryk_price_meter_dol
+    state: "0.42"

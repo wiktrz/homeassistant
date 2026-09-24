@@ -194,10 +194,49 @@ The installation uses industrial BoneIO DIN rail hardware:
 
 ---
 
-## 5. Operational & Git Guidelines
+## 5. Automated AI Testing Harness & Ephemeral Docker Verification
+
+An autonomous 4-tier testing harness guarantees that code changes, YAML updates, automations, scripts, and dashboards are thoroughly validated locally without affecting physical hardware or production state databases.
+
+### 5.1 Test Architecture & Tiers
+- **Ephemeral Copy-on-Write Sandbox (`/tmp/ha_test_sandbox`):** Mounts a clean copy of `config/` (excluding production sqlite databases and runtime locks). Uses in-memory SQLite (`sqlite:////tmp/ha_test_recorder.db`) and pre-seeds admin credentials and an active Long-Lived Access Token.
+- **Companion Mock MQTT (`ha-test-mqtt`):** Runs an isolated `eclipse-mosquitto:alpine` broker on port 1884 to test MQTT entity publications without edge hardware dependencies.
+- **The 4 Test Tiers:**
+  - **Tier 0 (Static Schema):** `python3 tests/runner.py --tier 0` — Executes Home Assistant `check_config` inside a one-shot container (<3s).
+  - **Tier 1 (Safety Invariants):** `python3 tests/runner.py --tier 1` — Fast pytest audit enforcing protection of BoneIO LED power supply relays, 2-minute door strike auto-off timer, and prohibition of `object_id` in `mqtt.yaml` (<1s).
+  - **Tier 2 (Dynamic State & Service Execution):** `python3 tests/runner.py --tier 2` — Executes declarative YAML scenarios against the running ephemeral container via REST/WebSocket APIs, asserting entity state transitions and checking for zero exceptions in `/api/error_log`.
+  - **Tier 3 (Lovelace UI & Entity Binding):** `python3 tests/runner.py --tier 3` — Statically traverses all Lovelace dashboards (`dashboard_modern_reference.yaml`, etc.), verifying card schemas and 270+ entity bindings.
+
+### 5.2 Test CLI & Self-Building Workflow
+```bash
+# Automated git-diff impact testing (runs targeted area tests + invariants)
+python3 tests/runner.py --auto
+
+# Run complete 4-tier suite
+python3 tests/runner.py --tier all
+
+# Target specific room/area
+python3 tests/runner.py --area salon
+
+# Coverage gap analysis across scripts and automations
+python3 tests/runner.py --discover
+
+# Self-Building: synthesize draft scenario for an untested script
+python3 tests/runner.py --generate <script_name>
+
+# Teardown test containers
+python3 tests/runner.py --stop
+```
+
+- **Static Test Catalog:** All baseline regression tests are registered in [`tests/test_registry.yaml`](tests/test_registry.yaml) with individual scenarios in [`tests/scenarios/`](tests/scenarios/).
+
+---
+
+## 6. Operational & Git Guidelines
 
 - **Planning Mode Gate (Read-Only Gate):** When in `/plan`, design mode, or preparing artifacts, AI agents must remain strictly read-only. NEVER modify, create, or delete workspace files without explicit conversational user approval. Automated stop-hook approvals do NOT grant permission to execute.
-- **Mandatory Self-Updating Documentation:** Any modification to code, configuration, YAML, automations, scripts, entities, or hardware MUST trigger an automatic update to documentation ([`PLACES_AND_BEHAVIORS.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/PLACES_AND_BEHAVIORS.md), [`AGENT.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AGENT.md), [`AGENTS.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AGENTS.md), [`llms.txt`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/llms.txt)) before completing the task. Follow [`AI_DEVELOPMENT_GUIDELINES.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AI_DEVELOPMENT_GUIDELINES.md).
+- **Mandatory Self-Updating Documentation:** Any modification to code, configuration, YAML, automations, scripts, entities, or hardware MUST trigger an automatic update to documentation ([`PLACES_AND_BEHAVIORS.md`](PLACES_AND_BEHAVIORS.md), [`AGENT.md`](AGENT.md), [`AGENTS.md`](AGENTS.md), [`llms.txt`](llms.txt)) before completing the task. Follow [`AI_DEVELOPMENT_GUIDELINES.md`](AI_DEVELOPMENT_GUIDELINES.md).
+- **Mandatory Automated Test Pass:** All changes must pass `python3 tests/runner.py --auto` before task completion.
 - **NEVER stage (`git add`) or commit (`git commit`)** changes unless explicitly instructed with the word 'commit'.
 - **NEVER git push** changes unless explicitly requested.
 - **Never delete or clear optimization databases** (`learning.db` / task cache tables).
@@ -205,12 +244,14 @@ The installation uses industrial BoneIO DIN rail hardware:
 
 ---
 
-## 6. Related Documentation
+## 7. Related Documentation
 
-- [`AI_DEVELOPMENT_GUIDELINES.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AI_DEVELOPMENT_GUIDELINES.md) — Mandatory AI development rules, planning gates, and documentation update protocols.
-- [`llms.txt`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/llms.txt) — Global ecosystem index & architecture roadmap.
-- [`PLACES_AND_BEHAVIORS.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/PLACES_AND_BEHAVIORS.md) — Exhaustive place-by-place matrix, entity mapping, and automation rules.
-- [`AGENTS.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AGENTS.md) — Primary developer instructions & agent operating guidelines.
-- [`CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md) — Generic Camera AI Vision Engine (Biometric Face Recognition & ALPR License Plate Recognition) proposal.
-- [`VOICE_AI_IMPROVEMENTS_PROPOSAL.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/VOICE_AI_IMPROVEMENTS_PROPOSAL.md) — Voice AI Polish intent remediation proposal.
-- [`/Users/wtrzonkowski/Desktop/private/home_automation/`](file:///Users/wtrzonkowski/Desktop/private/home_automation/) — ESP32 firmware & Node.js backend.
+- [`AI_DEVELOPMENT_GUIDELINES.md`](AI_DEVELOPMENT_GUIDELINES.md) — Mandatory AI development rules, planning gates, and documentation update protocols.
+- [`llms.txt`](llms.txt) — Global ecosystem index & architecture roadmap.
+- [`PLACES_AND_BEHAVIORS.md`](PLACES_AND_BEHAVIORS.md) — Exhaustive place-by-place matrix, entity mapping, and automation rules.
+- [`AGENTS.md`](AGENTS.md) — Primary developer instructions & agent operating guidelines.
+- [`tests/test_registry.yaml`](tests/test_registry.yaml) — Static regression test catalog.
+- [`CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md`](CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md) — Generic Camera AI Vision Engine (Biometric Face Recognition & ALPR License Plate Recognition) proposal.
+- [`VOICE_AI_IMPROVEMENTS_PROPOSAL.md`](VOICE_AI_IMPROVEMENTS_PROPOSAL.md) — Voice AI Polish intent remediation proposal.
+- [`/Users/wtrzonkowski/Desktop/private/home_automation/`](/Users/wtrzonkowski/Desktop/private/home_automation/) — ESP32 firmware & Node.js backend.
+

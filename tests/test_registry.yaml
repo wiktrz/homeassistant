@@ -1,0 +1,94 @@
+version: '1.0'
+updated_at: '2026-09-23T23:00:00'
+tests:
+- id: test_radio_station_selection
+  area: multimedia
+  file: scenarios/multimedia/test_radio_station_selection.yaml
+  description: Verify that changing input_select.last_radio_station updates state
+    cleanly and retains selection
+  tags:
+  - multimedia
+  - voice
+  - radio
+  - local00
+  - regression
+  status: active
+  last_verified: '2026-09-23T23:16:01.832369'
+- id: test_salon_cinema_mode_on_night
+  area: salon
+  file: scenarios/salon/test_cinema_mode.yaml
+  description: Verify that script.salon_cinema_mode at night selects option script.light_salon_color_2
+    on input_select.salon_kolor_wybor
+  tags:
+  - salon
+  - multimedia
+  - cinema
+  - lighting
+  - local00
+  - regression
+  status: active
+  last_verified: '2026-09-24T08:00:06.505037'
+- id: test_kitchen_island_light_state
+  area: kuchnia
+  file: scenarios/kuchnia/test_kitchen_island_light.yaml
+  description: Verify that Kuchnia Wyspa (light.boneio_32_l_07_new_light_05) responds
+    to state mutations
+  tags:
+  - kuchnia
+  - lighting
+  - boneio
+  - local00
+  - regression
+  status: active
+  last_verified: '2026-09-23T23:16:04.878896'
+- id: test_local01_heating_routine_selection
+  area: termostaty
+  file: scenarios/termostaty/test_local01_heating_routine.yaml
+  description: Verify that changing local01 main heating routine input_select fires
+    automation and sets selection
+  tags:
+  - termostaty
+  - heating
+  - local01
+  - rental
+  - regression
+  status: active
+  last_verified: '2026-09-23T23:16:06.406366'
+- id: test_protected_power_supplies_integrity
+  area: bezpieczenstwo
+  file: scenarios/bezpieczenstwo/test_power_supplies_untouched.yaml
+  description: Verify that all 4 protected BoneIO LED power supply channels maintain
+    active ON state
+  tags:
+  - bezpieczenstwo
+  - hardware
+  - boneio
+  - safety
+  - regression
+  status: active
+  last_verified: '2026-09-23T23:16:07.945997'
+- id: test_pstryk_price_meter_dol_state
+  area: pstryk
+  file: scenarios/pstryk/test_energy_price_sensor.yaml
+  description: Verify that sensor.pstryk_price_meter_dol correctly reflects energy
+    pricing values
+  tags:
+  - pstryk
+  - energy
+  - pricing
+  - local00
+  - regression
+  status: active
+  last_verified: '2026-09-23T23:16:08.971166'
+- id: test_radio_volume_up_execution
+  area: multimedia
+  file: scenarios/multimedia/test_radio_volume_up.yaml
+  description: Verify that script.radio_volume_up executes volume_up on Voice PE
+  tags:
+  - multimedia
+  - voice
+  - radio
+  - script
+  - regression
+  status: active
+  last_verified: '2026-09-23T23:16:10.488919'

@@ -33,6 +33,14 @@
 ### Rule 5: Database & Cache Preservation
 - **NEVER clear or delete optimization databases** or task cache tables (e.g. `learning.db`, SQLite cache tables, or conversation histories). Persistent history is a desired requirement.
 
+### Rule 6: Mandatory Automated Test Verification Protocol
+- Prior to completing any coding or YAML modification task, the AI agent **MUST run the automated test harness**:
+  ```bash
+  python3 tests/runner.py --auto
+  ```
+- Any failed test or broken hardware invariant (Tier 0–Tier 3) blocks completion and must be resolved immediately.
+- When new features, scripts, or automations are introduced, the agent must ensure a declarative test scenario is created in `tests/scenarios/` and registered into `tests/test_registry.yaml` to lock in regression protection.
+
 ---
 
 ## 2. Hardware Safety & Architectural Invariants

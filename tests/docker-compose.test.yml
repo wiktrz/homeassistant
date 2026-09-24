@@ -1,0 +1,32 @@
+services:
+  ha-test-mqtt:
+    image: eclipse-mosquitto:alpine
+    container_name: ha-test-mqtt
+    restart: "no"
+    ports:
+      - "1884:1883"
+    volumes:
+      - ./test_config_overlay/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    networks:
+      - ha-test-net
+
+  ha-test:
+    image: ghcr.io/home-assistant/home-assistant:2026.1.3
+    container_name: ha-test-instance
+    restart: "no"
+    depends_on:
+      - ha-test-mqtt
+    environment:
+      - TZ=Europe/Warsaw
+    volumes:
+      - /tmp/ha_test_sandbox:/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "8125:8123"
+    networks:
+      - ha-test-net
+
+networks:
+  ha-test-net:
+    name: ha-test-net
+    driver: bridge

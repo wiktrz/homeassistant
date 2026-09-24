@@ -1,0 +1,32 @@
+id: test_salon_cinema_mode_on_night
+area: salon
+description: "Verify that script.salon_cinema_mode at night selects option script.light_salon_color_2 on input_select.salon_kolor_wybor"
+tags: [salon, multimedia, cinema, lighting, local00, regression]
+status: active
+
+preconditions:
+  entities:
+    input_select.salon_kolor_wybor:
+      state: "script.light_salon_color_1"
+    input_datetime.pora_zmroku:
+      state: "00:00:00"
+    input_datetime.pora_switu:
+      state: "23:59:59"
+    switch.zasilanie_salon_dodatkowe:
+      state: "on"
+
+action:
+  type: call_service
+  service: script.salon_cinema_mode
+  data:
+    action_type: "on"
+
+wait_seconds: 1.5
+
+assertions:
+  - entity: input_select.salon_kolor_wybor
+    state: "script.light_salon_color_2"
+  - safety_guard:
+      entities:
+        - switch.zasilanie_salon_dodatkowe
+      expected_state: "on"

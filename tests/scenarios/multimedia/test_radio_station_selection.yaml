@@ -1,0 +1,23 @@
+id: test_radio_station_selection
+area: multimedia
+description: "Verify that changing input_select.last_radio_station updates state cleanly and retains selection"
+tags: [multimedia, voice, radio, local00, regression]
+status: active
+
+preconditions:
+  entities:
+    input_select.last_radio_station:
+      state: "eska_rock"
+
+action:
+  type: call_service
+  service: input_select.select_option
+  data:
+    entity_id: input_select.last_radio_station
+    option: "radio_357"
+
+wait_seconds: 1.0
+
+assertions:
+  - entity: input_select.last_radio_station
+    state: "radio_357"

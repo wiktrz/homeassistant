@@ -1,0 +1,23 @@
+id: test_radio_volume_up_execution
+area: multimedia
+description: "Verify that script.radio_volume_up executes volume_up on Voice PE"
+tags: [multimedia, voice, radio, script, regression]
+status: active
+
+preconditions:
+  entities:
+    media_player.home_assistant_voice_0a9bfd_media_player:
+      state: "playing"
+      attributes:
+        volume_level: 0.4
+
+action:
+  type: call_service
+  service: script.radio_volume_up
+  data: {}
+
+wait_seconds: 1.0
+
+assertions:
+  - entity: media_player.home_assistant_voice_0a9bfd_media_player
+    state: "playing"

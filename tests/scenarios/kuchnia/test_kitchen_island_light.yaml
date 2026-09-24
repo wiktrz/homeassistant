@@ -1,0 +1,23 @@
+id: test_kitchen_island_light_state
+area: kuchnia
+description: "Verify that Kuchnia Wyspa (light.boneio_32_l_07_new_light_05) responds to state mutations"
+tags: [kuchnia, lighting, boneio, local00, regression]
+status: active
+
+preconditions:
+  entities:
+    light.boneio_32_l_07_new_light_05:
+      state: "off"
+      attributes:
+        friendly_name: "Kuchnia Wyspa"
+
+action:
+  type: set_state
+  entity_id: light.boneio_32_l_07_new_light_05
+  state: "on"
+
+wait_seconds: 0.5
+
+assertions:
+  - entity: light.boneio_32_l_07_new_light_05
+    state: "on"

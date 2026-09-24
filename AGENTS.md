@@ -279,6 +279,9 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 | `llms.txt` | Standard LLM & human project index and architecture map |
 | `PLACES_AND_BEHAVIORS.md` | Room-by-room entity directory & behavioral map |
 | `AGENT.md` | Unified Home Assistant & ESP32/Node.js ecosystem bridge |
+| `tests/runner.py` | 4-tier autonomous AI test harness CLI |
+| `tests/test_registry.yaml` | Static baseline regression test catalog |
+| `tests/docker-compose.test.yml` | Ephemeral test stack (HA + Mosquitto) |
 | `docker-compose.yml` | Home Assistant container definition |
 | `docker-zigbee2mqtt.sh` | Zigbee2MQTT start script |
 | `config/mqtt.yaml` | All MQTT entity configurations |
@@ -286,6 +289,19 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 | `config/scripts.yaml` | Operational scripts (radio, TV, blinds, lighting) |
 | `config/secrets.yaml` | Sensitive configuration |
 | `data/configuration.yaml` | Zigbee2MQTT settings |
+
+## Automated Testing Harness (Mandatory Pre-Commit Checks)
+
+An ephemeral copy-on-write Docker sandbox (`/tmp/ha_test_sandbox`) and companion Mosquitto broker enable full integration testing without edge hardware:
+- **Tier 0:** `python3 tests/runner.py --tier 0` (Static check_config in Docker)
+- **Tier 1:** `python3 tests/runner.py --tier 1` (Hardware safety invariant pytest suite)
+- **Tier 2:** `python3 tests/runner.py --tier 2` (Dynamic state & service executions via REST/WebSocket)
+- **Tier 3:** `python3 tests/runner.py --tier 3` (Lovelace dashboard schema & entity binding audit)
+- **Targeted Run:** `python3 tests/runner.py --auto` (Automatically diffs git, detects affected areas, runs targeted tests)
+- **Gap Discovery:** `python3 tests/runner.py --discover` (Finds untested scripts and automations)
+- **Scenario Synthesis:** `python3 tests/runner.py --generate <script_name>` (Self-building test scenario generator)
+- **Stop Containers:** `python3 tests/runner.py --stop`
+
 
 ## Security Notes
 

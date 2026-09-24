@@ -1,0 +1,28 @@
+id: test_protected_power_supplies_integrity
+area: bezpieczenstwo
+description: "Verify that BoneIO relay channels for protected power supplies keep switches ON via template evaluation"
+tags: [bezpieczenstwo, hardware, boneio, safety, regression]
+status: active
+
+preconditions:
+  entities:
+    light.boneio_32_l_07_new_light_18:
+      state: "on"
+    light.boneio_32_l_07_new_light_07:
+      state: "on"
+    light.boneio_32_l_07_new_light_20:
+      state: "on"
+    light.boneio_32_l_07_new_light_11:
+      state: "on"
+
+action:
+  type: call_service
+  service: homeassistant.update_entity
+  data:
+    entity_id: switch.zasilanie_salon_dodatkowe
+
+wait_seconds: 1.0
+
+assertions:
+  - entity: switch.zasilanie_salon_dodatkowe
+    state: "on"

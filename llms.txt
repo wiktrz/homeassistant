@@ -22,13 +22,15 @@
 
 ## Core Documentation Index
 
-- [AI_DEVELOPMENT_GUIDELINES.md](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AI_DEVELOPMENT_GUIDELINES.md): Mandatory AI development rules, strict planning mode gates, documentation self-update protocols, and hardware invariants.
-- [AGENTS.md](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AGENTS.md): Primary developer guidelines, operational safety rules, Docker container management, and entity mapping directory for Home Assistant agents.
-- [AGENT.md](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AGENT.md): Unified bridge specification between Home Assistant and the ESP32/Node.js edge firmware (`newHeatingController`, `heatingStation`, `nodeApi`).
-- [PLACES_AND_BEHAVIORS.md](file:///Users/wtrzonkowski/Desktop/private/homeassistant/PLACES_AND_BEHAVIORS.md): Exhaustive room-by-room entity directory, automation behaviors, triggers, conditions, actions, voice intents, and safety constraints for every physical space in the ecosystem.
-- [CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md](file:///Users/wtrzonkowski/Desktop/private/homeassistant/CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md): Generic Camera AI Vision Engine (`script.camera_ai_analyze`) utilizing Google Generative AI (Gemini Vision) for biometric face recognition (door strike unlocking) and Automatic License Plate Recognition (ALPR/ANPR for sliding gate access and driveway illumination).
-- [VOICE_AI_IMPROVEMENTS_PROPOSAL.md](file:///Users/wtrzonkowski/Desktop/private/homeassistant/VOICE_AI_IMPROVEMENTS_PROPOSAL.md): Architectural proposal for Polish Voice AI intent remediation, entity aliasing, and area classification across the ecosystem.
-- [HA_IMPROVEMENTS_RESEARCH.md](file:///Users/wtrzonkowski/Desktop/private/homeassistant/HA_IMPROVEMENTS_RESEARCH.md): Research notes and audit findings on Home Assistant modern configurations and dashboard modernization.
+- [AI_DEVELOPMENT_GUIDELINES.md](AI_DEVELOPMENT_GUIDELINES.md): Mandatory AI development rules, strict planning mode gates, documentation self-update protocols, and hardware invariants.
+- [AGENTS.md](AGENTS.md): Primary developer guidelines, operational safety rules, Docker container management, and entity mapping directory for Home Assistant agents.
+- [AGENT.md](AGENT.md): Unified bridge specification between Home Assistant and the ESP32/Node.js edge firmware (`newHeatingController`, `heatingStation`, `nodeApi`).
+- [PLACES_AND_BEHAVIORS.md](PLACES_AND_BEHAVIORS.md): Exhaustive room-by-room entity directory, automation behaviors, triggers, conditions, actions, voice intents, and safety constraints for every physical space in the ecosystem.
+- [tests/runner.py](tests/runner.py): Autonomous 4-tier AI test harness (Tier 0 static schema check, Tier 1 hardware safety invariants, Tier 2 ephemeral Docker state execution, Tier 3 Lovelace UI validation).
+- [tests/test_registry.yaml](tests/test_registry.yaml): Master static regression test catalog protecting verified system behaviors across rooms and subsystems.
+- [CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md](CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md): Generic Camera AI Vision Engine (`script.camera_ai_analyze`) utilizing Google Generative AI (Gemini Vision) for biometric face recognition (door strike unlocking) and Automatic License Plate Recognition (ALPR/ANPR for sliding gate access and driveway illumination).
+- [VOICE_AI_IMPROVEMENTS_PROPOSAL.md](VOICE_AI_IMPROVEMENTS_PROPOSAL.md): Architectural proposal for Polish Voice AI intent remediation, entity aliasing, and area classification across the ecosystem.
+- [HA_IMPROVEMENTS_RESEARCH.md](HA_IMPROVEMENTS_RESEARCH.md): Research notes and audit findings on Home Assistant modern configurations and dashboard modernization.
 
 ---
 

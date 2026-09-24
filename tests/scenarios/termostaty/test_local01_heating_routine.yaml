@@ -1,0 +1,23 @@
+id: test_local01_heating_routine_selection
+area: termostaty
+description: "Verify that changing local01 main heating routine input_select fires automation and sets selection"
+tags: [termostaty, heating, local01, rental, regression]
+status: active
+
+preconditions:
+  entities:
+    input_select.local01_main_heating_routine:
+      state: "off"
+
+action:
+  type: call_service
+  service: input_select.select_option
+  data:
+    entity_id: input_select.local01_main_heating_routine
+    option: "default"
+
+wait_seconds: 1.0
+
+assertions:
+  - entity: input_select.local01_main_heating_routine
+    state: "default"

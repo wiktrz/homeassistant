@@ -214,6 +214,14 @@ docker exec -it homeassistant-homeassistant-1 sh
 
 # View Zigbee2MQTT logs
 docker logs -f homeassistant-zigbee2mqtt-1
+
+# === Automated AI Test Harness ===
+python3 tests/runner.py --auto         # Auto git-diff impact test
+python3 tests/runner.py --tier all     # Run complete 4-tier suite
+python3 tests/runner.py --area salon   # Run targeted room tests
+python3 tests/runner.py --discover     # Analyze coverage gaps
+python3 tests/runner.py --generate <x> # Synthesize new test scenario
+python3 tests/runner.py --stop         # Teardown test containers
 ```
 
 **WARNING:** `clear_retained_simple.sh` contains hardcoded MQTT credentials (MQTT_PASS="waders").
@@ -239,6 +247,9 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 | `PLACES_AND_BEHAVIORS.md` | Room-by-room entity directory & behavioral map |
 | `AGENT.md` | Unified Home Assistant & ESP32/Node.js ecosystem bridge |
 | `AGENTS.md` | Primary Codex developer instructions |
+| `tests/runner.py` | 4-tier autonomous AI test harness CLI |
+| `tests/test_registry.yaml` | Static baseline regression test catalog |
+| `tests/docker-compose.test.yml` | Ephemeral test stack (HA + Mosquitto) |
 | `docker-compose.yml` | Home Assistant container definition |
 | `docker-zigbee2mqtt.sh` | Zigbee2MQTT start script |
 | `config/mqtt.yaml` | All MQTT entity configurations |
