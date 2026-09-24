@@ -144,7 +144,7 @@ The installation uses industrial BoneIO DIN rail hardware:
   - `WlaczRadio`: Handles playing, starting, and switching stations (*"włącz radio [stacja]"*, *"włącz [stacja]"*, *"zmień stację na [stacja]"*, *"przełącz na [stacja]"*, *"switch radio to [station]"*). Dynamically responds with *"Przełączam na..."* if radio is already playing.
   - `ZatrzymajRadio`, `GlosniejRadio`, `CiszejRadio`.
 - **Automations:**
-  - `morning_radio_schedule`: Weekdays at `input_datetime.pora_pobudka` -> Radio ZET; Weekends at `input_datetime.pora_pobudka_weekend` -> Antyradio.
+  - `morning_radio_schedule`: Weekdays at `input_datetime.pora_pobudka` -> Radio ZET; Weekends at `input_datetime.pora_pobudka_weekend` -> Antyradio (sets volume to 10% before playback).
   - `radio_station_changed_auto_play`: Seamlessly switches live stream when a user selects a different station in Lovelace while radio is active; guarded by `not is_state('script.play_radio', 'on')` to prevent recursive cancellation loops.
   - `voice_pe_media_playback_intercept`: Routes standard UI Play/Pause events to radio scripts.
 

@@ -2339,6 +2339,11 @@
       id: weekend_morning
   conditions: []
   actions:
+    - action: media_player.volume_set
+      target:
+        entity_id: media_player.home_assistant_voice_0a9bfd_media_player
+      data:
+        volume_level: 0.1
     - choose:
         - conditions:
             - condition: trigger

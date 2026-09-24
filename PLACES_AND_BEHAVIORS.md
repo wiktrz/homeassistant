@@ -600,7 +600,7 @@ flowchart TD
   - `script.toggle_radio`: Contextual toggle based on whether the entity is playing.
   - `script.radio_volume_up` & `script.radio_volume_down`: Adjusts volume on Voice PE.
 - **Automations:**
-  - `morning_radio_schedule`: Weekday wake up -> Radio ZET; weekend wake up -> Antyradio.
+  - `morning_radio_schedule`: Weekday wake up -> Radio ZET; weekend wake up -> Antyradio (resets volume to 10% before starting playback).
   - `radio_station_changed_auto_play`: Seamlessly switches radio stream when a user picks a different station on the dashboard; guarded by `not is_state('script.play_radio', 'on')` against re-entrant script cancellation.
   - `voice_pe_media_playback_intercept`: Intercepts standard UI Play/Pause buttons to route through radio scripts.
 
