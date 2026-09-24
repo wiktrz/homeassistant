@@ -19,6 +19,7 @@ DASHBOARDS_TO_VALIDATE = [
     "dashboard_home_improved.yaml",
     "dashboard_improved.yaml",
     "dashboard_korytarze_improved.yaml",
+    "dashboard_energy_test.yaml",
 ]
 
 

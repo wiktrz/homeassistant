@@ -216,9 +216,10 @@ The installation uses industrial BoneIO DIN rail hardware:
   - `binary_sensor.pstryk_tania_godzina_dol` & `binary_sensor.pstryk_tania_godzina_gora` (is_cheap flag)
   - `binary_sensor.pstryk_droga_godzina_dol` & `binary_sensor.pstryk_droga_godzina_gora` (is_expensive flag)
 - **Lovelace Energy UI & Drill-Down Subview (`/dashboard-home/energia` & `/energia-raport`):**
-  - Main view (`/energia`) features dual sections ("Pstryk Energy — Instalacja Dół" and "Pstryk Energy — Instalacja Góra") with 8 dynamic tiles each (Kupno, Sprzedaż, Najlepsze Okno, Zużycie Dziś, Koszt Dziś, Zużycie Miesiąc, Koszt Miesiąc, Ślad Węglowy) with reactive color thresholds and one-tap navigation to the detailed report.
+  - Main view (`/energia`) features dual sections ("Pstryk Energy — Instalacja Dół" and "Pstryk Energy — Instalacja Góra") with 8 dynamic tiles each (Kupno, Sprzedaż, Najlepsze Okno, Zużycie Dziś, Koszt Dziś, Zużycie Miesiąc, Koszt Miesiąc, Ślad Węglowy) with reactive color thresholds and one-tap navigation to the detailed report. Obsolete phase 1 legacy grid removed; Tesla Model Y cards conditional.
   - Interactive reporting subview (`/dashboard-home/energia-raport`) provides native back navigation, Dół vs Góra side-by-side comparison tables, Jinja2 hourly today breakdown, daily month history, 2026 year monthly table, and 48h live history graphs.
-- Automation `daily_energy_price_notification` runs at 22:00.
+  - Test dashboard (`config/dashboard_energy_test.yaml` at `/dashboard-enegery/energy`) provides quick glance at prices, heating zones, conditional Tesla metrics, and scenes.
+- Automation `daily_energy_price_notification` runs at 22:00 (notification click opens `/dashboard-home/energia`).
 
 ### Voice Assistant & Media Players (Voice PE)
 - **ESPHome Action Limitations:** Entity `media_player.home_assistant_voice_0a9bfd_media_player` is an ESPHome speaker. It does **NOT** support `media_player.turn_on` or `media_player.turn_off`. Invoking either throws a runtime exception in Home Assistant. Playback MUST be initiated directly using `media_player.play_media` and stopped cleanly using `media_player.media_stop`. Volume can be managed via `volume_set`, `volume_up`, or `volume_down`.

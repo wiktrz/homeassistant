@@ -642,8 +642,8 @@ flowchart TD
   - **Main Energy View (`/energia`):** Dual stacked sections ("Pstryk Energy — Instalacja Dół" and "Pstryk Energy — Instalacja Góra") with 8 dynamic tiles each (Kupno, Sprzedaż, Najlepsze Okno, Zużycie Dziś, Koszt Dziś, Zużycie Miesiąc, Koszt Miesiąc, Ślad Węglowy) with color thresholds and quick navigation button.
   - **Interactive Reporting Subview (`/energia-raport`):** Subview with native back navigation, side-by-side Dół vs Góra consumption & cost comparison, Jinja2 markdown tables for hourly today breakdown, daily month history, 2026 year monthly table, and 48h live history graphs.
 - **Automations:**
-  - `daily_energy_price_notification`: 22:00 forecast notification with cheapest window times and gross min prices.
-  - `Tesla Charging Best Window`: Automatically closes charging contactor (`switch.tesl_y_charge`) when `binary_sensor.pstryk_in_best_window_dol == on` and vehicle is home.
+  - `daily_energy_price_notification`: 22:00 forecast notification with cheapest window times and gross min prices (clicking notification opens `/dashboard-home/energia`).
+  - `Tesla Charging Best Window`: Automatically closes charging contactor (`switch.tesla_y_charge`) when `binary_sensor.pstryk_in_best_window_dol == on` and vehicle (`device_tracker.tesla_y_location`) is home.
   - `pstryk_best_window_voice_announcement`: Speaks aloud dynamically on Home Assistant Voice PE when the cheap window opens.
 
 ---

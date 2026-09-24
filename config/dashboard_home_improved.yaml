@@ -226,7 +226,7 @@ views:
 
       # --- SCENY I NASTRÓJ ---
       - type: grid
-        columns: 2
+        columns: 3
         square: false
         cards:
           - type: tile
@@ -234,11 +234,6 @@ views:
             name: Kino
             icon: mdi:movie
             color: purple
-          - type: tile
-            entity: scene.zmierzch
-            name: Zmierzch
-            icon: mdi:weather-night
-            color: indigo
           - type: tile
             entity: scene.motion_lights_off
             name: Ruch OFF
@@ -904,51 +899,7 @@ views:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
 
-      # --- POMIARY HISTORYCZNE (LEGACY) ---
-      - type: heading
-        heading: Pstryk Energy — Ceny i Bilans (Legacy)
-      
-      - type: grid
-        columns: 3
-        square: false
-        cards:
-          - type: tile
-            entity: sensor.pstryk_price_meter
-            name: Kupno
-            color: red
-          - type: tile
-            entity: sensor.pstryk_current_sell_price
-            name: Sprzedaż
-            color: green
-          - type: tile
-            entity: sensor.pstryk_daily_financial_balance
-            name: Bilans Dziś
-          
-          - type: tile
-            entity: sensor.pstryk_buy_daily_average
-            name: Średnia Kupno (Doba)
-          - type: tile
-            entity: sensor.pstryk_sell_daily_average
-            name: Średnia Sprzedaż (Doba)
-          - type: tile
-            entity: sensor.pstryk_monthly_financial_balance
-            name: Bilans Miesiąc
-          
-          - type: tile
-            entity: sensor.pstryk_best_window
-            name: Najlepsze Okno (Ceny)
-            icon: mdi:clock-check-outline
-            color: purple
-          - type: tile
-            entity: binary_sensor.pstryk_in_best_window
-            name: W Najtańszym Oknie
-            color: indigo
-          
-          - type: tile
-            entity: sensor.pstryk_cheapest_window_direct
-            name: Najtańsze Okno (Direct Script)
-            icon: mdi:script-text-outline
-            color: orange
+      # --- POMIARY HISTORYCZNE (LEGACY) REMOVED ---
 
   - title: Raport Energii
     path: energia-raport

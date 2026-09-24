@@ -276,12 +276,13 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 - `binary_sensor.pstryk_droga_godzina_dol` & `binary_sensor.pstryk_droga_godzina_gora`: Active expensive hour flag (`is_expensive`)
 
 **Lovelace Energy Dashboard & Drill-Down Subview:**
-- **Overview View (`/dashboard-home/energia`):** Stacked sections for both installations ("Pstryk Energy — Instalacja Dół" & "Pstryk Energy — Instalacja Góra") with 8 dynamic tiles each (Kupno, Sprzedaż, Najlepsze Okno, Zużycie Dziś, Koszt Dziś, Zużycie Miesiąc, Koszt Miesiąc, Ślad Węglowy) with color thresholds and quick navigation button to `/dashboard-home/energia-raport`.
+- **Overview View (`/dashboard-home/energia`):** Stacked sections for both installations ("Pstryk Energy — Instalacja Dół" & "Pstryk Energy — Instalacja Góra") with 8 dynamic tiles each (Kupno, Sprzedaż, Najlepsze Okno, Zużycie Dziś, Koszt Dziś, Zużycie Miesiąc, Koszt Miesiąc, Ślad Węglowy) with color thresholds and quick navigation button to `/dashboard-home/energia-raport`. Obsolete phase 1 legacy grid removed; Tesla Model Y vehicle cards conditionally displayed pending active API integration.
 - **Reporting Subview (`/dashboard-home/energia-raport`):** Subview with native back navigation, side-by-side Dół vs Góra consumption & cost comparison, Jinja2 markdown tables for hourly today breakdown, daily month history, 2026 year monthly table, and 48h live history graphs.
+- **Energy Test Dashboard (`config/dashboard_energy_test.yaml` / `/dashboard-enegery/energy`):** Single-view test dashboard with Pstryk pricing, local heating zone temperatures, conditional Tesla monitoring, and scene triggers.
 
 **Automations:**
-- `daily_energy_price_notification` - Sends Polish summary at 22:00 (uses dół sensor, pricing is identical)
-- `Tesla Charging Best Window` - triggers on `binary_sensor.pstryk_in_best_window_dol`
+- `daily_energy_price_notification` - Sends Polish summary at 22:00 (uses dół sensor, pricing is identical; clickAction opens `/dashboard-home/energia`)
+- `Tesla Charging Best Window` - triggers on `binary_sensor.pstryk_in_best_window_dol` when vehicle (`device_tracker.tesla_y_location`) is home
 - `pstryk_best_window_voice_announcement` - triggers on `binary_sensor.pstryk_in_best_window_dol` to speak dynamic announcement on Home Assistant Voice PE speaker
 
 ## Dynamic Solar Calculation Engine & Astronomy

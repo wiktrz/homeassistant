@@ -132,61 +132,54 @@ views:
             name: Local06 Glowny Zadana
             icon: mdi:thermometer
 
-      # --- HEADING: Tesla Charging ---
-      - type: heading
-        heading: Tesla Charging
-
-      - type: horizontal-stack
-        cards:
-          - type: tile
-            entity: binary_sensor.pstryk_in_best_window_dol
-            name: W Oknie Cenowym
-            icon: mdi:clock-check-outline
-            color: >
-              {% if is_state('binary_sensor.pstryk_in_best_window_dol', 'on') %}
-                green
-              {% else %}
-                grey
-              {% endif %}
-
-          - type: tile
-            entity: sensor.tesla_y_charging
-            name: Tesla Ladowanie
-            icon: mdi:car-electric
-            color: >
-              {% if is_state('sensor.tesla_y_charging', 'on') %}
-                blue
-              {% else %}
-                grey
-              {% endif %}
-
-          - type: tile
-            entity: sensor.tesla_y_battery_level
-            name: Bateria
-            icon: mdi:battery
-            color: >
-              {% if states('sensor.tesla_y_battery_level') | float > 80 %}
-                green
-              {% elif states('sensor.tesla_y_battery_level') | float > 30 %}
-                orange
-              {% else %}
-                red
-              {% endif %}
-
-      # --- HEADING: Tesla Location ---
-      - type: heading
-        heading: Tesla Status
-
-      - type: horizontal-stack
-        cards:
-          - type: tile
-            entity: device_tracker.tesla_y_location
-            name: Lokalizacja
-            icon: mdi:map-marker
-          - type: tile
-            entity: sensor.tesla_y_charger_actual_range
-            name: Zasieg
-            icon: mdi:map-marker-distance
+      # --- HEADING: Tesla Charging & Status (Conditional) ---
+      - type: conditional
+        conditions:
+          - entity: device_tracker.tesla_y_location
+            state_not: unavailable
+          - entity: device_tracker.tesla_y_location
+            state_not: unknown
+        card:
+          type: vertical-stack
+          cards:
+            - type: heading
+              heading: Tesla Charging
+            - type: horizontal-stack
+              cards:
+                - type: tile
+                  entity: sensor.tesla_y_charging
+                  name: Tesla Ladowanie
+                  icon: mdi:car-electric
+                  color: >
+                    {% if is_state('sensor.tesla_y_charging', 'on') %}
+                      blue
+                    {% else %}
+                      grey
+                    {% endif %}
+                - type: tile
+                  entity: sensor.tesla_y_battery_level
+                  name: Bateria
+                  icon: mdi:battery
+                  color: >
+                    {% if states('sensor.tesla_y_battery_level') | float > 80 %}
+                      green
+                    {% elif states('sensor.tesla_y_battery_level') | float > 30 %}
+                      orange
+                    {% else %}
+                      red
+                    {% endif %}
+            - type: heading
+              heading: Tesla Status
+            - type: horizontal-stack
+              cards:
+                - type: tile
+                  entity: device_tracker.tesla_y_location
+                  name: Lokalizacja
+                  icon: mdi:map-marker
+                - type: tile
+                  entity: sensor.tesla_y_charger_actual_range
+                  name: Zasieg
+                  icon: mdi:map-marker-distance
 
       # --- HEADING: Pstryk Price Details ---
       - type: heading
@@ -277,10 +270,6 @@ views:
             icon: mdi:motion-sensor
             color: green
           - type: tile
-            entity: scene.zmierzch
-            name: Zmierzch
-            icon: mdi:weather-night
-          - type: tile
             entity: scene.salon_kino_1
             name: Salon Kino
             icon: mdi:movie
@@ -296,10 +285,10 @@ views:
             name: Local 01 Srednia
             icon: mdi:home-group
           - type: tile
-            entity: sensor.local00_klatka1p_temperature
+            entity: sensor.local00_klatka1p_controler_temperature
             name: Klatka 1p
             icon: mdi:door
           - type: tile
-            entity: sensor.local00_klatka2p_temperature
+            entity: sensor.local00_klatka2p_controler_temperature
             name: Klatka 2p
             icon: mdi:door

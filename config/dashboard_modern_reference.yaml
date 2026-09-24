@@ -57,8 +57,8 @@ views:
           - entity: sensor.pstryk_price_meter_dol
             name: Cena Energii
             icon: mdi:currency-pln
-          - entity: sensor.pstryk_daily_financial_balance
-            name: Bilans Dziś
+          - entity: sensor.pstryk_koszt_dzis_dol
+            name: Koszt Dziś
           - entity: binary_sensor.pstryk_in_best_window_dol
             name: Okno Cenowe
             icon: mdi:clock-check
@@ -644,89 +644,52 @@ views:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
 
-      # --- POMIARY HISTORYCZNE I TESLA (LEGACY PHASE 1) ---
-      - type: heading
-        heading: Pomiary Historyczne i Tesla
-
-      - type: grid
-        columns: 2
-        square: false
-        cards:
-          - type: tile
-            entity: sensor.pstryk_price_meter_dol
-            name: Kupno
-            color: |
-              {% if states('sensor.pstryk_price_meter_dol') | float > 0.7 %}
-                red
-              {% elif states('sensor.pstryk_price_meter_dol') | float > 0.5 %}
-                orange
-              {% else %}
-                green
-              {% endif %}
-          - type: tile
-            entity: sensor.pstryk_current_sell_price
-            name: Sprzedaż
-            color: green
-          - type: tile
-            entity: sensor.pstryk_daily_financial_balance
-            name: Bilans Dziś
-          - type: tile
-            entity: sensor.pstryk_monthly_financial_balance
-            name: Bilans Miesiąc
-          - type: tile
-            entity: sensor.pstryk_buy_daily_average
-            name: Średnia Kupno
-          - type: tile
-            entity: sensor.pstryk_sell_daily_average
-            name: Średnia Sprzedaż
-          - type: tile
-            entity: sensor.pstryk_best_window_dol
-            name: Najlepsze Okno
-            icon: mdi:clock-check-outline
-            color: purple
-          - type: tile
-            entity: binary_sensor.pstryk_in_best_window_dol
-            name: W Oknie
-            color: |
-              {% if is_state('binary_sensor.pstryk_in_best_window_dol', 'on') %}
-                green
-              {% else %}
-                grey
-              {% endif %}
-      - type: grid
-        columns: 2
-        square: false
-        cards:
-          - type: tile
-            entity: sensor.tesla_y_charging
-            name: Ładowanie
-            icon: mdi:car-electric
-            color: |
-              {% if is_state('sensor.tesla_y_charging', 'on') %}
-                blue
-              {% else %}
-                grey
-              {% endif %}
-          - type: tile
-            entity: sensor.tesla_y_battery_level
-            name: Bateria
-            icon: mdi:battery
-            color: |
-              {% if states('sensor.tesla_y_battery_level') | float > 80 %}
-                green
-              {% elif states('sensor.tesla_y_battery_level') | float > 30 %}
-                orange
-              {% else %}
-                red
-              {% endif %}
-          - type: tile
-            entity: sensor.tesla_y_charger_actual_range
-            name: Zasięg
-            icon: mdi:map-marker-distance
-          - type: tile
-            entity: device_tracker.tesla_y_location
-            name: Lokalizacja
-            icon: mdi:map-marker
+      # --- TESLA MODEL Y (CONDITIONAL) ---
+      - type: conditional
+        conditions:
+          - entity: device_tracker.tesla_y_location
+            state_not: unavailable
+          - entity: device_tracker.tesla_y_location
+            state_not: unknown
+        card:
+          type: vertical-stack
+          cards:
+            - type: heading
+              heading: Tesla Model Y
+            - type: grid
+              columns: 2
+              square: false
+              cards:
+                - type: tile
+                  entity: sensor.tesla_y_charging
+                  name: Ładowanie
+                  icon: mdi:car-electric
+                  color: |
+                    {% if is_state('sensor.tesla_y_charging', 'on') %}
+                      blue
+                    {% else %}
+                      grey
+                    {% endif %}
+                - type: tile
+                  entity: sensor.tesla_y_battery_level
+                  name: Bateria
+                  icon: mdi:battery
+                  color: |
+                    {% if states('sensor.tesla_y_battery_level') | float > 80 %}
+                      green
+                    {% elif states('sensor.tesla_y_battery_level') | float > 30 %}
+                      orange
+                    {% else %}
+                      red
+                    {% endif %}
+                - type: tile
+                  entity: sensor.tesla_y_charger_actual_range
+                  name: Zasięg
+                  icon: mdi:map-marker-distance
+                - type: tile
+                  entity: device_tracker.tesla_y_location
+                  name: Lokalizacja
+                  icon: mdi:map-marker
 
   - title: Raport Energii
     path: energia-raport
@@ -977,7 +940,7 @@ views:
 
       # --- SCENY I NASTRÓJ ---
       - type: grid
-        columns: 2
+        columns: 3
         square: false
         cards:
           - type: tile
@@ -985,11 +948,6 @@ views:
             name: Kino
             icon: mdi:movie
             color: purple
-          - type: tile
-            entity: scene.zmierzch
-            name: Zmierzch
-            icon: mdi:weather-night
-            color: indigo
           - type: tile
             entity: scene.motion_lights_off
             name: Ruch OFF

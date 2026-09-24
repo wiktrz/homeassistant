@@ -2242,7 +2242,7 @@
         data:
           channel: energy
           tag: energy_forecast
-          clickAction: /pstryk
+          clickAction: /dashboard-home/energia
   - if:
     - condition: template
       value_template: '{{ has_data and min_price != ''N/A'' }}'
@@ -2257,7 +2257,7 @@
         data:
           channel: energy
           tag: energy_forecast
-          clickAction: /pstryk
+          clickAction: /dashboard-home/energia
     else:
     - service: notify.notify
       data:
@@ -2280,13 +2280,13 @@
     - 'on'
   conditions:
   - condition: state
-    entity_id: device_tracker.tesl_y_location
+    entity_id: device_tracker.tesla_y_location
     state: home
   actions:
   - action: switch.turn_on
     metadata: {}
     target:
-      entity_id: switch.tesl_y_charge
+      entity_id: switch.tesla_y_charge
     data: {}
   mode: single
 - id: '1772783265111'

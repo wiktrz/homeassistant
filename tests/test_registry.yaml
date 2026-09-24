@@ -13,7 +13,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-09-24T14:49:02.729031'
+  last_verified: '2026-09-24T18:59:10.044740'
 - id: test_salon_cinema_mode_on_night
   area: salon
   file: scenarios/salon/test_cinema_mode.yaml
@@ -91,7 +91,7 @@ tests:
   - script
   - regression
   status: active
-  last_verified: '2026-09-24T14:49:11.625967'
+  last_verified: '2026-09-24T18:59:11.601816'
 - id: test_radio_station_switch_playing
   area: multimedia
   file: scenarios/multimedia/test_radio_station_switch_playing.yaml
@@ -105,7 +105,7 @@ tests:
   - alias
   - regression
   status: active
-  last_verified: '2026-09-24T14:49:13.153240'
+  last_verified: '2026-09-24T18:59:13.127223'
 - id: test_pstryk_engine_unit_suite
   area: pstryk
   file: unit/test_pstryk_engine.py
