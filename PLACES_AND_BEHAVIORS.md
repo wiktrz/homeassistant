@@ -656,6 +656,30 @@ flowchart TD
 
 ---
 
+### 3.5 Dynamic Solar References & Astronomical Calculation Engine (Phase 1)
+- **Engine Script:** `config/solar_engine.py` (Astral 2.2 calculation of dawn, sunrise, solar noon, sunset, dusk, and outdoor dusk with 30-minute pre-sunset offset for Warsaw coordinates: 52.3445°N, 21.0993°E, 322m elevation).
+- **Naming Rule:** UI-friendly labels/friendly names in Polish; entity IDs, YAML keys, and variables strictly in English.
+- **Dynamic Helpers (`input_datetime`):**
+  - `input_datetime.dynamic_dawn` (*Dynamiczna Pora Świtu*, default `06:00:00`)
+  - `input_datetime.dynamic_sunrise` (*Dynamiczna Pora Wschodu*, default `06:30:00`)
+  - `input_datetime.dynamic_sunset` (*Dynamiczna Pora Zmroku*, default `18:00:00`)
+  - `input_datetime.dynamic_outdoor_dusk` (*Dynamiczna Pora Zmroku na Zewnątrz*, default `17:30:00`)
+- **Template Sensors & Flags (`config/templates.yaml`):**
+  - `sensor.dynamic_solar_phase`: Real-time astronomical phase (`night`, `astronomical_twilight`, `nautical_twilight`, `dawn`, `sunrise`, `daylight`, `golden_hour`, `dusk`).
+  - `sensor.dynamic_solar_elevation`: Sun elevation in degrees (°).
+  - `sensor.dynamic_solar_engine_status`: Operational status (`ok`, `fallback_helper`, `fallback_static`).
+  - `binary_sensor.dynamic_is_dark_outside`: Active when solar elevation <= -4.0° or during outdoor dusk / night.
+  - `binary_sensor.dynamic_is_sun_up`: Active when solar elevation > -0.833° (above horizon).
+- **Synchronization Automation:**
+  - `automation.sync_dynamic_solar_times` (*Solar: Synchronizacja Dynamicznych Pór Słońca*): Automatically triggers daily at 00:00:05 and upon Home Assistant startup.
+- **Resilient 3-Tier Fallback Strategy:**
+  - *Tier 0 (Sticky Memory):* Retain previous valid daily calculation if coordinates or Astral temporarily unavailable.
+  - *Tier 1 (Helper Inheritance):* Fall back to existing legacy static helpers (`input_datetime.pora_switu`, `pora_zmroku`, `pora_zmroku_na_zewnatrz`).
+  - *Tier 2 (Static Fail-Safe):* Hardcoded safety values (`06:00:00`, `06:30:00`, `18:00:00`, `17:30:00`).
+- **Phase Boundary:** In Phase 1, dynamic components are established and synchronized. Existing lighting and blind automations continue reading legacy helpers (`input_datetime.pora_switu`, `pora_zmroku`) until Phase 2 migration.
+
+---
+
 ## 4. Entity & Place Quick-Lookup Table
 
 | Room / Place | Key Lights | Key Climates | Key Sensors / Inputs | Media / Voice / Locks |

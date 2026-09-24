@@ -2432,4 +2432,87 @@
             - action: script.toggle_radio
   mode: restart
 
+- id: 'sync_dynamic_solar_times'
+  alias: 'Solar: Synchronizacja Dynamicznych Pór Słońca'
+  description: 'Codziennie o północy oraz przy starcie systemu wylicza i zapisuje dynamiczne pory świtu, wschodu, zmroku i zmroku na zewnątrz z 3-stopniowym mechanizmem fallback.'
+  triggers:
+    - trigger: time
+      at: '00:00:05'
+      id: midnight_sync
+    - trigger: homeassistant
+      event: start
+      id: startup_sync
+  conditions: []
+  actions:
+    - variables:
+        next_dawn: "{{ state_attr('sun.sun', 'next_dawn') }}"
+        next_rising: "{{ state_attr('sun.sun', 'next_rising') }}"
+        next_setting: "{{ state_attr('sun.sun', 'next_setting') }}"
+        fallback_dawn: "{{ states('input_datetime.pora_switu') | default('06:00:00', true) }}"
+        fallback_sunrise: "{{ states('input_datetime.pora_switu') | default('06:30:00', true) }}"
+        fallback_sunset: "{{ states('input_datetime.pora_zmroku') | default('18:00:00', true) }}"
+        fallback_outdoor_dusk: "{{ states('input_datetime.pora_zmroku_na_zewnatrz') | default('17:30:00', true) }}"
+        calc_dawn: >-
+          {% if next_dawn is not none and next_dawn not in ['unavailable', 'unknown', ''] %}
+            {{ (as_datetime(next_dawn) | as_local).strftime('%H:%M:%S') }}
+          {% elif states('input_datetime.dynamic_dawn') not in ['unavailable', 'unknown', '00:00:00', ''] %}
+            {{ states('input_datetime.dynamic_dawn') }}
+          {% elif fallback_dawn not in ['unavailable', 'unknown', ''] %}
+            {{ fallback_dawn }}
+          {% else %}
+            06:00:00
+          {% endif %}
+        calc_sunrise: >-
+          {% if next_rising is not none and next_rising not in ['unavailable', 'unknown', ''] %}
+            {{ (as_datetime(next_rising) | as_local).strftime('%H:%M:%S') }}
+          {% elif states('input_datetime.dynamic_sunrise') not in ['unavailable', 'unknown', '00:00:00', ''] %}
+            {{ states('input_datetime.dynamic_sunrise') }}
+          {% elif fallback_sunrise not in ['unavailable', 'unknown', ''] %}
+            {{ fallback_sunrise }}
+          {% else %}
+            06:30:00
+          {% endif %}
+        calc_sunset: >-
+          {% if next_setting is not none and next_setting not in ['unavailable', 'unknown', ''] %}
+            {{ (as_datetime(next_setting) | as_local).strftime('%H:%M:%S') }}
+          {% elif states('input_datetime.dynamic_sunset') not in ['unavailable', 'unknown', '00:00:00', ''] %}
+            {{ states('input_datetime.dynamic_sunset') }}
+          {% elif fallback_sunset not in ['unavailable', 'unknown', ''] %}
+            {{ fallback_sunset }}
+          {% else %}
+            18:00:00
+          {% endif %}
+        calc_outdoor_dusk: >-
+          {% if next_setting is not none and next_setting not in ['unavailable', 'unknown', ''] %}
+            {{ ((as_datetime(next_setting) - timedelta(minutes=30)) | as_local).strftime('%H:%M:%S') }}
+          {% elif states('input_datetime.dynamic_outdoor_dusk') not in ['unavailable', 'unknown', '00:00:00', ''] %}
+            {{ states('input_datetime.dynamic_outdoor_dusk') }}
+          {% elif fallback_outdoor_dusk not in ['unavailable', 'unknown', ''] %}
+            {{ fallback_outdoor_dusk }}
+          {% else %}
+            17:30:00
+          {% endif %}
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.dynamic_dawn
+      data:
+        time: "{{ calc_dawn }}"
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.dynamic_sunrise
+      data:
+        time: "{{ calc_sunrise }}"
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.dynamic_sunset
+      data:
+        time: "{{ calc_sunset }}"
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.dynamic_outdoor_dusk
+      data:
+        time: "{{ calc_outdoor_dusk }}"
+  mode: single
+
+
 

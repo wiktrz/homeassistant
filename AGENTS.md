@@ -72,7 +72,8 @@ config/
 │   └── template/
 │       └── inverted_binary_sensor.yaml
 ├── pstryk_pricing.py     # Energy pricing script
-└── pstryk_engine.py      # Dynamic energy & metering engine (caching, aggregations, unit-tested)
+├── pstryk_engine.py      # Dynamic energy & metering engine (caching, aggregations, unit-tested)
+└── solar_engine.py       # Dynamic solar & astronomical calculation engine (Astral 2.2, 3-tier fallback)
 
 data/
 └── configuration.yaml    # Zigbee2MQTT configuration
@@ -283,6 +284,28 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 - `Tesla Charging Best Window` - triggers on `binary_sensor.pstryk_in_best_window_dol`
 - `pstryk_best_window_voice_announcement` - triggers on `binary_sensor.pstryk_in_best_window_dol` to speak dynamic announcement on Home Assistant Voice PE speaker
 
+## Dynamic Solar Calculation Engine & Astronomy (Phase 1)
+
+**Script:** `config/solar_engine.py` (CLI & Python library based on Astral 2.2)
+**Unit Tests:** `tests/unit/test_solar_engine.py` (seasonal solstices, outdoor dusk offset, coordinate boundary fallbacks, solar phase classification)
+**Location Defaults:** Warsaw (52.3445°N, 21.0993°E, 322m, `Europe/Warsaw`)
+**Outdoor Dusk Offset:** Default 30 minutes before astronomical sunset
+**Naming Protocol:** UI-friendly labels/friendly names in Polish or PL/EN; all code configurations, entity IDs, YAML keys, and variables strictly in English.
+
+**Entities:**
+- `input_datetime.dynamic_dawn`: *Dynamiczna Pora Świtu* (default 06:00:00)
+- `input_datetime.dynamic_sunrise`: *Dynamiczna Pora Wschodu* (default 06:30:00)
+- `input_datetime.dynamic_sunset`: *Dynamiczna Pora Zmroku* (default 18:00:00)
+- `input_datetime.dynamic_outdoor_dusk`: *Dynamiczna Pora Zmroku na Zewnątrz* (default 17:30:00)
+- `sensor.dynamic_solar_phase`: Astronomical solar phase (`night`, `astronomical_twilight`, `nautical_twilight`, `dawn`, `sunrise`, `daylight`, `golden_hour`, `dusk`)
+- `sensor.dynamic_solar_elevation`: Real-time elevation in degrees (°)
+- `sensor.dynamic_solar_engine_status`: Engine status (`ok`, `fallback_helper`, `fallback_static`)
+- `binary_sensor.dynamic_is_dark_outside`: Flag for exterior illumination
+- `binary_sensor.dynamic_is_sun_up`: Solar disk elevation above horizon
+
+**Automations:**
+- `automation.sync_dynamic_solar_times`: Triggers at 00:00:05 and HA startup, evaluating solar attributes with 3-tier fallback (Tier 0 sticky memory, Tier 1 helper inheritance, Tier 2 static defaults).
+
 ## Important Files
 
 | File | Purpose |
@@ -296,6 +319,8 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 | `tests/docker-compose.test.yml` | Ephemeral test stack (HA + Mosquitto) |
 | `docker-compose.yml` | Home Assistant container definition |
 | `docker-zigbee2mqtt.sh` | Zigbee2MQTT start script |
+| `config/solar_engine.py` | Dynamic solar & astronomical calculation engine |
+| `tests/unit/test_solar_engine.py` | Unit test suite for solar calculation engine |
 | `config/mqtt.yaml` | All MQTT entity configurations |
 | `config/automations.yaml` | 60+ automation rules |
 | `config/scripts.yaml` | Operational scripts (radio, TV, blinds, lighting) |

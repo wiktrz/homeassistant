@@ -1,0 +1,38 @@
+id: test_solar_sync_execution
+area: solar
+description: "Verify that automation.sync_dynamic_solar_times populates dynamic input_datetime helpers from solar attributes"
+tags: [solar, sun, dynamic, helper, regression]
+status: active
+
+preconditions:
+  entities:
+    sun.sun:
+      state: "above_horizon"
+      attributes:
+        elevation: 32.5
+        rising: true
+        next_dawn: "2026-09-24T03:46:34+00:00"
+        next_rising: "2026-09-24T04:22:02+00:00"
+        next_setting: "2026-09-24T16:32:16+00:00"
+        next_dusk: "2026-09-24T17:07:37+00:00"
+    input_datetime.dynamic_dawn:
+      state: "06:00:00"
+    input_datetime.dynamic_sunrise:
+      state: "06:30:00"
+    input_datetime.dynamic_sunset:
+      state: "18:00:00"
+    input_datetime.dynamic_outdoor_dusk:
+      state: "17:30:00"
+
+action:
+  type: call_service
+  service: automation.trigger
+  data:
+    entity_id: automation.sync_dynamic_solar_times
+
+wait_seconds: 1.0
+
+assertions:
+  - entity: sensor.dynamic_solar_engine_status
+    state: "ok"
+

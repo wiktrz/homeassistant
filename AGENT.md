@@ -59,6 +59,7 @@ The overall system automates and manages a primary residence (**`local00`**) and
 | **Heating Controller** | `home_automation/` (`esp32doit-devkit-v1`) | C++, PlatformIO, DallasTemperature | Multi-zone PID heating controller, OneWire DS18B20 sensors, GPIO relay actuators |
 | **Heating Station** | `home_automation/` (`esp32dev_ttgo_t4`) | C++, PlatformIO, TFT_eSPI, CircleViews | Room thermostats with ILI9341 display, target temperature setpoints, routine schedule display |
 | **Pstryk Engine** | `homeassistant/config/pstryk_engine.py` & `pstryk_pricing.py` | Python 3, `urllib.request` | Dynamic Polish hourly energy pricing & multi-period backend aggregation engine (`dol` & `gora`), 15-min smart caching in `/tmp/pstryk_cache_{installation}.json`, 5-dataset fetch (latest, forward 48h, today hourly, month daily, year monthly), prosumer selling tariffs, consolidated backward-compatible schema |
+| **Solar Engine** | `homeassistant/config/solar_engine.py` & `sync_dynamic_solar_times` | Python 3, Astral 2.2, Jinja2 | Dynamic solar calculation engine (dawn, sunrise, solar noon, sunset, dusk, outdoor dusk) with 3-tier fallback, Polish UI labels, English entity IDs (`input_datetime.dynamic_*`) |
 
 ---
 
@@ -221,6 +222,15 @@ The installation uses industrial BoneIO DIN rail hardware:
 
 ### Voice Assistant & Media Players (Voice PE)
 - **ESPHome Action Limitations:** Entity `media_player.home_assistant_voice_0a9bfd_media_player` is an ESPHome speaker. It does **NOT** support `media_player.turn_on` or `media_player.turn_off`. Invoking either throws a runtime exception in Home Assistant. Playback MUST be initiated directly using `media_player.play_media` and stopped cleanly using `media_player.media_stop`. Volume can be managed via `volume_set`, `volume_up`, or `volume_down`.
+
+### Dynamic Solar & Astronomical Engine (Phase 1)
+- **Engine Script:** `config/solar_engine.py` (Astral 2.2 solar calculations for Warsaw coordinates: 52.3445°N, 21.0993°E, 322m).
+- **Naming Rule:** UI-friendly labels/friendly names in Polish or PL/EN; code configurations, entity IDs, YAML keys, and variables strictly in English.
+- **Dynamic Helpers:** `input_datetime.dynamic_dawn`, `input_datetime.dynamic_sunrise`, `input_datetime.dynamic_sunset`, `input_datetime.dynamic_outdoor_dusk`.
+- **Sensors:** `sensor.dynamic_solar_phase`, `sensor.dynamic_solar_elevation`, `sensor.dynamic_solar_engine_status`, `binary_sensor.dynamic_is_dark_outside`, `binary_sensor.dynamic_is_sun_up`.
+- **Synchronization Automation:** `automation.sync_dynamic_solar_times` (`sync_dynamic_solar_times`) runs daily at 00:00:05 and HA startup.
+- **Resilient 3-Tier Fallback Strategy:** Tier 0 (sticky memory), Tier 1 (legacy helper inheritance `input_datetime.pora_switu`/`pora_zmroku`), Tier 2 (static defaults `06:00:00`, `06:30:00`, `18:00:00`, `17:30:00`).
+- **Phase Boundary:** Dynamic helpers are calculated and tested. Existing lighting/blind automations continue referencing legacy static helpers until Phase 2 migration.
 
 ---
 

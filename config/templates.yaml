@@ -204,6 +204,69 @@
       attributes:
         today_carbon_g: "{{ state_attr('sensor.pstryk_price_meter_gora', 'today')['carbon_g'] if state_attr('sensor.pstryk_price_meter_gora', 'today') else 0.0 }}"
 
+    # --- Dynamic Solar Status & References (Phase 1) ---
+    - name: "Dynamic Solar Phase"
+      unique_id: dynamic_solar_phase_v1
+      icon: mdi:theme-light-dark
+      state: >
+        {% set elev = state_attr('sun.sun', 'elevation') %}
+        {% if elev is not none %}
+          {% set elev_f = elev | float(0.0) %}
+          {% set rising = state_attr('sun.sun', 'rising') | default(true, true) %}
+          {% if elev_f < -18.0 %}
+            night
+          {% elif elev_f < -12.0 %}
+            astronomical_twilight
+          {% elif elev_f < -6.0 %}
+            nautical_twilight
+          {% elif elev_f < -0.833 %}
+            {{ 'dawn' if rising else 'dusk' }}
+          {% elif elev_f < 6.0 %}
+            {{ 'sunrise' if rising else 'golden_hour' }}
+          {% else %}
+            daylight
+          {% endif %}
+        {% else %}
+          {% set now_str = now().strftime('%H:%M:%S') %}
+          {% set dawn = states('input_datetime.dynamic_dawn') if states('input_datetime.dynamic_dawn') not in ['unavailable', 'unknown', ''] else states('input_datetime.pora_switu') | default('06:00:00', true) %}
+          {% set sunset = states('input_datetime.dynamic_sunset') if states('input_datetime.dynamic_sunset') not in ['unavailable', 'unknown', ''] else states('input_datetime.pora_zmroku') | default('18:00:00', true) %}
+          {{ 'daylight' if dawn <= now_str < sunset else 'night' }}
+        {% endif %}
+      attributes:
+        elevation: "{{ state_attr('sun.sun', 'elevation') | default(0.0, true) }}"
+        azimuth: "{{ state_attr('sun.sun', 'azimuth') | default(0.0, true) }}"
+        rising: "{{ state_attr('sun.sun', 'rising') | default(true, true) }}"
+
+    - name: "Dynamic Solar Elevation"
+      unique_id: dynamic_solar_elevation_v1
+      unit_of_measurement: "°"
+      icon: mdi:angle-acute
+      state: >
+        {% set elev = state_attr('sun.sun', 'elevation') %}
+        {{ (elev | float(0.0) | round(2)) if elev is not none else 0.0 }}
+
+    - name: "Dynamic Solar Engine Status"
+      unique_id: dynamic_solar_engine_status_v1
+      icon: mdi:shield-sun
+      state: >
+        {% if state_attr('sun.sun', 'elevation') is not none and state_attr('sun.sun', 'next_rising') is not none %}
+          ok
+        {% elif states('input_datetime.dynamic_dawn') not in ['unavailable', 'unknown', ''] or states('input_datetime.pora_switu') not in ['unavailable', 'unknown', ''] %}
+          fallback_helper
+        {% else %}
+          fallback_static
+        {% endif %}
+      attributes:
+        source: >
+          {% if state_attr('sun.sun', 'elevation') is not none and state_attr('sun.sun', 'next_rising') is not none %}
+            astral
+          {% elif states('input_datetime.dynamic_dawn') not in ['unavailable', 'unknown', ''] or states('input_datetime.pora_switu') not in ['unavailable', 'unknown', ''] %}
+            existing_helpers
+          {% else %}
+            static_defaults
+          {% endif %}
+        last_evaluation: "{{ now().isoformat() }}"
+
 - binary_sensor:
     # --- dół ---
     - name: "Pstryk In Best Window Dol"
@@ -288,6 +351,40 @@
         {% else %}
           mdi:check-circle-outline
         {% endif %}
+
+    # --- Dynamic Solar Flags (Phase 1) ---
+    - name: "Dynamic Is Dark Outside"
+      unique_id: dynamic_is_dark_outside_v1
+      icon: mdi:weather-night
+      state: >
+        {% set elev = state_attr('sun.sun', 'elevation') %}
+        {% if elev is not none %}
+          {{ elev | float(0.0) <= -4.0 }}
+        {% else %}
+          {% set now_str = now().strftime('%H:%M:%S') %}
+          {% set dawn = states('input_datetime.dynamic_dawn') if states('input_datetime.dynamic_dawn') not in ['unavailable', 'unknown', ''] else states('input_datetime.pora_switu') | default('06:00:00', true) %}
+          {% set outdoor_dusk = states('input_datetime.dynamic_outdoor_dusk') if states('input_datetime.dynamic_outdoor_dusk') not in ['unavailable', 'unknown', ''] else states('input_datetime.pora_zmroku_na_zewnatrz') | default('17:30:00', true) %}
+          {{ now_str >= outdoor_dusk or now_str < dawn }}
+        {% endif %}
+
+    - name: "Dynamic Is Sun Up"
+      unique_id: dynamic_is_sun_up_v1
+      icon: mdi:white-balance-sunny
+      state: >
+        {% set elev = state_attr('sun.sun', 'elevation') %}
+        {% if elev is not none %}
+          {{ elev | float(0.0) > -0.833 }}
+        {% elif is_state('sun.sun', 'above_horizon') %}
+          true
+        {% elif is_state('sun.sun', 'below_horizon') %}
+          false
+        {% else %}
+          {% set now_str = now().strftime('%H:%M:%S') %}
+          {% set dawn = states('input_datetime.dynamic_dawn') if states('input_datetime.dynamic_dawn') not in ['unavailable', 'unknown', ''] else states('input_datetime.pora_switu') | default('06:00:00', true) %}
+          {% set sunset = states('input_datetime.dynamic_sunset') if states('input_datetime.dynamic_sunset') not in ['unavailable', 'unknown', ''] else states('input_datetime.pora_zmroku') | default('18:00:00', true) %}
+          {{ dawn <= now_str < sunset }}
+        {% endif %}
+
 - sensor:
       - name: "Następny wywóz odpadów"
         unique_id: nastepny_wywoz_odpadow

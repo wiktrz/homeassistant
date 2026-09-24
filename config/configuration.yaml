@@ -446,6 +446,32 @@ input_datetime:
     has_time: true
     initial: "17:30:00"
 
+  # --- Dynamic Solar References (Phase 1) ---
+  dynamic_dawn:
+    name: Dynamiczna Pora Świtu
+    has_date: false
+    has_time: true
+    initial: "06:00:00"
+    icon: mdi:weather-sunset-up
+  dynamic_sunrise:
+    name: Dynamiczna Pora Wschodu
+    has_date: false
+    has_time: true
+    initial: "06:30:00"
+    icon: mdi:weather-sunset-up
+  dynamic_sunset:
+    name: Dynamiczna Pora Zmroku
+    has_date: false
+    has_time: true
+    initial: "18:00:00"
+    icon: mdi:weather-sunset-down
+  dynamic_outdoor_dusk:
+    name: Dynamiczna Pora Zmroku na Zewnątrz
+    has_date: false
+    has_time: true
+    initial: "17:30:00"
+    icon: mdi:weather-sunset-down
+
 input_number:
   shelly_brightness:
     name: Shelly Brightness

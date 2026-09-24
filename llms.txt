@@ -17,6 +17,8 @@
   - **Front Door Strike Lock:** Wired to BoneIO relay 23, wrapped in `lock.rygiel_drzwi_wejsciowych_lock`, triggered via `input_button.btn_entrance_door` with 2-minute safety auto-off, exterior RFID tags with alarm disarm logic, and perimeter siren `siren.reolink_duo_floodlight_poe_syrena`.
 - **Dynamic Electricity Pricing (Pstryk):**
   - Hourly real-time Polish market tariffs (`sensor.pstryk_price_meter_dol` & `_gora`), multi-period aggregation backend engine (`config/pstryk_engine.py` with latest, forward 48h, today, month, year datasets and 15-min cache in `/tmp`), cheapest price window calculation, automated Tesla vehicle charging (`switch.tesl_y_charge`), and dynamic spoken voice alerts.
+- **Dynamic Solar & Astronomical Calculations (Phase 1):**
+  - Real-time astronomical solar calculator (`config/solar_engine.py` via Astral 2.2), dynamic `input_datetime` helpers (`dynamic_dawn`, `dynamic_sunrise`, `dynamic_sunset`, `dynamic_outdoor_dusk`) with Polish UI friendly names and strictly English YAML keys, template sensors (`sensor.dynamic_solar_phase`, `sensor.dynamic_solar_elevation`, `sensor.dynamic_solar_engine_status`), binary solar flags, daily synchronization automation, and 3-tier fail-safe fallback protection.
 
 ---
 
@@ -49,6 +51,7 @@
 - [`config/automations.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/automations.yaml): 60+ automation rules governing motion lighting, door strike timeouts, RFID security, morning radio, Pstryk alerts, and rental heating schedules.
 - [`config/scripts.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/scripts.yaml): Operational scripts including `play_radio`, `stop_radio`, `tv_launch_app`, `tv_show_camera`, `salon_cinema_mode`, `all_lights_off`, and bedroom roller shutter controls.
 - [`config/customize.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/customize.yaml): Entity customization providing Polish friendly names, voice aliases, and icon assignments.
-- [`config/templates.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/templates.yaml): Template sensors for Pstryk cheapest windows, waste collection countdown, template lock, and protected power supply switches.
+- [`config/templates.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/templates.yaml): Template sensors for Pstryk cheapest windows, waste collection countdown, template lock, dynamic solar elevation, phase, and outdoor dusk flags.
+- [`config/solar_engine.py`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/solar_engine.py): Dynamic solar and astronomical calculation engine (Astral 2.2) with fail-safe fallbacks.
 - [`config/custom_sentences/pl/dom_sentences.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/custom_sentences/pl/dom_sentences.yaml): Polish voice sentence triggers for radio, TV streaming apps, camera casting, cinema mode, blinds, and gates.
 - [`config/custom_sentences/en/dom_sentences.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/custom_sentences/en/dom_sentences.yaml): English voice sentence triggers mirroring the Polish intent set.

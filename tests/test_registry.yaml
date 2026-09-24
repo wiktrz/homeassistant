@@ -133,3 +133,29 @@ tests:
   - regression
   status: active
   last_verified: '2026-09-24T11:13:40.040184'
+- id: test_solar_engine_unit_suite
+  area: solar
+  file: unit/test_solar_engine.py
+  description: Comprehensive unit test suite for astronomical solar engine covering
+    seasonal sunrise/sunset calculations, outdoor dusk offsets, boundary fallback,
+    and phase classification.
+  tags:
+  - solar
+  - sun
+  - unit
+  - python
+  - regression
+  status: active
+- id: test_solar_sync_execution
+  area: solar
+  file: scenarios/solar/test_solar_sync.yaml
+  description: Verify that automation.sync_dynamic_solar_times populates dynamic input_datetime
+    helpers from solar attributes
+  tags:
+  - solar
+  - sun
+  - dynamic
+  - helper
+  - regression
+  status: active
+  last_verified: '2026-09-24T13:06:09.577592'
