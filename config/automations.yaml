@@ -2378,10 +2378,12 @@
     - condition: state
       entity_id: media_player.home_assistant_voice_0a9bfd_media_player
       state: 'playing'
+    - condition: template
+      value_template: "{{ not is_state('script.play_radio', 'on') }}"
   actions:
     - action: script.play_radio
       data:
-        station: "{{ states('input_select.last_radio_station') }}"
+        station: "{{ trigger.to_state.state if trigger.to_state is defined else states('input_select.last_radio_station') }}"
   mode: restart
 - id: 'voice_pe_media_playback_intercept'
   alias: 'Voice PE: Przechwytywanie Przycisku Play/Pause z UI'

@@ -10,8 +10,22 @@ preconditions:
       state: "script.light_salon_color_1"
     input_datetime.pora_zmroku:
       state: "00:00:00"
+      attributes:
+        has_date: false
+        has_time: true
+        hour: 0
+        minute: 0
+        second: 0
+        timestamp: 0
     input_datetime.pora_switu:
       state: "23:59:59"
+      attributes:
+        has_date: false
+        has_time: true
+        hour: 23
+        minute: 59
+        second: 59
+        timestamp: 86399
     switch.zasilanie_salon_dodatkowe:
       state: "on"
 

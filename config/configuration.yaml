@@ -59,7 +59,7 @@ command_line:
       name: Pstryk Price Meter Dol
       unique_id: pstryk_price_meter_dol_v1
       command: !secret pstryk_command_dol
-      scan_interval: 3600
+      scan_interval: 900
       unit_of_measurement: "PLN/kWh"
       value_template: >
         {% if value_json.current_price is defined and value_json.current_price is not none %}
@@ -76,12 +76,17 @@ command_line:
         - net
         - gross
         - error
+        - current
+        - today
+        - month
+        - year
+        - installation
   # Installation: góra (upper floor)
   - sensor:
       name: Pstryk Price Meter Gora
       unique_id: pstryk_price_meter_gora_v1
       command: !secret pstryk_command_gora
-      scan_interval: 3600
+      scan_interval: 900
       unit_of_measurement: "PLN/kWh"
       value_template: >
         {% if value_json.current_price is defined and value_json.current_price is not none %}
@@ -98,6 +103,11 @@ command_line:
         - net
         - gross
         - error
+        - current
+        - today
+        - month
+        - year
+        - installation
 
 api:
 
@@ -599,7 +609,11 @@ intent_script:
           'trojka': 'Polskie Radio Trójka'
         } %}
         {% if radio_station is defined and radio_station in station_names %}
-          Włączam {{ station_names[radio_station] }}
+          {% if is_state('media_player.home_assistant_voice_0a9bfd_media_player', 'playing') %}
+            Przełączam na {{ station_names[radio_station] }}
+          {% else %}
+            Włączam {{ station_names[radio_station] }}
+          {% endif %}
         {% else %}
           {% set last = states('input_select.last_radio_station') %}
           {% set sel = last if last in station_names else 'eska_rock' %}

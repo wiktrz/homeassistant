@@ -44,7 +44,7 @@ AREA_KEYWORDS = {
     "kuchnia": ["kuchnia", "kitchen", "wyspa", "jadalnia", "light.boneio_32_l_07_new_light_05"],
     "termostaty": ["termostat", "thermostat", "routine", "heating", "local01", "local02", "local03"],
     "bezpieczenstwo": ["zasilanie", "rygiel", "door_strike", "alarm", "power_supply"],
-    "pstryk": ["pstryk", "energy", "price", "charging", "best_window"],
+    "pstryk": ["pstryk", "energy", "price", "charging", "best_window", "pstryk_engine"],
 }
 
 
@@ -80,17 +80,49 @@ def run_tier0() -> bool:
     return True
 
 
+def run_unit_tests() -> bool:
+    print("\n🧪 === [UNIT TESTS: tests/unit/] ===")
+    unit_dir = os.path.join(TESTS_DIR, "unit")
+    if not os.path.exists(unit_dir):
+        print("⚠️  No tests/unit directory found.")
+        return True
+    cmd = [sys.executable, "-m", "pytest", unit_dir, "-v"]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    for line in res.stdout.splitlines():
+        if "PASSED" in line or "FAILED" in line:
+            print(f"  {line}")
+    if res.returncode != 0:
+        print("❌ Unit tests FAILED!")
+        return False
+    print("✓ All unit tests PASSED.")
+    return True
+
+
 def run_tier1() -> bool:
-    print("\n🛡️  === [TIER 1: Hardware Safety Invariant Audits] ===")
+    print("\n🛡️  === [TIER 1A: Hardware Safety Invariant Audits] ===")
     cmd = [sys.executable, "-m", "pytest", os.path.join(TESTS_DIR, "invariants", "test_safety_rules.py"), "-v"]
     res = subprocess.run(cmd, capture_output=True, text=True)
     for line in res.stdout.splitlines():
         if "PASSED" in line or "FAILED" in line:
             print(f"  {line}")
     if res.returncode != 0:
-        print("❌ Tier 1 FAILED: Safety invariants breached!")
+        print("❌ Tier 1A FAILED: Safety invariants breached!")
         return False
-    print("✓ Tier 1 PASSED: All hardware invariants satisfied.")
+    print("✓ Tier 1A PASSED: All hardware invariants satisfied.")
+
+    print("\n🧪 === [TIER 1B: Unit Test Suites] ===")
+    unit_dir = os.path.join(TESTS_DIR, "unit")
+    if os.path.exists(unit_dir):
+        cmd_unit = [sys.executable, "-m", "pytest", unit_dir, "-v"]
+        res_unit = subprocess.run(cmd_unit, capture_output=True, text=True)
+        for line in res_unit.stdout.splitlines():
+            if "PASSED" in line or "FAILED" in line:
+                print(f"  {line}")
+        if res_unit.returncode != 0:
+            print("❌ Tier 1B FAILED: Unit tests failed!")
+            return False
+        print("✓ Tier 1B PASSED: All unit tests satisfied.")
+
     return True
 
 
@@ -130,7 +162,10 @@ def run_tier2(area_filter: Optional[str] = None) -> bool:
     passed_count = 0
 
     for test in tests:
-        rel_path = test.get("file")
+        rel_path = test.get("file", "")
+        if not rel_path or not rel_path.endswith((".yaml", ".yml")):
+            # Skip non-declarative scenario entries (e.g. unit test suites)
+            continue
         scenario_file = os.path.join(TESTS_DIR, rel_path)
         if not os.path.exists(scenario_file):
             print(f"⚠️  Missing scenario file: {scenario_file}")
@@ -251,7 +286,7 @@ assertions: []
 
 def main():
     parser = argparse.ArgumentParser(description="Autonomous Home Assistant AI Test Runner")
-    parser.add_argument("--tier", choices=["0", "1", "2", "3", "all"], default="all", help="Test tier to execute")
+    parser.add_argument("--tier", choices=["0", "1", "2", "3", "unit", "all"], default="all", help="Test tier to execute")
     parser.add_argument("--area", help="Filter tests by area/room (e.g. salon, kuchnia, termostaty)")
     parser.add_argument("--auto", action="store_true", help="Auto-detect impacted areas from git diff and test them")
     parser.add_argument("--discover", action="store_true", help="Analyze test coverage gaps")
@@ -274,6 +309,12 @@ def main():
         path = generate_scenario_for_script(args.generate)
         print(f"Created: {path}")
         return
+
+    if args.tier == "unit":
+        if not run_unit_tests():
+            sys.exit(1)
+        print("\n🎉 === UNIT TESTS COMPLETED SUCCESSFULLY! ===")
+        sys.exit(0)
 
     target_area = args.area
     if args.auto:

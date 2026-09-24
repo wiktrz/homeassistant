@@ -898,8 +898,8 @@ play_radio:
   description: Odtwarza wybraną stację radiową lub wznawia ostatnio odtwarzaną na Home Assistant Voice PE
   fields:
     station:
-      description: ID stacji radiowej (opcjonalne)
-      example: eska_rock
+      description: ID lub nazwa stacji radiowej (np. eska_rock, rmf_fm, 'RMF FM', 'Radio ZET', 'Antyradio', 'Radio 357', 'Trójka')
+      example: rmf_fm
   sequence:
     - variables:
         station_map:
@@ -919,18 +919,58 @@ play_radio:
             url: "http://ic1.smcdn.pl/3990-1.aac"
           trojka:
             url: "http://stream3.polskieradio.pl:8904/"
+        alias_map:
+          eska_rock: eska_rock
+          eska: eska_rock
+          'eska rock': eska_rock
+          eskarock: eska_rock
+          'eska rok': eska_rock
+          rmf_fm: rmf_fm
+          rmf: rmf_fm
+          'rmf fm': rmf_fm
+          rmffm: rmf_fm
+          radio_zet: radio_zet
+          'radio zet': radio_zet
+          zet: radio_zet
+          zetka: radio_zet
+          antyradio: antyradio
+          'anty radio': antyradio
+          antyradiem: antyradio
+          radio_357: radio_357
+          'radio 357': radio_357
+          '357': radio_357
+          tok_fm: tok_fm
+          'tok fm': tok_fm
+          tok: tok_fm
+          vox_fm: vox_fm
+          'vox fm': vox_fm
+          vox: vox_fm
+          trojka: trojka
+          'trójka': trojka
+          'trojka': trojka
+          'polskie radio trójka': trojka
+          'polskie radio trojka': trojka
+          'radio trójka': trojka
+          'radio trojka': trojka
+        raw_input: "{{ (station | default('', true) | string | lower | trim) }}"
         target_station: >-
-          {% if station is defined and station in station_map %}
-            {{ station }}
+          {% if raw_input in alias_map %}
+            {{ alias_map[raw_input] }}
+          {% elif raw_input in station_map %}
+            {{ raw_input }}
           {% else %}
             {% set last = states('input_select.last_radio_station') %}
             {{ last if last in station_map else 'eska_rock' }}
           {% endif %}
-    - action: input_select.select_option
-      target:
-        entity_id: input_select.last_radio_station
-      data:
-        option: "{{ target_station }}"
+    - if:
+        - condition: template
+          value_template: "{{ states('input_select.last_radio_station') != target_station }}"
+      then:
+        - action: input_select.select_option
+          target:
+            entity_id: input_select.last_radio_station
+          data:
+            option: "{{ target_station }}"
     - action: media_player.play_media
       target:
         entity_id: media_player.home_assistant_voice_0a9bfd_media_player

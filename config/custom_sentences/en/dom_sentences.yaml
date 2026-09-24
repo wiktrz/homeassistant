@@ -10,13 +10,13 @@ lists:
         out: "radio_zet"
       - in: "(antyradio|anti radio)"
         out: "antyradio"
-      - in: "(radio 357|three fifty seven)"
+      - in: "(radio 357|three fifty seven|357)"
         out: "radio_357"
       - in: "(tok fm|tok)"
         out: "tok_fm"
       - in: "(vox fm|vox)"
         out: "vox_fm"
-      - in: "(trojka|radio three)"
+      - in: "(trojka|radio three|three)"
         out: "trojka"
 
   streaming_app:
@@ -53,6 +53,11 @@ intents:
       - sentences:
           - "play [the] radio [station] {radio_station}"
           - "play {radio_station} [radio]"
+          - "switch [the] radio [station] to {radio_station}"
+          - "switch to {radio_station} [radio]"
+          - "change [the] radio [station] to {radio_station}"
+          - "change to {radio_station} [radio]"
+          - "set [the] radio [station] to {radio_station}"
           - "play radio"
           - "resume radio"
           - "start radio"

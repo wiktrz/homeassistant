@@ -71,7 +71,8 @@ config/
 │   │       └── confirmable_notification.yaml
 │   └── template/
 │       └── inverted_binary_sensor.yaml
-└── pstryk_pricing.py     # Energy pricing script
+├── pstryk_pricing.py     # Energy pricing script
+└── pstryk_engine.py      # Dynamic energy & metering engine (caching, aggregations, unit-tested)
 
 data/
 └── configuration.yaml    # Zigbee2MQTT configuration
@@ -177,11 +178,11 @@ homeassistant:
 ### Voice Assistant & Radio Playback
 - **Hardware:** Home Assistant Voice PE (`media_player.home_assistant_voice_0a9bfd_media_player`)
 - **Voice Intents:**
-  - `WlaczRadio`, `ZatrzymajRadio` (custom sentences in `config/custom_sentences/pl/dom_sentences.yaml` and `config/custom_sentences/en/dom_sentences.yaml`)
-  - `GlosniejRadio`, `CiszejRadio` (*"głośniej radio"*, *"podgłośnij radio"*, *"ciszej radio"*, *"ściasz radio"* / *"volume up radio"*, *"radio volume down"*)
+  - `WlaczRadio`, `ZatrzymajRadio` (custom sentences in `config/custom_sentences/pl/dom_sentences.yaml` and `config/custom_sentences/en/dom_sentences.yaml`; supports starting and switching stations: *"włącz radio [stacja]"*, *"włącz [stacja]"*, *"zmień stację na [stacja]"*, *"przełącz na [stacja]"*, *"switch radio to [station]"*)
+  - `GlosniejRadio`, `CiszejRadio` (*"głośniej radio"*, *"podgłośnij radio"*, *"ciszej radio"*, *"ścisz radio"* / *"volume up radio"*, *"radio volume down"*)
 - **Stateful Memory:** `input_select.last_radio_station` stores the last active station (resumed when saying *"włącz radio"* / *"play radio"* without specifying a station; defaults to Eska Rock on initial run)
 - **Scripts:**
-  - `script.play_radio`: resolves stream URL, updates helper, streams directly on Voice PE via `media_player.play_media` (ESPHome Voice PE does not support `media_player.turn_on`)
+  - `script.play_radio`: resolves stream URL via multi-alias dictionary (handling canonical IDs like `rmf_fm` as well as natural spoken aliases like `"RMF FM"`, `"Radio ZET"`, `"357"`), updates helper only when changed, streams directly on Voice PE via `media_player.play_media` (ESPHome Voice PE does not support `media_player.turn_on`)
   - `script.stop_radio`: stops Voice PE stream cleanly via `media_player.media_stop` (ESPHome does not support `media_player.turn_off`)
   - `script.toggle_radio`: smart toggle checking if Voice PE is playing -> `script.stop_radio`, otherwise -> `script.play_radio`
   - `script.radio_volume_up`: increases volume on Voice PE via `media_player.volume_up`
@@ -189,7 +190,7 @@ homeassistant:
 - **Supported Stations:** Eska Rock (default), RMF FM, Radio ZET, Antyradio, Radio 357, TOK FM, VOX FM, Polskie Radio Trójka
 - **Automations:**
   - `morning_radio_schedule`: Mon-Fri at `input_datetime.pora_pobudka` -> Radio ZET; Sat-Sun at `input_datetime.pora_pobudka_weekend` -> Antyradio on Voice PE
-  - `radio_station_changed_auto_play`: Automatically switches radio stream when user selects a different station in `input_select.last_radio_station` while radio is playing
+  - `radio_station_changed_auto_play`: Automatically switches radio stream when user selects a different station in `input_select.last_radio_station` while radio is playing; guarded by `not is_state('script.play_radio', 'on')` to prevent re-entrant cancellation
   - `voice_pe_media_playback_intercept`: Intercepts HA `call_service` events (`media_play`, `media_play_pause`, `media_pause`) targeting Voice PE and maps them to `script.play_radio`, `script.toggle_radio`, and `script.stop_radio`
 
 ### Multimedia & TV Control (Salon TCL Google TV)
@@ -251,20 +252,31 @@ pstryk_api_key_dol: "sk-BT59VQSTTHMNIRBL26B52YLCW3NMOG3YEUVDL4K5"    # dół
 pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 ```
 
-## Energy Pricing (Pstryk)
+## Energy Pricing & Aggregation Engine (Pstryk)
 
-**Script:** `config/pstryk_pricing.py`
-**API:** Polish energy provider integration
-**Update Interval:** 3600 seconds (hourly)
-**Two installations:** dół (lower/ground floor) and góra (upper floor)
+**Scripts:** `config/pstryk_engine.py` (multi-period backend aggregation engine) & `config/pstryk_pricing.py`
+**API:** Polish energy provider unified-metrics API (`https://api.pstryk.pl/integrations/meter-data/unified-metrics/`)
+**Caching:** Smart atomic file cache in `/tmp/pstryk_cache_{installation}.json` with 15-minute TTL for live metrics and persistent historical frames
+**Consolidated Schema:** Retains top-level `current_price`, `start`, `end`, `duration_hours`, `all_prices`, `net`, `gross`, and delivers structured `current`, `today`, `month`, and `year` sub-objects
+**Two installations:** `dol` (lower/ground floor) and `gora` (upper floor)
 
 **Sensors:**
-- `sensor.pstryk_price_meter_dol` - Current energy price dół (PLN/kWh)
-- `sensor.pstryk_price_meter_gora` - Current energy price góra (PLN/kWh)
-- `sensor.pstryk_best_window_dol` - Cheapest window for dół
-- `sensor.pstryk_best_window_gora` - Cheapest window for góra
-- `binary_sensor.pstryk_in_best_window_dol` - ON when dół is in optimal window
-- `binary_sensor.pstryk_in_best_window_gora` - ON when góra is in optimal window
+- `sensor.pstryk_price_meter_dol` & `sensor.pstryk_price_meter_gora`: Root command_line entities (PLN/kWh, 15-min update)
+- `sensor.pstryk_best_window_dol` & `sensor.pstryk_best_window_gora`: Cheapest charging window range
+- `sensor.pstryk_cena_kupno_dol` & `sensor.pstryk_cena_kupno_gora`: Current gross buy rate (PLN/kWh) with pricing component attributes
+- `sensor.pstryk_cena_sprzedaz_dol` & `sensor.pstryk_cena_sprzedaz_gora`: Prosumer gross sell rate (PLN/kWh) with net selling price
+- `sensor.pstryk_zuzycie_dzis_dol` & `sensor.pstryk_zuzycie_dzis_gora`: Today's consumed energy (kWh) with hourly breakdown history
+- `sensor.pstryk_koszt_dzis_dol` & `sensor.pstryk_koszt_dzis_gora`: Today's gross electricity expense (PLN) with balance and revenue
+- `sensor.pstryk_zuzycie_miesiac_dol` & `sensor.pstryk_zuzycie_miesiac_gora`: Month-to-date energy consumption (kWh) with daily history
+- `sensor.pstryk_koszt_miesiac_dol` & `sensor.pstryk_koszt_miesiac_gora`: Month-to-date electricity expense (PLN) with monthly breakdown
+- `sensor.pstryk_slad_weglowy_dol` & `sensor.pstryk_slad_weglowy_gora`: Live and today's carbon footprint (g CO₂)
+- `binary_sensor.pstryk_in_best_window_dol` & `binary_sensor.pstryk_in_best_window_gora`: Active cheapest window flag
+- `binary_sensor.pstryk_tania_godzina_dol` & `binary_sensor.pstryk_tania_godzina_gora`: Active cheap hour flag (`is_cheap`)
+- `binary_sensor.pstryk_droga_godzina_dol` & `binary_sensor.pstryk_droga_godzina_gora`: Active expensive hour flag (`is_expensive`)
+
+**Lovelace Energy Dashboard & Drill-Down Subview:**
+- **Overview View (`/dashboard-home/energia`):** Stacked sections for both installations ("Pstryk Energy — Instalacja Dół" & "Pstryk Energy — Instalacja Góra") with 8 dynamic tiles each (Kupno, Sprzedaż, Najlepsze Okno, Zużycie Dziś, Koszt Dziś, Zużycie Miesiąc, Koszt Miesiąc, Ślad Węglowy) with color thresholds and quick navigation button to `/dashboard-home/energia-raport`.
+- **Reporting Subview (`/dashboard-home/energia-raport`):** Subview with native back navigation, side-by-side Dół vs Góra consumption & cost comparison, Jinja2 markdown tables for hourly today breakdown, daily month history, 2026 year monthly table, and 48h live history graphs.
 
 **Automations:**
 - `daily_energy_price_notification` - Sends Polish summary at 22:00 (uses dół sensor, pricing is identical)
@@ -294,7 +306,8 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 
 An ephemeral copy-on-write Docker sandbox (`/tmp/ha_test_sandbox`) and companion Mosquitto broker enable full integration testing without edge hardware:
 - **Tier 0:** `python3 tests/runner.py --tier 0` (Static check_config in Docker)
-- **Tier 1:** `python3 tests/runner.py --tier 1` (Hardware safety invariant pytest suite)
+- **Tier 1:** `python3 tests/runner.py --tier 1` (Hardware safety invariant rules [Tier 1A] + Unit test suites under tests/unit/ [Tier 1B])
+- **Tier Unit:** `python3 tests/runner.py --tier unit` (Dedicated unit testing suite under `tests/unit/`, e.g. Pstryk engine)
 - **Tier 2:** `python3 tests/runner.py --tier 2` (Dynamic state & service executions via REST/WebSocket)
 - **Tier 3:** `python3 tests/runner.py --tier 3` (Lovelace dashboard schema & entity binding audit)
 - **Targeted Run:** `python3 tests/runner.py --auto` (Automatically diffs git, detects affected areas, runs targeted tests)

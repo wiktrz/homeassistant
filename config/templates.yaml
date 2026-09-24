@@ -34,6 +34,176 @@
         gross_min: "{{ state_attr('sensor.pstryk_price_meter_gora', 'gross')['min'] if state_attr('sensor.pstryk_price_meter_gora', 'gross') else 'N/A' }}"
         gross_avg: "{{ state_attr('sensor.pstryk_price_meter_gora', 'gross')['avg'] if state_attr('sensor.pstryk_price_meter_gora', 'gross') else 'N/A' }}"
 
+    # --- Pstryk Extended Metrics: Dół ---
+    - name: "Pstryk Cena Kupno Dol"
+      unique_id: pstryk_cena_kupno_dol
+      device_class: monetary
+      unit_of_measurement: "PLN/kWh"
+      state: >
+        {% set curr = state_attr('sensor.pstryk_price_meter_dol', 'current') %}
+        {{ curr.price_gross if curr and curr.price_gross is defined else 'unavailable' }}
+      attributes:
+        price_net: "{{ state_attr('sensor.pstryk_price_meter_dol', 'current')['price_net'] if state_attr('sensor.pstryk_price_meter_dol', 'current') else none }}"
+        tge_price: "{{ state_attr('sensor.pstryk_price_meter_dol', 'current')['tge_price'] if state_attr('sensor.pstryk_price_meter_dol', 'current') else none }}"
+        dist_price: "{{ state_attr('sensor.pstryk_price_meter_dol', 'current')['dist_price'] if state_attr('sensor.pstryk_price_meter_dol', 'current') else none }}"
+        service_price: "{{ state_attr('sensor.pstryk_price_meter_dol', 'current')['service_price'] if state_attr('sensor.pstryk_price_meter_dol', 'current') else none }}"
+        vat: "{{ state_attr('sensor.pstryk_price_meter_dol', 'current')['vat'] if state_attr('sensor.pstryk_price_meter_dol', 'current') else none }}"
+        is_cheap: "{{ state_attr('sensor.pstryk_price_meter_dol', 'current')['is_cheap'] if state_attr('sensor.pstryk_price_meter_dol', 'current') else false }}"
+        is_expensive: "{{ state_attr('sensor.pstryk_price_meter_dol', 'current')['is_expensive'] if state_attr('sensor.pstryk_price_meter_dol', 'current') else false }}"
+
+    - name: "Pstryk Cena Sprzedaz Dol"
+      unique_id: pstryk_cena_sprzedaz_dol
+      device_class: monetary
+      unit_of_measurement: "PLN/kWh"
+      state: >
+        {% set curr = state_attr('sensor.pstryk_price_meter_dol', 'current') %}
+        {{ curr.sell_price_gross if curr and curr.sell_price_gross is defined else 'unavailable' }}
+      attributes:
+        sell_price_net: "{{ state_attr('sensor.pstryk_price_meter_dol', 'current')['sell_price_net'] if state_attr('sensor.pstryk_price_meter_dol', 'current') else none }}"
+
+    - name: "Pstryk Zuzycie Dzis Dol"
+      unique_id: pstryk_zuzycie_dzis_dol
+      device_class: energy
+      state_class: total
+      unit_of_measurement: "kWh"
+      state: >
+        {% set t = state_attr('sensor.pstryk_price_meter_dol', 'today') %}
+        {{ t.kwh_import if t and t.kwh_import is defined else 'unavailable' }}
+      attributes:
+        hourly: "{{ state_attr('sensor.pstryk_price_meter_dol', 'today')['hourly'] if state_attr('sensor.pstryk_price_meter_dol', 'today') else [] }}"
+        kwh_export: "{{ state_attr('sensor.pstryk_price_meter_dol', 'today')['kwh_export'] if state_attr('sensor.pstryk_price_meter_dol', 'today') else 0.0 }}"
+
+    - name: "Pstryk Koszt Dzis Dol"
+      unique_id: pstryk_koszt_dzis_dol
+      device_class: monetary
+      unit_of_measurement: "PLN"
+      state: >
+        {% set t = state_attr('sensor.pstryk_price_meter_dol', 'today') %}
+        {{ t.cost_pln if t and t.cost_pln is defined else 'unavailable' }}
+      attributes:
+        earned_pln: "{{ state_attr('sensor.pstryk_price_meter_dol', 'today')['earned_pln'] if state_attr('sensor.pstryk_price_meter_dol', 'today') else 0.0 }}"
+        balance_pln: "{{ state_attr('sensor.pstryk_price_meter_dol', 'today')['balance_pln'] if state_attr('sensor.pstryk_price_meter_dol', 'today') else 0.0 }}"
+
+    - name: "Pstryk Zuzycie Miesiac Dol"
+      unique_id: pstryk_zuzycie_miesiac_dol
+      device_class: energy
+      state_class: total
+      unit_of_measurement: "kWh"
+      state: >
+        {% set m = state_attr('sensor.pstryk_price_meter_dol', 'month') %}
+        {{ m.kwh_import if m and m.kwh_import is defined else 'unavailable' }}
+      attributes:
+        daily: "{{ state_attr('sensor.pstryk_price_meter_dol', 'month')['daily'] if state_attr('sensor.pstryk_price_meter_dol', 'month') else [] }}"
+        kwh_export: "{{ state_attr('sensor.pstryk_price_meter_dol', 'month')['kwh_export'] if state_attr('sensor.pstryk_price_meter_dol', 'month') else 0.0 }}"
+
+    - name: "Pstryk Koszt Miesiac Dol"
+      unique_id: pstryk_koszt_miesiac_dol
+      device_class: monetary
+      unit_of_measurement: "PLN"
+      state: >
+        {% set m = state_attr('sensor.pstryk_price_meter_dol', 'month') %}
+        {{ m.cost_pln if m and m.cost_pln is defined else 'unavailable' }}
+      attributes:
+        monthly_history: "{{ state_attr('sensor.pstryk_price_meter_dol', 'year')['monthly'] if state_attr('sensor.pstryk_price_meter_dol', 'year') else [] }}"
+        monthly: "{{ state_attr('sensor.pstryk_price_meter_dol', 'year')['monthly'] if state_attr('sensor.pstryk_price_meter_dol', 'year') else [] }}"
+        earned_pln: "{{ state_attr('sensor.pstryk_price_meter_dol', 'month')['earned_pln'] if state_attr('sensor.pstryk_price_meter_dol', 'month') else 0.0 }}"
+        balance_pln: "{{ state_attr('sensor.pstryk_price_meter_dol', 'month')['balance_pln'] if state_attr('sensor.pstryk_price_meter_dol', 'month') else 0.0 }}"
+
+    - name: "Pstryk Slad Weglowy Dol"
+      unique_id: pstryk_slad_weglowy_dol
+      unit_of_measurement: "g CO₂"
+      icon: "mdi:molecule-co2"
+      state: >
+        {% set c = state_attr('sensor.pstryk_price_meter_dol', 'current') %}
+        {{ c.carbon_g if c and c.carbon_g is defined else 'unavailable' }}
+      attributes:
+        today_carbon_g: "{{ state_attr('sensor.pstryk_price_meter_dol', 'today')['carbon_g'] if state_attr('sensor.pstryk_price_meter_dol', 'today') else 0.0 }}"
+
+    # --- Pstryk Extended Metrics: Góra ---
+    - name: "Pstryk Cena Kupno Gora"
+      unique_id: pstryk_cena_kupno_gora
+      device_class: monetary
+      unit_of_measurement: "PLN/kWh"
+      state: >
+        {% set curr = state_attr('sensor.pstryk_price_meter_gora', 'current') %}
+        {{ curr.price_gross if curr and curr.price_gross is defined else 'unavailable' }}
+      attributes:
+        price_net: "{{ state_attr('sensor.pstryk_price_meter_gora', 'current')['price_net'] if state_attr('sensor.pstryk_price_meter_gora', 'current') else none }}"
+        tge_price: "{{ state_attr('sensor.pstryk_price_meter_gora', 'current')['tge_price'] if state_attr('sensor.pstryk_price_meter_gora', 'current') else none }}"
+        dist_price: "{{ state_attr('sensor.pstryk_price_meter_gora', 'current')['dist_price'] if state_attr('sensor.pstryk_price_meter_gora', 'current') else none }}"
+        service_price: "{{ state_attr('sensor.pstryk_price_meter_gora', 'current')['service_price'] if state_attr('sensor.pstryk_price_meter_gora', 'current') else none }}"
+        vat: "{{ state_attr('sensor.pstryk_price_meter_gora', 'current')['vat'] if state_attr('sensor.pstryk_price_meter_gora', 'current') else none }}"
+        is_cheap: "{{ state_attr('sensor.pstryk_price_meter_gora', 'current')['is_cheap'] if state_attr('sensor.pstryk_price_meter_gora', 'current') else false }}"
+        is_expensive: "{{ state_attr('sensor.pstryk_price_meter_gora', 'current')['is_expensive'] if state_attr('sensor.pstryk_price_meter_gora', 'current') else false }}"
+
+    - name: "Pstryk Cena Sprzedaz Gora"
+      unique_id: pstryk_cena_sprzedaz_gora
+      device_class: monetary
+      unit_of_measurement: "PLN/kWh"
+      state: >
+        {% set curr = state_attr('sensor.pstryk_price_meter_gora', 'current') %}
+        {{ curr.sell_price_gross if curr and curr.sell_price_gross is defined else 'unavailable' }}
+      attributes:
+        sell_price_net: "{{ state_attr('sensor.pstryk_price_meter_gora', 'current')['sell_price_net'] if state_attr('sensor.pstryk_price_meter_gora', 'current') else none }}"
+
+    - name: "Pstryk Zuzycie Dzis Gora"
+      unique_id: pstryk_zuzycie_dzis_gora
+      device_class: energy
+      state_class: total
+      unit_of_measurement: "kWh"
+      state: >
+        {% set t = state_attr('sensor.pstryk_price_meter_gora', 'today') %}
+        {{ t.kwh_import if t and t.kwh_import is defined else 'unavailable' }}
+      attributes:
+        hourly: "{{ state_attr('sensor.pstryk_price_meter_gora', 'today')['hourly'] if state_attr('sensor.pstryk_price_meter_gora', 'today') else [] }}"
+        kwh_export: "{{ state_attr('sensor.pstryk_price_meter_gora', 'today')['kwh_export'] if state_attr('sensor.pstryk_price_meter_gora', 'today') else 0.0 }}"
+
+    - name: "Pstryk Koszt Dzis Gora"
+      unique_id: pstryk_koszt_dzis_gora
+      device_class: monetary
+      unit_of_measurement: "PLN"
+      state: >
+        {% set t = state_attr('sensor.pstryk_price_meter_gora', 'today') %}
+        {{ t.cost_pln if t and t.cost_pln is defined else 'unavailable' }}
+      attributes:
+        earned_pln: "{{ state_attr('sensor.pstryk_price_meter_gora', 'today')['earned_pln'] if state_attr('sensor.pstryk_price_meter_gora', 'today') else 0.0 }}"
+        balance_pln: "{{ state_attr('sensor.pstryk_price_meter_gora', 'today')['balance_pln'] if state_attr('sensor.pstryk_price_meter_gora', 'today') else 0.0 }}"
+
+    - name: "Pstryk Zuzycie Miesiac Gora"
+      unique_id: pstryk_zuzycie_miesiac_gora
+      device_class: energy
+      state_class: total
+      unit_of_measurement: "kWh"
+      state: >
+        {% set m = state_attr('sensor.pstryk_price_meter_gora', 'month') %}
+        {{ m.kwh_import if m and m.kwh_import is defined else 'unavailable' }}
+      attributes:
+        daily: "{{ state_attr('sensor.pstryk_price_meter_gora', 'month')['daily'] if state_attr('sensor.pstryk_price_meter_gora', 'month') else [] }}"
+        kwh_export: "{{ state_attr('sensor.pstryk_price_meter_gora', 'month')['kwh_export'] if state_attr('sensor.pstryk_price_meter_gora', 'month') else 0.0 }}"
+
+    - name: "Pstryk Koszt Miesiac Gora"
+      unique_id: pstryk_koszt_miesiac_gora
+      device_class: monetary
+      unit_of_measurement: "PLN"
+      state: >
+        {% set m = state_attr('sensor.pstryk_price_meter_gora', 'month') %}
+        {{ m.cost_pln if m and m.cost_pln is defined else 'unavailable' }}
+      attributes:
+        monthly_history: "{{ state_attr('sensor.pstryk_price_meter_gora', 'year')['monthly'] if state_attr('sensor.pstryk_price_meter_gora', 'year') else [] }}"
+        monthly: "{{ state_attr('sensor.pstryk_price_meter_gora', 'year')['monthly'] if state_attr('sensor.pstryk_price_meter_gora', 'year') else [] }}"
+        earned_pln: "{{ state_attr('sensor.pstryk_price_meter_gora', 'month')['earned_pln'] if state_attr('sensor.pstryk_price_meter_gora', 'month') else 0.0 }}"
+        balance_pln: "{{ state_attr('sensor.pstryk_price_meter_gora', 'month')['balance_pln'] if state_attr('sensor.pstryk_price_meter_gora', 'month') else 0.0 }}"
+
+    - name: "Pstryk Slad Weglowy Gora"
+      unique_id: pstryk_slad_weglowy_gora
+      unit_of_measurement: "g CO₂"
+      icon: "mdi:molecule-co2"
+      state: >
+        {% set c = state_attr('sensor.pstryk_price_meter_gora', 'current') %}
+        {{ c.carbon_g if c and c.carbon_g is defined else 'unavailable' }}
+      attributes:
+        today_carbon_g: "{{ state_attr('sensor.pstryk_price_meter_gora', 'today')['carbon_g'] if state_attr('sensor.pstryk_price_meter_gora', 'today') else 0.0 }}"
+
 - binary_sensor:
     # --- dół ---
     - name: "Pstryk In Best Window Dol"
@@ -68,6 +238,55 @@
           mdi:flash
         {% else %}
           mdi:flash-outline
+        {% endif %}
+
+    # --- Pstryk Extended Binary Flags: Dół & Góra ---
+    - name: "Pstryk Tania Godzina Dol"
+      unique_id: pstryk_tania_godzina_dol
+      state: >
+        {% set curr = state_attr('sensor.pstryk_price_meter_dol', 'current') %}
+        {{ curr.is_cheap if curr and curr.is_cheap is defined else false }}
+      icon: >
+        {% if is_state('binary_sensor.pstryk_tania_godzina_dol', 'on') %}
+          mdi:tag-outline
+        {% else %}
+          mdi:tag-off-outline
+        {% endif %}
+
+    - name: "Pstryk Droga Godzina Dol"
+      unique_id: pstryk_droga_godzina_dol
+      state: >
+        {% set curr = state_attr('sensor.pstryk_price_meter_dol', 'current') %}
+        {{ curr.is_expensive if curr and curr.is_expensive is defined else false }}
+      icon: >
+        {% if is_state('binary_sensor.pstryk_droga_godzina_dol', 'on') %}
+          mdi:alert-circle-outline
+        {% else %}
+          mdi:check-circle-outline
+        {% endif %}
+
+    - name: "Pstryk Tania Godzina Gora"
+      unique_id: pstryk_tania_godzina_gora
+      state: >
+        {% set curr = state_attr('sensor.pstryk_price_meter_gora', 'current') %}
+        {{ curr.is_cheap if curr and curr.is_cheap is defined else false }}
+      icon: >
+        {% if is_state('binary_sensor.pstryk_tania_godzina_gora', 'on') %}
+          mdi:tag-outline
+        {% else %}
+          mdi:tag-off-outline
+        {% endif %}
+
+    - name: "Pstryk Droga Godzina Gora"
+      unique_id: pstryk_droga_godzina_gora
+      state: >
+        {% set curr = state_attr('sensor.pstryk_price_meter_gora', 'current') %}
+        {{ curr.is_expensive if curr and curr.is_expensive is defined else false }}
+      icon: >
+        {% if is_state('binary_sensor.pstryk_droga_godzina_gora', 'on') %}
+          mdi:alert-circle-outline
+        {% else %}
+          mdi:check-circle-outline
         {% endif %}
 - sensor:
       - name: "Następny wywóz odpadów"

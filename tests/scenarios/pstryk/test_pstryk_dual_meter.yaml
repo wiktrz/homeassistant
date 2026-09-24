@@ -1,0 +1,82 @@
+id: test_pstryk_dual_meter
+area: pstryk
+description: "Verify that Dół and Góra Pstryk sensors correctly reflect dynamic pricing, consumption, and cost data"
+tags: [pstryk, energy, pricing, dual_meter, local00, regression]
+status: active
+
+preconditions:
+  entities:
+    sensor.pstryk_price_meter_dol:
+      state: "0.55"
+      attributes:
+        start: "2026-09-24T02:00:00Z"
+        end: "2026-09-24T05:00:00Z"
+        current:
+          price_gross: 0.55
+          price_net: 0.447
+          sell_price_gross: 0.35
+          sell_price_net: 0.285
+          is_cheap: true
+          is_expensive: false
+          carbon_g: 620
+        today:
+          kwh_import: 12.5
+          cost_pln: 6.88
+          hourly: []
+        month:
+          kwh_import: 320.0
+          cost_pln: 176.0
+          daily: []
+    sensor.pstryk_price_meter_gora:
+      state: "0.55"
+      attributes:
+        start: "2026-09-24T02:00:00Z"
+        end: "2026-09-24T05:00:00Z"
+        current:
+          price_gross: 0.55
+          price_net: 0.447
+          sell_price_gross: 0.35
+          sell_price_net: 0.285
+          is_cheap: true
+          is_expensive: false
+          carbon_g: 620
+        today:
+          kwh_import: 8.2
+          cost_pln: 4.51
+          hourly: []
+        month:
+          kwh_import: 210.0
+          cost_pln: 115.5
+          daily: []
+
+action:
+  type: set_state
+  entity_id: sensor.pstryk_price_meter_dol
+  state: "0.55"
+  attributes:
+    current:
+      price_gross: 0.55
+      price_net: 0.447
+      sell_price_gross: 0.35
+      sell_price_net: 0.285
+      is_cheap: true
+      is_expensive: false
+      carbon_g: 620
+    today:
+      kwh_import: 14.2
+      cost_pln: 7.81
+      hourly: []
+
+wait_seconds: 1.0
+
+assertions:
+  - entity: sensor.pstryk_cena_kupno_dol
+    state: "0.55"
+  - entity: sensor.pstryk_zuzycie_dzis_dol
+    state: "14.2"
+  - entity: sensor.pstryk_koszt_dzis_dol
+    state: "7.81"
+  - entity: sensor.pstryk_cena_kupno_gora
+    state: "0.55"
+  - entity: sensor.pstryk_zuzycie_dzis_gora
+    state: "8.2"

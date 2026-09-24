@@ -1,0 +1,36 @@
+id: test_radio_station_switch_playing
+area: multimedia
+description: "Verify that script.play_radio resolves aliases (e.g. 'RMF FM'), switches input_select while playing without recursive aborts"
+tags: [multimedia, voice, radio, script, alias, regression]
+status: active
+
+preconditions:
+  entities:
+    input_select.last_radio_station:
+      state: "eska_rock"
+      attributes:
+        options:
+          - eska_rock
+          - rmf_fm
+          - radio_zet
+          - antyradio
+          - radio_357
+          - tok_fm
+          - vox_fm
+          - trojka
+    media_player.home_assistant_voice_0a9bfd_media_player:
+      state: "playing"
+
+action:
+  type: call_service
+  service: script.play_radio
+  data:
+    station: "RMF FM"
+
+wait_seconds: 1.0
+
+assertions:
+  - entity: input_select.last_radio_station
+    state: "rmf_fm"
+  - entity: media_player.home_assistant_voice_0a9bfd_media_player
+    state: "playing"

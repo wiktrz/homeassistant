@@ -10,13 +10,13 @@
   - **BoneIO 32x10 Relay Board (`boneio-32-l-07`):** 32 × 230V relays (`light.boneio_32_l_07_new_light_01` to `_20`), 32 × digital inputs (reeds, PIRs). Includes 4 protected power supply relays (`switch.zasilanie_*`) excluded from all-off scripts.
   - **BoneIO 8-Channel PWM Dimmer (`boneio-dr-8ch-03-2c7fbc`):** 8 × 24V PWM dimming channels for architectural recessed lines, mirror lights, and kitchen spots.
 - **Voice Satellite & Audio Streaming:**
-  - **Home Assistant Voice PE (`media_player.home_assistant_voice_0a9bfd_media_player`):** Custom wake words, Nabu Casa Cloud Polish TTS, stateful radio player (`input_select.last_radio_station`) with 8 Polish presets (Eska Rock, RMF FM, Radio ZET, Antyradio, Radio 357, TOK FM, VOX FM, Trójka), and morning wake-up schedules.
+  - **Home Assistant Voice PE (`media_player.home_assistant_voice_0a9bfd_media_player`):** Custom wake words, Nabu Casa Cloud Polish TTS, stateful radio player (`input_select.last_radio_station`) with 8 Polish presets (Eska Rock, RMF FM, Radio ZET, Antyradio, Radio 357, TOK FM, VOX FM, Trójka), normalized alias resolution, voice station switching (*"zmień/przełącz stację"*, *"switch/change radio"*), and morning wake-up schedules.
 - **Living Room Multimedia & TV Control:**
   - **Salon TCL Google TV:** Controlled via Android TV Remote (`remote.salon_2`, `media_player.salon_2`) and Google Cast (`media_player.googletv8897_2`). Launches 6 streaming apps (Netflix, YouTube, Disney+, Max, Spotify, Prime Video), streams live HLS feeds from 5 Reolink cameras, and runs automated cinema mode.
 - **Access Control & Physical Security:**
   - **Front Door Strike Lock:** Wired to BoneIO relay 23, wrapped in `lock.rygiel_drzwi_wejsciowych_lock`, triggered via `input_button.btn_entrance_door` with 2-minute safety auto-off, exterior RFID tags with alarm disarm logic, and perimeter siren `siren.reolink_duo_floodlight_poe_syrena`.
 - **Dynamic Electricity Pricing (Pstryk):**
-  - Hourly real-time Polish market tariffs (`sensor.pstryk_price_meter_dol` & `_gora`), cheapest price window calculation, automated Tesla vehicle charging (`switch.tesl_y_charge`), and dynamic spoken voice alerts.
+  - Hourly real-time Polish market tariffs (`sensor.pstryk_price_meter_dol` & `_gora`), multi-period aggregation backend engine (`config/pstryk_engine.py` with latest, forward 48h, today, month, year datasets and 15-min cache in `/tmp`), cheapest price window calculation, automated Tesla vehicle charging (`switch.tesl_y_charge`), and dynamic spoken voice alerts.
 
 ---
 
@@ -26,7 +26,7 @@
 - [AGENTS.md](AGENTS.md): Primary developer guidelines, operational safety rules, Docker container management, and entity mapping directory for Home Assistant agents.
 - [AGENT.md](AGENT.md): Unified bridge specification between Home Assistant and the ESP32/Node.js edge firmware (`newHeatingController`, `heatingStation`, `nodeApi`).
 - [PLACES_AND_BEHAVIORS.md](PLACES_AND_BEHAVIORS.md): Exhaustive room-by-room entity directory, automation behaviors, triggers, conditions, actions, voice intents, and safety constraints for every physical space in the ecosystem.
-- [tests/runner.py](tests/runner.py): Autonomous 4-tier AI test harness (Tier 0 static schema check, Tier 1 hardware safety invariants, Tier 2 ephemeral Docker state execution, Tier 3 Lovelace UI validation).
+- [tests/runner.py](tests/runner.py): Autonomous 4-tier AI test harness (Tier 0 static schema check, Tier 1A hardware safety invariants, Tier 1B Python unit test suites with `--tier unit`, Tier 2 ephemeral Docker state execution, Tier 3 Lovelace UI validation).
 - [tests/test_registry.yaml](tests/test_registry.yaml): Master static regression test catalog protecting verified system behaviors across rooms and subsystems.
 - [CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md](CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md): Generic Camera AI Vision Engine (`script.camera_ai_analyze`) utilizing Google Generative AI (Gemini Vision) for biometric face recognition (door strike unlocking) and Automatic License Plate Recognition (ALPR/ANPR for sliding gate access and driveway illumination).
 - [VOICE_AI_IMPROVEMENTS_PROPOSAL.md](VOICE_AI_IMPROVEMENTS_PROPOSAL.md): Architectural proposal for Polish Voice AI intent remediation, entity aliasing, and area classification across the ecosystem.
@@ -36,7 +36,7 @@
 
 ## Lovelace Dashboards & User Interfaces
 
-- **Dom iPad Modern (`/dashboard-home`):** Configured in [`config/dashboard_modern_reference.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/dashboard_modern_reference.yaml) and [`config/dashboard_home_improved.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/dashboard_home_improved.yaml). Features dedicated views for Dom (`/dom`), Klimat (`/klimat`), Oświetlenie (`/oswietlenie`), Energia (`/energia`), and Multimedia (`/media`) with TV controls, radio player tile, and live camera glance cards.
+- **Dom iPad Modern (`/dashboard-home`):** Configured in [`config/dashboard_modern_reference.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/dashboard_modern_reference.yaml) and [`config/dashboard_home_improved.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/dashboard_home_improved.yaml). Features dedicated views for Dom (`/dom`), Klimat (`/klimat`), Oświetlenie (`/oswietlenie`), Energia (`/energia`), Multimedia (`/media`), and drill-down interactive reporting subview (`/energia-raport`) with Dół vs Góra comparisons, Jinja2 hourly/daily/monthly tables, and 48h live history graphs.
 - **Korytarze i Pokoje (`/dashboard-korytarze`):** Configured in [`config/dashboard_korytarze_improved.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/dashboard_korytarze_improved.yaml). Compact lighting matrix organized by physical rooms with Shelly animation controls.
 - **Main & Rental Overview (`/dashboard-improved`):** Configured in [`config/dashboard_improved.yaml`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/config/dashboard_improved.yaml). Comprehensive multi-apartment view displaying climate setpoints, routines, and temperatures across `local00`–`local06`.
 

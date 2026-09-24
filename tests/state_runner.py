@@ -63,7 +63,10 @@ class HomeAssistantClient:
 
     def set_state(self, entity_id: str, state: str, attributes: Optional[Dict[str, Any]] = None) -> bool:
         """Injects or overrides any virtual entity state in Home Assistant."""
-        payload = {"state": state, "attributes": attributes or {}}
+        existing = self.get_state(entity_id)
+        existing_attrs = existing.get("attributes", {}) if isinstance(existing, dict) else {}
+        final_attrs = {**existing_attrs, **(attributes or {})}
+        payload = {"state": state, "attributes": final_attrs}
         status, _ = self._request("POST", f"/api/states/{entity_id}", payload)
         return status in (200, 201)
 
@@ -137,7 +140,8 @@ def execute_scenario(scenario_path: str, client: HomeAssistantClient) -> Tuple[b
     elif action_type == "set_state":
         e_id = action.get("entity_id")
         st = action.get("state")
-        client.set_state(e_id, st)
+        attrs = action.get("attributes")
+        client.set_state(e_id, st, attrs)
         messages.append(f"  ✓ State mutated {e_id} -> {st}")
 
     # Wait for state convergence

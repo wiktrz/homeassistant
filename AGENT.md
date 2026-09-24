@@ -58,7 +58,7 @@ The overall system automates and manages a primary residence (**`local00`**) and
 | **Node API** | `home_automation/nodeApi/` | TypeScript, Node.js, Express, MQTT.js | Dynamic JSON configuration generation, heating routine resolution, serial light bridge (`/dev/ttyUSB1`) |
 | **Heating Controller** | `home_automation/` (`esp32doit-devkit-v1`) | C++, PlatformIO, DallasTemperature | Multi-zone PID heating controller, OneWire DS18B20 sensors, GPIO relay actuators |
 | **Heating Station** | `home_automation/` (`esp32dev_ttgo_t4`) | C++, PlatformIO, TFT_eSPI, CircleViews | Room thermostats with ILI9341 display, target temperature setpoints, routine schedule display |
-| **Pstryk Engine** | `homeassistant/config/pstryk_pricing.py` | Python 3, `urllib.request` | Dynamic Polish hourly energy pricing (dół & góra meters), cheapest window optimization |
+| **Pstryk Engine** | `homeassistant/config/pstryk_engine.py` & `pstryk_pricing.py` | Python 3, `urllib.request` | Dynamic Polish hourly energy pricing & multi-period backend aggregation engine (`dol` & `gora`), 15-min smart caching in `/tmp/pstryk_cache_{installation}.json`, 5-dataset fetch (latest, forward 48h, today hourly, month daily, year monthly), prosumer selling tariffs, consolidated backward-compatible schema |
 
 ---
 
@@ -134,10 +134,17 @@ The installation uses industrial BoneIO DIN rail hardware:
 - **Satellite Hardware:** Home Assistant Voice PE (`media_player.home_assistant_voice_0a9bfd_media_player`).
 - **Stateful Memory:** `input_select.last_radio_station` stores the current/last station (resumed when saying *"włącz radio"* without arguments; defaults to Eska Rock).
 - **Supported Stations:** Eska Rock, RMF FM, Radio ZET, Antyradio, Radio 357, TOK FM, VOX FM, Polskie Radio Trójka.
-- **Scripts:** `script.play_radio`, `script.stop_radio`, `script.toggle_radio`, `script.radio_volume_up`, `script.radio_volume_down`.
+- **Scripts:**
+  - `script.play_radio`: Resolves station via multi-alias dictionary (normalizing raw keys like `rmf_fm` as well as natural spoken aliases like `"RMF FM"`, `"Radio ZET"`, `"357"`, `"Trójka"`), updates `input_select.last_radio_station` only when value changed, and streams audio directly via `media_player.play_media` (ESPHome Voice PE does not support `media_player.turn_on`).
+  - `script.stop_radio`: Stops stream cleanly via `media_player.media_stop`.
+  - `script.toggle_radio`: Smart toggle checking if Voice PE is playing -> `script.stop_radio`, otherwise -> `script.play_radio`.
+  - `script.radio_volume_up` & `script.radio_volume_down`: Adjusts volume on Voice PE.
+- **Voice Intents:**
+  - `WlaczRadio`: Handles playing, starting, and switching stations (*"włącz radio [stacja]"*, *"włącz [stacja]"*, *"zmień stację na [stacja]"*, *"przełącz na [stacja]"*, *"switch radio to [station]"*). Dynamically responds with *"Przełączam na..."* if radio is already playing.
+  - `ZatrzymajRadio`, `GlosniejRadio`, `CiszejRadio`.
 - **Automations:**
   - `morning_radio_schedule`: Weekdays at `input_datetime.pora_pobudka` -> Radio ZET; Weekends at `input_datetime.pora_pobudka_weekend` -> Antyradio.
-  - `radio_station_changed_auto_play`: Seamlessly switches live stream when a user selects a different station in Lovelace while radio is active.
+  - `radio_station_changed_auto_play`: Seamlessly switches live stream when a user selects a different station in Lovelace while radio is active; guarded by `not is_state('script.play_radio', 'on')` to prevent recursive cancellation loops.
   - `voice_pe_media_playback_intercept`: Routes standard UI Play/Pause events to radio scripts.
 
 ---
@@ -183,10 +190,33 @@ The installation uses industrial BoneIO DIN rail hardware:
 - **Routine Directory:** Ensure `nodeApi/config/heatingRoutines/` exists, otherwise `fs.writeFileSync` in `thermostatSet.ts` fails with `ENOENT`.
 - **Default Routine Immutability:** Never mutate `defaultHeatingRoutine` in memory; always deep-clone before setting per-room temperature overrides.
 
-### Pstryk Energy Pricing
-- Script `config/pstryk_pricing.py` fetches dynamic hourly energy prices (VAT + distribution surcharges included).
-- Sensors: `sensor.pstryk_price_meter_dol` and `sensor.pstryk_price_meter_gora`.
-- Binary sensors: `binary_sensor.pstryk_in_best_window_dol` and `binary_sensor.pstryk_in_best_window_gora` trigger automated charging (`switch.tesl_y_charge`) and spoken alerts (`pstryk_best_window_voice_announcement`).
+### Pstryk Energy Pricing & Multi-Period Aggregation Engine
+- Script `config/pstryk_pricing.py` and backend engine `config/pstryk_engine.py` fetch dynamic hourly energy prices (VAT + distribution surcharges included).
+- Multi-period aggregation engine (`config/pstryk_engine.py`) queries 5 endpoints for `dol` and `gora`:
+  - `temporal=latest` with `metrics=pricing,cost,meter_values,carbon` (live gross/net prices, prosumer tariffs, instant active registers, carbon footprint).
+  - 48h forward pricing with `resolution=hour` (optimal contiguous cheapest window calculation with 10% rise tolerance, all_prices curve).
+  - Today's data: `window_start=midnight_utc`, `window_end=now_utc`, `resolution=hour` (today's imported/exported kWh, costs, balance, and hourly breakdown).
+  - Current month data: `window_start=month_start_utc`, `window_end=now_utc`, `resolution=day` (month-to-date kWh, costs, balance, daily breakdown).
+  - Year data: `window_start=year_start_utc`, `window_end=now_utc`, `resolution=month` (year-to-date monthly breakdown).
+- **Smart Caching:** Atomic file caching in `/tmp/pstryk_cache_{installation}.json` with 15-minute TTL for live metrics and alongside preservation of historical frames.
+- **Backward-Compatible Schema:** Retains top-level `current_price`, `start`, `end`, `duration_hours`, `all_prices`, `net`, `gross`, `installation`, while introducing rich structured sub-objects: `current`, `today`, `month`, and `year`.
+- **Sensors:**
+  - `sensor.pstryk_price_meter_dol` & `sensor.pstryk_price_meter_gora` (15-min command_line root sensors with full payload attributes)
+  - `sensor.pstryk_best_window_dol` & `sensor.pstryk_best_window_gora` (cheapest charging window range)
+  - `sensor.pstryk_cena_kupno_dol` & `sensor.pstryk_cena_kupno_gora` (live gross buy rate with pricing component attributes)
+  - `sensor.pstryk_cena_sprzedaz_dol` & `sensor.pstryk_cena_sprzedaz_gora` (prosumer gross sell rate with net price)
+  - `sensor.pstryk_zuzycie_dzis_dol` & `sensor.pstryk_zuzycie_dzis_gora` (today's imported kWh with hourly breakdown)
+  - `sensor.pstryk_koszt_dzis_dol` & `sensor.pstryk_koszt_dzis_gora` (today's PLN expense and financial balance)
+  - `sensor.pstryk_zuzycie_miesiac_dol` & `sensor.pstryk_zuzycie_miesiac_gora` (month-to-date kWh with daily history)
+  - `sensor.pstryk_koszt_miesiac_dol` & `sensor.pstryk_koszt_miesiac_gora` (month-to-date PLN expense with monthly breakdown)
+  - `sensor.pstryk_slad_weglowy_dol` & `sensor.pstryk_slad_weglowy_gora` (live & today's g CO₂ footprint)
+- **Binary Sensors:**
+  - `binary_sensor.pstryk_in_best_window_dol` & `binary_sensor.pstryk_in_best_window_gora` (active cheapest window)
+  - `binary_sensor.pstryk_tania_godzina_dol` & `binary_sensor.pstryk_tania_godzina_gora` (is_cheap flag)
+  - `binary_sensor.pstryk_droga_godzina_dol` & `binary_sensor.pstryk_droga_godzina_gora` (is_expensive flag)
+- **Lovelace Energy UI & Drill-Down Subview (`/dashboard-home/energia` & `/energia-raport`):**
+  - Main view (`/energia`) features dual sections ("Pstryk Energy — Instalacja Dół" and "Pstryk Energy — Instalacja Góra") with 8 dynamic tiles each (Kupno, Sprzedaż, Najlepsze Okno, Zużycie Dziś, Koszt Dziś, Zużycie Miesiąc, Koszt Miesiąc, Ślad Węglowy) with reactive color thresholds and one-tap navigation to the detailed report.
+  - Interactive reporting subview (`/dashboard-home/energia-raport`) provides native back navigation, Dół vs Góra side-by-side comparison tables, Jinja2 hourly today breakdown, daily month history, 2026 year monthly table, and 48h live history graphs.
 - Automation `daily_energy_price_notification` runs at 22:00.
 
 ### Voice Assistant & Media Players (Voice PE)

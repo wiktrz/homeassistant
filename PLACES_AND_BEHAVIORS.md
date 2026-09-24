@@ -352,13 +352,14 @@ flowchart TD
    - Wall button `binary_sensor.boneio_dr_8ch_03_2c7fbc_in_01` overrides auto-off by setting `input_boolean.hall_entrance_input_manual`.
 5. **Stateful Radio & Voice Satellite Subsystem (`play_radio`, `stop_radio`, `morning_radio_schedule`):**
    - Saying *"włącz radio"* resumes last selected station from `input_select.last_radio_station` (defaults to Eska Rock).
+   - Changing or switching stations by voice (*"zmień stację na [stacja]"*, *"przełącz na [stacja]"*, *"włącz [stacja]"*) seamlessly resolves aliases and transitions live streams.
    - Morning alarm: Mon–Fri at `pora_pobudka` plays Radio ZET; Sat–Sun at `pora_pobudka_weekend` plays Antyradio.
-   - Changing the dropdown in Lovelace automatically re-streams to the Voice PE speaker via `radio_station_changed_auto_play`.
+   - Changing the dropdown in Lovelace automatically re-streams to the Voice PE speaker via `radio_station_changed_auto_play` (guarded against recursive re-entry).
    - Pstryk cheapest window announcement spoke aloud automatically via Nabu Casa TTS.
 
 #### Interactive Controls
-- **Voice Intents (PL):** *"otwórz drzwi"*, *"otwórz rygiel"*, *"wpuść gości"*, *"włącz radio [stacja]"*, *"zatrzymaj radio"*, *"głośniej/ciszej radio"*, *"kiedy jest najtańszy prąd"*, *"kiedy wywóz śmieci"*, *"wychodzę z domu"*.
-- **Voice Intents (EN):** *"open front door"*, *"unlock door"*, *"play radio [station]"*, *"stop radio"*, *"radio volume up/down"*, *"when is cheap energy"*, *"when is trash pickup"*.
+- **Voice Intents (PL):** *"otwórz drzwi"*, *"otwórz rygiel"*, *"wpuść gości"*, *"włącz radio [stacja]"*, *"zmień stację na [stacja]"*, *"przełącz na [stacja]"*, *"zatrzymaj radio"*, *"głośniej/ciszej radio"*, *"kiedy jest najtańszy prąd"*, *"kiedy wywóz śmieci"*, *"wychodzę z domu"*.
+- **Voice Intents (EN):** *"open front door"*, *"unlock door"*, *"play radio [station]"*, *"switch/change radio to [station]"*, *"stop radio"*, *"radio volume up/down"*, *"when is cheap energy"*, *"when is trash pickup"*.
 
 ---
 
@@ -594,13 +595,13 @@ flowchart TD
   7. `vox_fm`: VOX FM (`http://ic1.smcdn.pl/3990-1.aac`)
   8. `trojka`: Polskie Radio Trójka (`http://stream3.polskieradio.pl:8904/`)
 - **Scripts:**
-  - `script.play_radio`: Resolves station, updates helper, streams MP3/AAC directly via `media_player.play_media` (ESPHome does not support `media_player.turn_on`).
+  - `script.play_radio`: Resolves station via multi-alias dictionary (normalizing raw keys like `rmf_fm` as well as natural spoken aliases like `"RMF FM"`, `"Radio ZET"`, `"357"`, `"Trójka"`), updates helper only when changed, streams MP3/AAC directly via `media_player.play_media` (ESPHome does not support `media_player.turn_on`).
   - `script.stop_radio`: Stops playback via `media_player.media_stop` (ESPHome does not support `media_player.turn_off`).
   - `script.toggle_radio`: Contextual toggle based on whether the entity is playing.
   - `script.radio_volume_up` & `script.radio_volume_down`: Adjusts volume on Voice PE.
 - **Automations:**
   - `morning_radio_schedule`: Weekday wake up -> Radio ZET; weekend wake up -> Antyradio.
-  - `radio_station_changed_auto_play`: Seamlessly switches radio stream when a user picks a different station on the dashboard.
+  - `radio_station_changed_auto_play`: Seamlessly switches radio stream when a user picks a different station on the dashboard; guarded by `not is_state('script.play_radio', 'on')` against re-entrant script cancellation.
   - `voice_pe_media_playback_intercept`: Intercepts standard UI Play/Pause buttons to route through radio scripts.
 
 ---
@@ -620,14 +621,26 @@ flowchart TD
 
 ---
 
-### 3.3 Dynamic Energy (Pstryk dual meters & Tesla charging)
-- **Engine Script:** `config/pstryk_pricing.py` running hourly via `command_line`.
-- **Dual Meter Architecture:**
-  - `sensor.pstryk_price_meter_dol` & `sensor.pstryk_best_window_dol`: Ground floor & primary residence (`local00`).
-  - `sensor.pstryk_price_meter_gora` & `sensor.pstryk_best_window_gora`: Upper rental suites floor.
-- **Binary Window Flags:**
-  - `binary_sensor.pstryk_in_best_window_dol`
-  - `binary_sensor.pstryk_in_best_window_gora`
+### 3.3 Dynamic Energy & Multi-Period Aggregation Engine (Pstryk dual meters & Tesla charging)
+- **Engine Script:** `config/pstryk_engine.py` (multi-period backend aggregation engine) & `config/pstryk_pricing.py` running hourly via `command_line` with 15-min cache in `/tmp/pstryk_cache_{installation}.json`.
+- **5-Dataset Multi-Period Aggregations:** `temporal=latest` (live prices, tariffs, instant active registers, carbon), 48h forward prices (cheapest window with 10% rise limit), today's hourly breakdown, current month daily breakdown, and year monthly breakdown.
+- **Dual Meter Architecture & Template Sensor Layer:**
+  - `sensor.pstryk_price_meter_dol` & `sensor.pstryk_price_meter_gora`: Root command_line entities (15-min scan interval, caching in `/tmp`).
+  - `sensor.pstryk_best_window_dol` & `sensor.pstryk_best_window_gora`: Contiguous cheapest charging window range and duration.
+  - `sensor.pstryk_cena_kupno_dol` & `sensor.pstryk_cena_kupno_gora`: Current gross buy rate (PLN/kWh) with full pricing breakdown attributes (net, tge, dist, service, vat, is_cheap, is_expensive).
+  - `sensor.pstryk_cena_sprzedaz_dol` & `sensor.pstryk_cena_sprzedaz_gora`: Prosumer gross sell rate (PLN/kWh) with net selling price.
+  - `sensor.pstryk_zuzycie_dzis_dol` & `sensor.pstryk_zuzycie_dzis_gora`: Today's consumed energy (kWh) with hourly breakdown history.
+  - `sensor.pstryk_koszt_dzis_dol` & `sensor.pstryk_koszt_dzis_gora`: Today's gross electricity expense (PLN) with earnings and financial balance.
+  - `sensor.pstryk_zuzycie_miesiac_dol` & `sensor.pstryk_zuzycie_miesiac_gora`: Month-to-date energy consumption (kWh) with daily history.
+  - `sensor.pstryk_koszt_miesiac_dol` & `sensor.pstryk_koszt_miesiac_gora`: Month-to-date electricity expense (PLN) with monthly history.
+  - `sensor.pstryk_slad_weglowy_dol` & `sensor.pstryk_slad_weglowy_gora`: Live and today's carbon footprint (g CO₂).
+- **Binary Window & Tariff Flags:**
+  - `binary_sensor.pstryk_in_best_window_dol` & `binary_sensor.pstryk_in_best_window_gora`: Active cheapest window indicator.
+  - `binary_sensor.pstryk_tania_godzina_dol` & `binary_sensor.pstryk_tania_godzina_gora`: Active cheap hour flag (`is_cheap`).
+  - `binary_sensor.pstryk_droga_godzina_dol` & `binary_sensor.pstryk_droga_godzina_gora`: Active expensive hour flag (`is_expensive`).
+- **Lovelace UI Overview & Drill-Down Subview (`/dashboard-home/energia` & `/energia-raport`):**
+  - **Main Energy View (`/energia`):** Dual stacked sections ("Pstryk Energy — Instalacja Dół" and "Pstryk Energy — Instalacja Góra") with 8 dynamic tiles each (Kupno, Sprzedaż, Najlepsze Okno, Zużycie Dziś, Koszt Dziś, Zużycie Miesiąc, Koszt Miesiąc, Ślad Węglowy) with color thresholds and quick navigation button.
+  - **Interactive Reporting Subview (`/energia-raport`):** Subview with native back navigation, side-by-side Dół vs Góra consumption & cost comparison, Jinja2 markdown tables for hourly today breakdown, daily month history, 2026 year monthly table, and 48h live history graphs.
 - **Automations:**
   - `daily_energy_price_notification`: 22:00 forecast notification with cheapest window times and gross min prices.
   - `Tesla Charging Best Window`: Automatically closes charging contactor (`switch.tesl_y_charge`) when `binary_sensor.pstryk_in_best_window_dol == on` and vehicle is home.

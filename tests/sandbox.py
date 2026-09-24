@@ -218,11 +218,11 @@ def stop_containers(remove_volumes: bool = True):
 
 
 def wait_for_ha_ready(timeout_seconds: int = 40, port: int = 8125) -> bool:
-    """Polls Home Assistant API until it responds healthy."""
+    """Polls Home Assistant API until it responds healthy and state is RUNNING."""
     import urllib.request
     import urllib.error
 
-    url = f"http://127.0.0.1:{port}/api/"
+    url = f"http://127.0.0.1:{port}/api/config"
     token = generate_test_token()
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -233,7 +233,7 @@ def wait_for_ha_ready(timeout_seconds: int = 40, port: int = 8125) -> bool:
             with urllib.request.urlopen(req, timeout=2) as resp:
                 if resp.status == 200:
                     data = json.loads(resp.read().decode())
-                    if data.get("message") == "API running.":
+                    if data.get("state") == "RUNNING":
                         return True
         except Exception:
             pass

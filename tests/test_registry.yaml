@@ -13,7 +13,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-09-23T23:16:01.832369'
+  last_verified: '2026-09-24T11:26:38.424306'
 - id: test_salon_cinema_mode_on_night
   area: salon
   file: scenarios/salon/test_cinema_mode.yaml
@@ -27,7 +27,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-09-24T08:00:06.505037'
+  last_verified: '2026-09-24T11:13:31.895070'
 - id: test_kitchen_island_light_state
   area: kuchnia
   file: scenarios/kuchnia/test_kitchen_island_light.yaml
@@ -40,7 +40,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-09-23T23:16:04.878896'
+  last_verified: '2026-09-24T11:13:32.914203'
 - id: test_local01_heating_routine_selection
   area: termostaty
   file: scenarios/termostaty/test_local01_heating_routine.yaml
@@ -53,7 +53,7 @@ tests:
   - rental
   - regression
   status: active
-  last_verified: '2026-09-23T23:16:06.406366'
+  last_verified: '2026-09-24T11:13:34.438384'
 - id: test_protected_power_supplies_integrity
   area: bezpieczenstwo
   file: scenarios/bezpieczenstwo/test_power_supplies_untouched.yaml
@@ -66,7 +66,7 @@ tests:
   - safety
   - regression
   status: active
-  last_verified: '2026-09-23T23:16:07.945997'
+  last_verified: '2026-09-24T11:26:27.305490'
 - id: test_pstryk_price_meter_dol_state
   area: pstryk
   file: scenarios/pstryk/test_energy_price_sensor.yaml
@@ -79,7 +79,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-09-23T23:16:08.971166'
+  last_verified: '2026-09-24T11:13:36.994669'
 - id: test_radio_volume_up_execution
   area: multimedia
   file: scenarios/multimedia/test_radio_volume_up.yaml
@@ -91,4 +91,45 @@ tests:
   - script
   - regression
   status: active
-  last_verified: '2026-09-23T23:16:10.488919'
+  last_verified: '2026-09-24T11:26:39.941670'
+- id: test_radio_station_switch_playing
+  area: multimedia
+  file: scenarios/multimedia/test_radio_station_switch_playing.yaml
+  description: Verify that script.play_radio resolves aliases (e.g. 'RMF FM'), switches
+    input_select while playing without recursive aborts
+  tags:
+  - multimedia
+  - voice
+  - radio
+  - script
+  - alias
+  - regression
+  status: active
+  last_verified: '2026-09-24T11:26:41.461519'
+- id: test_pstryk_engine_unit_suite
+  area: pstryk
+  file: unit/test_pstryk_engine.py
+  description: Comprehensive unit test suite for Pstryk dynamic energy engine covering
+    4-metric parsing, open-frame null safety, cheapest window algorithm, 15-min cache
+    lifecycle, aggregations, and prosumer derivation.
+  tags:
+  - pstryk
+  - energy
+  - unit
+  - python
+  - regression
+  status: active
+- id: test_pstryk_dual_meter
+  area: pstryk
+  file: scenarios/pstryk/test_pstryk_dual_meter.yaml
+  description: Verify that Dół and Góra Pstryk sensors correctly reflect dynamic pricing,
+    consumption, and cost data
+  tags:
+  - pstryk
+  - energy
+  - pricing
+  - dual_meter
+  - local00
+  - regression
+  status: active
+  last_verified: '2026-09-24T11:13:40.040184'

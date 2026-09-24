@@ -1,0 +1,32 @@
+{
+  "frames": [
+    {
+      "start": "2026-09-24T08:00:00Z",
+      "end": "2026-09-24T09:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 0.4521,
+          "price_gross": 0.5561,
+          "sell_price_net": 0.3812,
+          "sell_price_gross": 0.4689
+        },
+        "cost": {
+          "cost_net": 1.3563,
+          "cost_gross": 1.6683,
+          "sell_net": 0.3812,
+          "sell_gross": 0.4689,
+          "balance": 1.1994
+        },
+        "meter_values": {
+          "a_plus": 3.0,
+          "a_minus": 1.0
+        },
+        "carbon": {
+          "co2_eq": 1850.0,
+          "factor": 616.67
+        }
+      }
+    }
+  ]
+}

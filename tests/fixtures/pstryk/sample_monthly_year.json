@@ -1,0 +1,88 @@
+{
+  "frames": [
+    {
+      "start": "2026-03-01T00:00:00Z",
+      "end": "2026-04-01T00:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {"price_net": 0.4878, "price_gross": 0.6000, "sell_price_net": 0.3252, "sell_price_gross": 0.4000},
+        "cost": {"cost_net": 219.51, "cost_gross": 270.00, "sell_net": 26.02, "sell_gross": 32.00, "balance": 238.00},
+        "meter_values": {"a_plus": 450.0, "a_minus": 80.0},
+        "carbon": {"co2_eq": 270000.0, "factor": 600.0}
+      }
+    },
+    {
+      "start": "2026-04-01T00:00:00Z",
+      "end": "2026-05-01T00:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {"price_net": 0.4878, "price_gross": 0.6000, "sell_price_net": 0.3252, "sell_price_gross": 0.4000},
+        "cost": {"cost_net": 185.37, "cost_gross": 228.00, "sell_net": 48.78, "sell_gross": 60.00, "balance": 168.00},
+        "meter_values": {"a_plus": 380.0, "a_minus": 150.0},
+        "carbon": {"co2_eq": 228000.0, "factor": 600.0}
+      }
+    },
+    {
+      "start": "2026-05-01T00:00:00Z",
+      "end": "2026-06-01T00:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {"price_net": 0.4878, "price_gross": 0.6000, "sell_price_net": 0.3252, "sell_price_gross": 0.4000},
+        "cost": {"cost_net": 156.10, "cost_gross": 192.00, "sell_net": 78.05, "sell_gross": 96.00, "balance": 96.00},
+        "meter_values": {"a_plus": 320.0, "a_minus": 240.0},
+        "carbon": {"co2_eq": 192000.0, "factor": 600.0}
+      }
+    },
+    {
+      "start": "2026-06-01T00:00:00Z",
+      "end": "2026-07-01T00:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {"price_net": 0.4878, "price_gross": 0.6000, "sell_price_net": 0.3252, "sell_price_gross": 0.4000},
+        "cost": {"cost_net": 141.46, "cost_gross": 174.00, "sell_net": 100.81, "sell_gross": 124.00, "balance": 50.00},
+        "meter_values": {"a_plus": 290.0, "a_minus": 310.0},
+        "carbon": {"co2_eq": 174000.0, "factor": 600.0}
+      }
+    },
+    {
+      "start": "2026-07-01T00:00:00Z",
+      "end": "2026-08-01T00:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {"price_net": 0.4878, "price_gross": 0.6000, "sell_price_net": 0.3252, "sell_price_gross": 0.4000},
+        "cost": {"cost_net": 136.59, "cost_gross": 168.00, "sell_net": 113.82, "sell_gross": 140.00, "balance": 28.00},
+        "meter_values": {"a_plus": 280.0, "a_minus": 350.0},
+        "carbon": {"co2_eq": 168000.0, "factor": 600.0}
+      }
+    },
+    {
+      "start": "2026-08-01T00:00:00Z",
+      "end": "2026-09-01T00:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {"price_net": 0.4878, "price_gross": 0.6000, "sell_price_net": 0.3252, "sell_price_gross": 0.4000},
+        "cost": {"cost_net": 146.34, "cost_gross": 180.00, "sell_net": 104.07, "sell_gross": 128.00, "balance": 52.00},
+        "meter_values": {"a_plus": 300.0, "a_minus": 320.0},
+        "carbon": {"co2_eq": 180000.0, "factor": 600.0}
+      }
+    },
+    {
+      "start": "2026-09-01T00:00:00Z",
+      "end": "2026-10-01T00:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {"price_net": 0.4065, "price_gross": 0.5000, "sell_price_net": 0.3050, "sell_price_gross": 0.3750},
+        "cost": {"cost_net": 146.34, "cost_gross": 180.00, "sell_net": 36.59, "sell_gross": 45.00, "balance": 135.00},
+        "meter_values": {"a_plus": 360.0, "a_minus": 120.0},
+        "carbon": {"co2_eq": 216000.0, "factor": 600.0}
+      }
+    }
+  ],
+  "summary": {
+    "total_kwh_bought": 2380.0,
+    "total_kwh_sold": 1570.0,
+    "total_cost_pln": 1392.0,
+    "total_earned_pln": 625.0,
+    "balance_pln": 767.0
+  }
+}

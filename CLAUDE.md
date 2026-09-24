@@ -74,7 +74,8 @@ config/
 │   │       └── confirmable_notification.yaml
 │   └── template/
 │       └── inverted_binary_sensor.yaml
-└── pstryk_pricing.py     # Energy pricing script
+├── pstryk_pricing.py     # Energy pricing script
+└── pstryk_engine.py      # Dynamic energy & metering engine (caching, aggregations, unit-tested)
 
 data/
 └── configuration.yaml    # Zigbee2MQTT configuration
@@ -255,6 +256,8 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 | `config/mqtt.yaml` | All MQTT entity configurations |
 | `config/automations.yaml` | 60+ automation rules |
 | `config/scripts.yaml` | Operational scripts (radio, TV, blinds, lighting) |
+| `config/pstryk_engine.py` | Pstryk dynamic energy & multi-period aggregation engine |
+| `tests/unit/test_pstryk_engine.py` | Pstryk engine unit test suite (Tier 1B) |
 | `config/secrets.yaml` | Sensitive configuration |
 | `data/configuration.yaml` | Zigbee2MQTT settings |
 

@@ -8,6 +8,16 @@ preconditions:
   entities:
     input_select.last_radio_station:
       state: "eska_rock"
+      attributes:
+        options:
+          - eska_rock
+          - rmf_fm
+          - radio_zet
+          - antyradio
+          - radio_357
+          - tok_fm
+          - vox_fm
+          - trojka
 
 action:
   type: call_service

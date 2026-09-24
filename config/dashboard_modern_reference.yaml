@@ -431,6 +431,223 @@ views:
     path: energia
     icon: mdi:transmission-tower
     cards:
+      - type: button
+        name: Szczegółowy Raport i Historia Zużycia
+        icon: mdi:chart-timeline-variant
+        tap_action:
+          action: navigate
+          navigation_path: /dashboard-home/energia-raport
+
+      - type: heading
+        heading: Pstryk Energy — Instalacja Dół
+
+      - type: grid
+        columns: 4
+        square: false
+        cards:
+          - type: tile
+            entity: sensor.pstryk_cena_kupno_dol
+            name: Kupno
+            icon: |
+              {% if is_state('binary_sensor.pstryk_droga_godzina_dol', 'on') %}
+                mdi:tag-alert
+              {% elif is_state('binary_sensor.pstryk_tania_godzina_dol', 'on') %}
+                mdi:tag-check
+              {% else %}
+                mdi:currency-usd
+              {% endif %}
+            color: |
+              {% if states('sensor.pstryk_cena_kupno_dol') | float > 0.70 %}
+                red
+              {% elif states('sensor.pstryk_cena_kupno_dol') | float > 0.50 %}
+                orange
+              {% else %}
+                green
+              {% endif %}
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+          - type: tile
+            entity: sensor.pstryk_cena_sprzedaz_dol
+            name: Sprzedaż
+            icon: mdi:cash-refund
+            color: green
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+          - type: tile
+            entity: sensor.pstryk_best_window_dol
+            name: Najlepsze Okno
+            icon: |
+              {% if is_state('binary_sensor.pstryk_in_best_window_dol', 'on') %}
+                mdi:clock-check
+              {% else %}
+                mdi:clock-outline
+              {% endif %}
+            color: |
+              {% if is_state('binary_sensor.pstryk_in_best_window_dol', 'on') %}
+                green
+              {% else %}
+                purple
+              {% endif %}
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+          - type: tile
+            entity: sensor.pstryk_zuzycie_dzis_dol
+            name: Zużycie Dziś
+            icon: mdi:chart-bell-curve-cumulative
+            color: blue
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+          - type: tile
+            entity: sensor.pstryk_koszt_dzis_dol
+            name: Koszt Dziś
+            icon: mdi:cash
+            color: amber
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+          - type: tile
+            entity: sensor.pstryk_zuzycie_miesiac_dol
+            name: Zużycie Miesiąc
+            icon: mdi:calendar-month
+            color: indigo
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+          - type: tile
+            entity: sensor.pstryk_koszt_miesiac_dol
+            name: Koszt Miesiąc
+            icon: mdi:wallet
+            color: deep-orange
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+          - type: tile
+            entity: sensor.pstryk_slad_weglowy_dol
+            name: Ślad Węglowy
+            icon: mdi:molecule-co2
+            color: teal
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+      - type: heading
+        heading: Pstryk Energy — Instalacja Góra
+
+      - type: grid
+        columns: 4
+        square: false
+        cards:
+          - type: tile
+            entity: sensor.pstryk_cena_kupno_gora
+            name: Kupno
+            icon: |
+              {% if is_state('binary_sensor.pstryk_droga_godzina_gora', 'on') %}
+                mdi:tag-alert
+              {% elif is_state('binary_sensor.pstryk_tania_godzina_gora', 'on') %}
+                mdi:tag-check
+              {% else %}
+                mdi:currency-usd
+              {% endif %}
+            color: |
+              {% if states('sensor.pstryk_cena_kupno_gora') | float > 0.70 %}
+                red
+              {% elif states('sensor.pstryk_cena_kupno_gora') | float > 0.50 %}
+                orange
+              {% else %}
+                green
+              {% endif %}
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+          - type: tile
+            entity: sensor.pstryk_cena_sprzedaz_gora
+            name: Sprzedaż
+            icon: mdi:cash-refund
+            color: green
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+          - type: tile
+            entity: sensor.pstryk_best_window_gora
+            name: Najlepsze Okno
+            icon: |
+              {% if is_state('binary_sensor.pstryk_in_best_window_gora', 'on') %}
+                mdi:clock-check
+              {% else %}
+                mdi:clock-outline
+              {% endif %}
+            color: |
+              {% if is_state('binary_sensor.pstryk_in_best_window_gora', 'on') %}
+                green
+              {% else %}
+                purple
+              {% endif %}
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+          - type: tile
+            entity: sensor.pstryk_zuzycie_dzis_gora
+            name: Zużycie Dziś
+            icon: mdi:chart-bell-curve-cumulative
+            color: blue
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+          - type: tile
+            entity: sensor.pstryk_koszt_dzis_gora
+            name: Koszt Dziś
+            icon: mdi:cash
+            color: amber
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+          - type: tile
+            entity: sensor.pstryk_zuzycie_miesiac_gora
+            name: Zużycie Miesiąc
+            icon: mdi:calendar-month
+            color: indigo
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+          - type: tile
+            entity: sensor.pstryk_koszt_miesiac_gora
+            name: Koszt Miesiąc
+            icon: mdi:wallet
+            color: deep-orange
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+          - type: tile
+            entity: sensor.pstryk_slad_weglowy_gora
+            name: Ślad Węglowy
+            icon: mdi:molecule-co2
+            color: teal
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-home/energia-raport
+
+      # --- POMIARY HISTORYCZNE I TESLA (LEGACY PHASE 1) ---
+      - type: heading
+        heading: Pomiary Historyczne i Tesla
+
       - type: grid
         columns: 2
         square: false
@@ -510,6 +727,163 @@ views:
             entity: device_tracker.tesla_y_location
             name: Lokalizacja
             icon: mdi:map-marker
+
+  - title: Raport Energii
+    path: energia-raport
+    subview: true
+    icon: mdi:chart-timeline-variant
+    cards:
+      - type: heading
+        heading: Raport Zużycia i Kosztów Energii (Pstryk)
+
+      # --- PODSUMOWANIE I PORÓWNANIE (DÓŁ VS GÓRA) ---
+      - type: heading
+        heading: Porównanie Instalacji (Dół vs Góra)
+
+      - type: grid
+        columns: 4
+        square: false
+        cards:
+          - type: tile
+            entity: sensor.pstryk_zuzycie_dzis_dol
+            name: Dół — Dziś (kWh)
+            icon: mdi:lightning-bolt
+            color: blue
+          - type: tile
+            entity: sensor.pstryk_koszt_dzis_dol
+            name: Dół — Dziś (PLN)
+            icon: mdi:cash
+            color: amber
+          - type: tile
+            entity: sensor.pstryk_zuzycie_dzis_gora
+            name: Góra — Dziś (kWh)
+            icon: mdi:lightning-bolt
+            color: blue
+          - type: tile
+            entity: sensor.pstryk_koszt_dzis_gora
+            name: Góra — Dziś (PLN)
+            icon: mdi:cash
+            color: amber
+          - type: tile
+            entity: sensor.pstryk_zuzycie_miesiac_dol
+            name: Dół — Miesiąc (kWh)
+            icon: mdi:calendar-month
+            color: indigo
+          - type: tile
+            entity: sensor.pstryk_koszt_miesiac_dol
+            name: Dół — Miesiąc (PLN)
+            icon: mdi:wallet
+            color: deep-orange
+          - type: tile
+            entity: sensor.pstryk_zuzycie_miesiac_gora
+            name: Góra — Miesiąc (kWh)
+            icon: mdi:calendar-month
+            color: indigo
+          - type: tile
+            entity: sensor.pstryk_koszt_miesiac_gora
+            name: Góra — Miesiąc (PLN)
+            icon: mdi:wallet
+            color: deep-orange
+
+      - type: markdown
+        title: Podsumowanie Zbiorcze
+        content: |
+          | Okres | Dół — Zużycie | Dół — Koszt | Góra — Zużycie | Góra — Koszt | Łącznie Zużycie | Łączny Koszt |
+          | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+          | **Dziś** | {{ states('sensor.pstryk_zuzycie_dzis_dol') }} kWh | {{ states('sensor.pstryk_koszt_dzis_dol') }} PLN | {{ states('sensor.pstryk_zuzycie_dzis_gora') }} kWh | {{ states('sensor.pstryk_koszt_dzis_gora') }} PLN | {{ ((states('sensor.pstryk_zuzycie_dzis_dol') | float(0)) + (states('sensor.pstryk_zuzycie_dzis_gora') | float(0))) | round(2) }} kWh | {{ ((states('sensor.pstryk_koszt_dzis_dol') | float(0)) + (states('sensor.pstryk_koszt_dzis_gora') | float(0))) | round(2) }} PLN |
+          | **Ten Miesiąc** | {{ states('sensor.pstryk_zuzycie_miesiac_dol') }} kWh | {{ states('sensor.pstryk_koszt_miesiac_dol') }} PLN | {{ states('sensor.pstryk_zuzycie_miesiac_gora') }} kWh | {{ states('sensor.pstryk_koszt_miesiac_gora') }} PLN | {{ ((states('sensor.pstryk_zuzycie_miesiac_dol') | float(0)) + (states('sensor.pstryk_zuzycie_miesiac_gora') | float(0))) | round(2) }} kWh | {{ ((states('sensor.pstryk_koszt_miesiac_dol') | float(0)) + (states('sensor.pstryk_koszt_miesiac_gora') | float(0))) | round(2) }} PLN |
+
+      # --- DZIŚ: GODZINOWY ROZKŁAD ZUŻYCIA I KOSZTÓW ---
+      - type: heading
+        heading: Dziś — Rozkład Godzinowy (Pstryk)
+
+      - type: markdown
+        title: Szczegółowy Rozkład Godzinowy
+        content: |
+          | Godzina | Zużycie Dół (kWh) | Koszt Dół (PLN) | Stawka (PLN/kWh) | Zużycie Góra (kWh) | Koszt Góra (PLN) |
+          | :---: | :---: | :---: | :---: | :---: | :---: |
+          {% set rows_dol = state_attr('sensor.pstryk_zuzycie_dzis_dol', 'hourly') %}
+          {% set rows_gora = state_attr('sensor.pstryk_zuzycie_dzis_gora', 'hourly') %}
+          {% if rows_dol and rows_dol | length > 0 %}
+          {% for r in rows_dol %}
+          {% set g = rows_gora[loop.index0] if rows_gora and loop.index0 < (rows_gora | length) else none %}
+          | {{ r.start }} - {{ r.end }} | {{ r.kwh }} | {{ r.cost_pln }} | {{ r.rate_gross }} | {{ g.kwh if g else '-' }} | {{ g.cost_pln if g else '-' }} |
+          {% endfor %}
+          {% else %}
+          | - | Brak danych godzinowych | - | - | - | - |
+          {% endif %}
+
+      # --- MIESIĄC: DZIENNY ROZKŁAD ZUŻYCIA I KOSZTÓW ---
+      - type: heading
+        heading: Ten Miesiąc — Historia Dzienna
+
+      - type: markdown
+        title: Dzienny Rozkład Zużycia w Bieżącym Miesiącu
+        content: |
+          | Data | Zużycie Dół (kWh) | Koszt Dół (PLN) | Śr. Stawka (PLN/kWh) | Zużycie Góra (kWh) | Koszt Góra (PLN) |
+          | :---: | :---: | :---: | :---: | :---: | :---: |
+          {% set days_dol = state_attr('sensor.pstryk_zuzycie_miesiac_dol', 'daily') %}
+          {% set days_gora = state_attr('sensor.pstryk_zuzycie_miesiac_gora', 'daily') %}
+          {% if days_dol and days_dol | length > 0 %}
+          {% for d in days_dol %}
+          {% set dg = days_gora[loop.index0] if days_gora and loop.index0 < (days_gora | length) else none %}
+          | {{ d.date }} | {{ d.kwh }} | {{ d.cost_pln }} | {{ d.avg_rate }} | {{ dg.kwh if dg else '-' }} | {{ dg.cost_pln if dg else '-' }} |
+          {% endfor %}
+          {% else %}
+          | - | Brak danych dziennych | - | - | - | - |
+          {% endif %}
+
+      # --- ROK: MIESIĘCZNA HISTORIA ---
+      - type: heading
+        heading: Rok 2026 — Historia Miesięczna
+
+      - type: markdown
+        title: Miesięczna Historia Kosztów i Zużycia
+        content: |
+          | Miesiąc | Dół — Zużycie (kWh) | Dół — Koszt (PLN) | Góra — Zużycie (kWh) | Góra — Koszt (PLN) | Łączny Koszt (PLN) |
+          | :---: | :---: | :---: | :---: | :---: | :---: |
+          {% set months_dol = state_attr('sensor.pstryk_koszt_miesiac_dol', 'monthly') or state_attr('sensor.pstryk_koszt_miesiac_dol', 'monthly_history') %}
+          {% set months_gora = state_attr('sensor.pstryk_koszt_miesiac_gora', 'monthly') or state_attr('sensor.pstryk_koszt_miesiac_gora', 'monthly_history') %}
+          {% if months_dol and months_dol | length > 0 %}
+          {% for m in months_dol %}
+          {% set mg = months_gora[loop.index0] if months_gora and loop.index0 < (months_gora | length) else none %}
+          {% set total_cost = ((m.cost_pln | float(0)) + (mg.cost_pln | float(0) if mg else 0)) | round(2) %}
+          | {{ m.month }} | {{ m.kwh }} | {{ m.cost_pln }} | {{ mg.kwh if mg else '-' }} | {{ mg.cost_pln if mg else '-' }} | {{ total_cost }} |
+          {% endfor %}
+          {% else %}
+          | - | Brak danych miesięcznych | - | - | - | - |
+          {% endif %}
+
+      # --- WYKRESY I TRENDY CENOWE ---
+      - type: heading
+        heading: Wykresy i Trendy Cenowe
+
+      - type: history-graph
+        title: Historia Cen Energii (PLN/kWh)
+        hours_to_show: 48
+        entities:
+          - entity: sensor.pstryk_cena_kupno_dol
+            name: Kupno Dół
+          - entity: sensor.pstryk_cena_kupno_gora
+            name: Kupno Góra
+          - entity: sensor.pstryk_cena_sprzedaz_dol
+            name: Sprzedaż Dół
+          - entity: sensor.pstryk_cena_sprzedaz_gora
+            name: Sprzedaż Góra
+
+      - type: history-graph
+        title: Zużycie Energii (kWh)
+        hours_to_show: 48
+        entities:
+          - entity: sensor.pstryk_zuzycie_dzis_dol
+            name: Zużycie Dziś Dół
+          - entity: sensor.pstryk_zuzycie_dzis_gora
+            name: Zużycie Dziś Góra
+          - entity: sensor.pstryk_koszt_dzis_dol
+            name: Koszt Dziś Dół
+          - entity: sensor.pstryk_koszt_dzis_gora
+            name: Koszt Dziś Góra
+
   - title: Multimedia
     path: media
     icon: mdi:television-play
