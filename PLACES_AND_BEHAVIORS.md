@@ -122,7 +122,7 @@ Before reviewing individual places, the following hardware platforms and safety 
 #### Behaviors & Automations
 1. **Motion Auto-On/Off (`PIR Livingroom ON` / `PIR Livingroom OFF`):**
    - *Trigger:* `binary_sensor.boneio_32_l_07_73bbd8_in_27_pir_living_room` transitions `off` -> `on`.
-   - *Conditions:* `input_boolean.motion_lights_disabled == off`, time is between `input_datetime.pora_zmroku` and `input_datetime.pora_switu`.
+   - *Conditions:* `input_boolean.motion_lights_disabled == off`, time is between `input_datetime.dynamic_sunset` and `input_datetime.dynamic_dawn`.
    - *Action:* Activates ambient salon lighting; turns off after timeout when motion clears.
 2. **Wall Button Sequences (`Light Salon ON Single Click`, `Light Salon Btn Click White Color Adjust`):**
    - Single click toggles `light.salon_mqtt`.
@@ -130,7 +130,7 @@ Before reviewing individual places, the following hardware platforms and safety 
    - Button 07 cycles through preset color palette scripts (`script.light_salon_color_1`, `script.light_salon_color_2`, `script.light_salon_white_red_loop_20`) via `script.run_next_script_in_sequence`.
 3. **Cinema Mode Integration (`script.salon_cinema_mode`):**
    - *Invocation:* Say *"tryb kino w salonie"* / *"cinema mode in living room"* or press Cinema tile on `/dashboard-home/media`.
-   - *Logic:* Turns on `remote.salon_2`, activates `scene.salon_kino_1`. If after dusk (`input_datetime.pora_zmroku`), forces `input_select.salon_kolor_wybor` to option 2 (`script.light_salon_color_2`), executes it, and turns off overhead ceiling fixture `light.salon_mqtt`.
+   - *Logic:* Turns on `remote.salon_2`, activates `scene.salon_kino_1`. If after dusk (`input_datetime.dynamic_sunset`), forces `input_select.salon_kolor_wybor` to option 2 (`script.light_salon_color_2`), executes it, and turns off overhead ceiling fixture `light.salon_mqtt`.
    - *Turn Off:* Say *"wyłącz tryb kino"* -> powers down TV and stops Cast stream.
 4. **Shelly 4-Channel Animation Engine (`Shelly Mode Handler`, `Shelly RGBW Continuous Animation Loop`):**
    - Handles animated breathing, chase, wave, and rock patterns across channels 0–3 using `input_select.shelly_animation_type`.
@@ -170,7 +170,7 @@ Before reviewing individual places, the following hardware platforms and safety 
    - *Action:* If `light.boneio_dr_8ch_03_2c7fbc_chl_04` is off, turns it on to 75% brightness and sets `input_boolean.kitchen_helper = on`. If on, turns off light and helper.
 2. **Kitchen Motion Control (`PIR Kitchen ON` / `PIR Kitchen Off`):**
    - *Trigger:* `binary_sensor.boneio_32_l_07_73bbd8_in_28_pir_kitchen` transitions `on`.
-   - *Conditions:* `input_boolean.motion_lights_disabled == off`, time between `pora_zmroku` and `pora_switu`, `input_boolean.kitchen_helper == off`.
+   - *Conditions:* `input_boolean.motion_lights_disabled == off`, time between `input_datetime.dynamic_sunset` and `input_datetime.dynamic_dawn`, `input_boolean.kitchen_helper == off`.
    - *Action:* Illuminates kitchen main spots to 40%; turns off automatically 45s after motion clears.
 3. **Dining Scene:**
    - Independent control of pendant lamp `light.boneio_32_l_07_new_light_06` over dining table via wall switch or voice.
@@ -387,7 +387,7 @@ flowchart TD
 #### Behaviors & Automations
 1. **Bedroom Corridor Motion (`PIR Korytarz Sypialnia ON` / `OFF`):**
    - *Trigger:* Motion detected on `in_31`.
-   - *Action:* If after dusk (`pora_zmroku`), illuminates hallway line `chl_02` to soft transit level; turns off 30s after motion clears.
+   - *Action:* If after dusk (`input_datetime.dynamic_sunset`), illuminates hallway line `chl_02` to soft transit level; turns off 30s after motion clears.
 2. **Staircase Heating PID Regulation:**
    - Both Level 1 and Level 2 staircases run independent PID heating loops responding to `local00/Klatka1P/details` and `local00/Klatka2P/details`.
 
@@ -672,11 +672,10 @@ flowchart TD
   - `binary_sensor.dynamic_is_sun_up`: Active when solar elevation > -0.833° (above horizon).
 - **Synchronization Automation:**
   - `automation.sync_dynamic_solar_times` (*Solar: Synchronizacja Dynamicznych Pór Słońca*): Automatically triggers daily at 00:00:05 and upon Home Assistant startup.
-- **Resilient 3-Tier Fallback Strategy:**
+- **Resilient Fallback Strategy:**
   - *Tier 0 (Sticky Memory):* Retain previous valid daily calculation if coordinates or Astral temporarily unavailable.
-  - *Tier 1 (Helper Inheritance):* Fall back to existing legacy static helpers (`input_datetime.pora_switu`, `pora_zmroku`, `pora_zmroku_na_zewnatrz`).
-  - *Tier 2 (Static Fail-Safe):* Hardcoded safety values (`06:00:00`, `06:30:00`, `18:00:00`, `17:30:00`).
-- **Phase Boundary:** In Phase 1, dynamic components are established and synchronized. Existing lighting and blind automations continue reading legacy helpers (`input_datetime.pora_switu`, `pora_zmroku`) until Phase 2 migration.
+  - *Tier 1 (Static Defaults):* Hardcoded fail-safe safety constants (`06:00:00`, `06:30:00`, `18:00:00`, `17:30:00`).
+- **Phase 2 Migration Status:** Phase 2 full migration is complete. All 10 lighting, reed, and cinema automations and scripts have been migrated from legacy static helpers (`pora_switu`, `pora_zmroku`, `pora_zmroku_na_zewnatrz`) to `input_datetime.dynamic_*`. The legacy helpers have been removed from the YAML configuration.
 
 ---
 

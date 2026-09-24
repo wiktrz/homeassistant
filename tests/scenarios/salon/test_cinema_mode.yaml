@@ -8,7 +8,7 @@ preconditions:
   entities:
     input_select.salon_kolor_wybor:
       state: "script.light_salon_color_1"
-    input_datetime.pora_zmroku:
+    input_datetime.dynamic_sunset:
       state: "00:00:00"
       attributes:
         has_date: false
@@ -17,7 +17,7 @@ preconditions:
         minute: 0
         second: 0
         timestamp: 0
-    input_datetime.pora_switu:
+    input_datetime.dynamic_dawn:
       state: "23:59:59"
       attributes:
         has_date: false

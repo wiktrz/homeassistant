@@ -223,14 +223,14 @@ The installation uses industrial BoneIO DIN rail hardware:
 ### Voice Assistant & Media Players (Voice PE)
 - **ESPHome Action Limitations:** Entity `media_player.home_assistant_voice_0a9bfd_media_player` is an ESPHome speaker. It does **NOT** support `media_player.turn_on` or `media_player.turn_off`. Invoking either throws a runtime exception in Home Assistant. Playback MUST be initiated directly using `media_player.play_media` and stopped cleanly using `media_player.media_stop`. Volume can be managed via `volume_set`, `volume_up`, or `volume_down`.
 
-### Dynamic Solar & Astronomical Engine (Phase 1)
+### Dynamic Solar & Astronomical Engine
 - **Engine Script:** `config/solar_engine.py` (Astral 2.2 solar calculations for Warsaw coordinates: 52.3445°N, 21.0993°E, 322m).
 - **Naming Rule:** UI-friendly labels/friendly names in Polish or PL/EN; code configurations, entity IDs, YAML keys, and variables strictly in English.
 - **Dynamic Helpers:** `input_datetime.dynamic_dawn`, `input_datetime.dynamic_sunrise`, `input_datetime.dynamic_sunset`, `input_datetime.dynamic_outdoor_dusk`.
 - **Sensors:** `sensor.dynamic_solar_phase`, `sensor.dynamic_solar_elevation`, `sensor.dynamic_solar_engine_status`, `binary_sensor.dynamic_is_dark_outside`, `binary_sensor.dynamic_is_sun_up`.
 - **Synchronization Automation:** `automation.sync_dynamic_solar_times` (`sync_dynamic_solar_times`) runs daily at 00:00:05 and HA startup.
-- **Resilient 3-Tier Fallback Strategy:** Tier 0 (sticky memory), Tier 1 (legacy helper inheritance `input_datetime.pora_switu`/`pora_zmroku`), Tier 2 (static defaults `06:00:00`, `06:30:00`, `18:00:00`, `17:30:00`).
-- **Phase Boundary:** Dynamic helpers are calculated and tested. Existing lighting/blind automations continue referencing legacy static helpers until Phase 2 migration.
+- **Resilient Fallback Strategy:** Tier 0 (sticky memory), Tier 1 (static defaults `06:00:00`, `06:30:00`, `18:00:00`, `17:30:00`).
+- **Phase 2 Migration Complete:** All active lighting, blind, entrance reed, and cinema automations have been migrated to the dynamic helpers. Deprecated static helpers (`pora_switu`, `pora_zmroku`, `pora_zmroku_na_zewnatrz`) have been removed from configuration.
 
 ---
 

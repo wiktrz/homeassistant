@@ -17,8 +17,8 @@
   - **Front Door Strike Lock:** Wired to BoneIO relay 23, wrapped in `lock.rygiel_drzwi_wejsciowych_lock`, triggered via `input_button.btn_entrance_door` with 2-minute safety auto-off, exterior RFID tags with alarm disarm logic, and perimeter siren `siren.reolink_duo_floodlight_poe_syrena`.
 - **Dynamic Electricity Pricing (Pstryk):**
   - Hourly real-time Polish market tariffs (`sensor.pstryk_price_meter_dol` & `_gora`), multi-period aggregation backend engine (`config/pstryk_engine.py` with latest, forward 48h, today, month, year datasets and 15-min cache in `/tmp`), cheapest price window calculation, automated Tesla vehicle charging (`switch.tesl_y_charge`), and dynamic spoken voice alerts.
-- **Dynamic Solar & Astronomical Calculations (Phase 1):**
-  - Real-time astronomical solar calculator (`config/solar_engine.py` via Astral 2.2), dynamic `input_datetime` helpers (`dynamic_dawn`, `dynamic_sunrise`, `dynamic_sunset`, `dynamic_outdoor_dusk`) with Polish UI friendly names and strictly English YAML keys, template sensors (`sensor.dynamic_solar_phase`, `sensor.dynamic_solar_elevation`, `sensor.dynamic_solar_engine_status`), binary solar flags, daily synchronization automation, and 3-tier fail-safe fallback protection.
+- **Dynamic Solar & Astronomical Calculations:**
+  - Real-time astronomical solar calculator (`config/solar_engine.py` via Astral 2.2), dynamic `input_datetime` helpers (`dynamic_dawn`, `dynamic_sunrise`, `dynamic_sunset`, `dynamic_outdoor_dusk`) with Polish UI friendly names and strictly English YAML keys, template sensors (`sensor.dynamic_solar_phase`, `sensor.dynamic_solar_elevation`, `sensor.dynamic_solar_engine_status`), binary solar flags, daily synchronization automation, and fail-safe fallback protection. All automations and scripts have migrated from static manual times to dynamic solar times.
 
 ---
 

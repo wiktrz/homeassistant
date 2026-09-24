@@ -430,23 +430,8 @@ input_datetime:
     has_date: false
     has_time: true
     initial: "08:30:00"
-  pora_switu:
-    name: Pora Świtu
-    has_date: false
-    has_time: true
-    initial: "06:00:00"
-  pora_zmroku:
-    name: Pora Zmroku
-    has_date: false
-    has_time: true
-    initial: "18:00:00"
-  pora_zmroku_na_zewnatrz:
-    name: Pora Zmroku na Zewnątrz
-    has_date: false
-    has_time: true
-    initial: "17:30:00"
 
-  # --- Dynamic Solar References (Phase 1) ---
+  # --- Dynamic Solar References ---
   dynamic_dawn:
     name: Dynamiczna Pora Świtu
     has_date: false

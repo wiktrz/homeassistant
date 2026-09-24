@@ -1103,8 +1103,8 @@ salon_cinema_mode:
                 entity_id: scene.salon_kino_1
             - if:
                 - condition: time
-                  after: input_datetime.pora_zmroku
-                  before: input_datetime.pora_switu
+                  after: input_datetime.dynamic_sunset
+                  before: input_datetime.dynamic_dawn
               then:
                 - action: input_select.select_option
                   target:

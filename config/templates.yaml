@@ -228,8 +228,8 @@
           {% endif %}
         {% else %}
           {% set now_str = now().strftime('%H:%M:%S') %}
-          {% set dawn = states('input_datetime.dynamic_dawn') if states('input_datetime.dynamic_dawn') not in ['unavailable', 'unknown', ''] else states('input_datetime.pora_switu') | default('06:00:00', true) %}
-          {% set sunset = states('input_datetime.dynamic_sunset') if states('input_datetime.dynamic_sunset') not in ['unavailable', 'unknown', ''] else states('input_datetime.pora_zmroku') | default('18:00:00', true) %}
+          {% set dawn = states('input_datetime.dynamic_dawn') | default('06:00:00', true) %}
+          {% set sunset = states('input_datetime.dynamic_sunset') | default('18:00:00', true) %}
           {{ 'daylight' if dawn <= now_str < sunset else 'night' }}
         {% endif %}
       attributes:
@@ -251,7 +251,7 @@
       state: >
         {% if state_attr('sun.sun', 'elevation') is not none and state_attr('sun.sun', 'next_rising') is not none %}
           ok
-        {% elif states('input_datetime.dynamic_dawn') not in ['unavailable', 'unknown', ''] or states('input_datetime.pora_switu') not in ['unavailable', 'unknown', ''] %}
+        {% elif states('input_datetime.dynamic_dawn') not in ['unavailable', 'unknown', ''] %}
           fallback_helper
         {% else %}
           fallback_static
@@ -260,8 +260,8 @@
         source: >
           {% if state_attr('sun.sun', 'elevation') is not none and state_attr('sun.sun', 'next_rising') is not none %}
             astral
-          {% elif states('input_datetime.dynamic_dawn') not in ['unavailable', 'unknown', ''] or states('input_datetime.pora_switu') not in ['unavailable', 'unknown', ''] %}
-            existing_helpers
+          {% elif states('input_datetime.dynamic_dawn') not in ['unavailable', 'unknown', ''] %}
+            dynamic_helper
           {% else %}
             static_defaults
           {% endif %}
@@ -362,8 +362,8 @@
           {{ elev | float(0.0) <= -4.0 }}
         {% else %}
           {% set now_str = now().strftime('%H:%M:%S') %}
-          {% set dawn = states('input_datetime.dynamic_dawn') if states('input_datetime.dynamic_dawn') not in ['unavailable', 'unknown', ''] else states('input_datetime.pora_switu') | default('06:00:00', true) %}
-          {% set outdoor_dusk = states('input_datetime.dynamic_outdoor_dusk') if states('input_datetime.dynamic_outdoor_dusk') not in ['unavailable', 'unknown', ''] else states('input_datetime.pora_zmroku_na_zewnatrz') | default('17:30:00', true) %}
+          {% set dawn = states('input_datetime.dynamic_dawn') | default('06:00:00', true) %}
+          {% set outdoor_dusk = states('input_datetime.dynamic_outdoor_dusk') | default('17:30:00', true) %}
           {{ now_str >= outdoor_dusk or now_str < dawn }}
         {% endif %}
 
@@ -380,8 +380,8 @@
           false
         {% else %}
           {% set now_str = now().strftime('%H:%M:%S') %}
-          {% set dawn = states('input_datetime.dynamic_dawn') if states('input_datetime.dynamic_dawn') not in ['unavailable', 'unknown', ''] else states('input_datetime.pora_switu') | default('06:00:00', true) %}
-          {% set sunset = states('input_datetime.dynamic_sunset') if states('input_datetime.dynamic_sunset') not in ['unavailable', 'unknown', ''] else states('input_datetime.pora_zmroku') | default('18:00:00', true) %}
+          {% set dawn = states('input_datetime.dynamic_dawn') | default('06:00:00', true) %}
+          {% set sunset = states('input_datetime.dynamic_sunset') | default('18:00:00', true) %}
           {{ dawn <= now_str < sunset }}
         {% endif %}
 

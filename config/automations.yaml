@@ -252,8 +252,8 @@
       seconds: 0
   conditions:
   - condition: time
-    after: input_datetime.pora_zmroku_na_zewnatrz
-    before: input_datetime.pora_switu
+    after: input_datetime.dynamic_outdoor_dusk
+    before: input_datetime.dynamic_dawn
     weekday:
     - sun
     - sat
@@ -318,8 +318,8 @@
       seconds: 1
   conditions:
   - condition: time
-    after: input_datetime.pora_zmroku_na_zewnatrz
-    before: input_datetime.pora_switu
+    after: input_datetime.dynamic_outdoor_dusk
+    before: input_datetime.dynamic_dawn
     weekday:
     - sun
     - sat
@@ -428,8 +428,8 @@
     entity_id: input_boolean.motion_lights_disabled
     state: 'off'
   - condition: time
-    after: input_datetime.pora_zmroku
-    before: input_datetime.pora_switu
+    after: input_datetime.dynamic_sunset
+    before: input_datetime.dynamic_dawn
     weekday:
     - sun
     - sat
@@ -506,8 +506,8 @@
     entity_id: input_boolean.motion_lights_disabled
     state: 'off'
   - condition: time
-    after: input_datetime.pora_zmroku
-    before: input_datetime.pora_switu
+    after: input_datetime.dynamic_sunset
+    before: input_datetime.dynamic_dawn
     weekday:
     - sun
     - sat
@@ -524,7 +524,7 @@
       enabled: false
     - condition: time
       after: input_datetime.pora_nocna
-      before: input_datetime.pora_switu
+      before: input_datetime.dynamic_dawn
       weekday:
       - sun
       - sat
@@ -686,8 +686,8 @@
     entity_id: input_boolean.motion_lights_disabled
     state: 'off'
   - condition: time
-    after: input_datetime.pora_zmroku
-    before: input_datetime.pora_switu
+    after: input_datetime.dynamic_sunset
+    before: input_datetime.dynamic_dawn
     weekday:
     - sun
     - sat
@@ -786,8 +786,8 @@
     trigger: device
   conditions:
   - condition: time
-    before: input_datetime.pora_switu
-    after: input_datetime.pora_zmroku
+    before: input_datetime.dynamic_dawn
+    after: input_datetime.dynamic_sunset
   actions:
   - type: turn_on
     device_id: e15a1fb7435cfe16a86b0f58812a81c7
@@ -881,8 +881,8 @@
     entity_id: input_boolean.motion_lights_disabled
     state: 'off'
   - condition: time
-    after: input_datetime.pora_zmroku
-    before: input_datetime.pora_switu
+    after: input_datetime.dynamic_sunset
+    before: input_datetime.dynamic_dawn
     weekday:
     - sun
     - sat
@@ -1760,7 +1760,7 @@
     trigger: device
   conditions:
   - condition: time
-    after: input_datetime.pora_zmroku_na_zewnatrz
+    after: input_datetime.dynamic_outdoor_dusk
     before: input_datetime.pora_pobudka
   actions:
   - type: turn_on
@@ -1807,7 +1807,7 @@
       - condition: trigger
         id: garden_reed_opened
       - condition: time
-        after: input_datetime.pora_zmroku_na_zewnatrz
+        after: input_datetime.dynamic_outdoor_dusk
         before: input_datetime.pora_pobudka
       sequence:
       - action: light.turn_on
@@ -1918,8 +1918,8 @@
     trigger: device
   conditions:
   - condition: time
-    after: input_datetime.pora_zmroku_na_zewnatrz
-    before: input_datetime.pora_switu
+    after: input_datetime.dynamic_outdoor_dusk
+    before: input_datetime.dynamic_dawn
     weekday:
     - sun
     - sat
@@ -2448,17 +2448,11 @@
         next_dawn: "{{ state_attr('sun.sun', 'next_dawn') }}"
         next_rising: "{{ state_attr('sun.sun', 'next_rising') }}"
         next_setting: "{{ state_attr('sun.sun', 'next_setting') }}"
-        fallback_dawn: "{{ states('input_datetime.pora_switu') | default('06:00:00', true) }}"
-        fallback_sunrise: "{{ states('input_datetime.pora_switu') | default('06:30:00', true) }}"
-        fallback_sunset: "{{ states('input_datetime.pora_zmroku') | default('18:00:00', true) }}"
-        fallback_outdoor_dusk: "{{ states('input_datetime.pora_zmroku_na_zewnatrz') | default('17:30:00', true) }}"
         calc_dawn: >-
           {% if next_dawn is not none and next_dawn not in ['unavailable', 'unknown', ''] %}
             {{ (as_datetime(next_dawn) | as_local).strftime('%H:%M:%S') }}
           {% elif states('input_datetime.dynamic_dawn') not in ['unavailable', 'unknown', '00:00:00', ''] %}
             {{ states('input_datetime.dynamic_dawn') }}
-          {% elif fallback_dawn not in ['unavailable', 'unknown', ''] %}
-            {{ fallback_dawn }}
           {% else %}
             06:00:00
           {% endif %}
@@ -2467,8 +2461,6 @@
             {{ (as_datetime(next_rising) | as_local).strftime('%H:%M:%S') }}
           {% elif states('input_datetime.dynamic_sunrise') not in ['unavailable', 'unknown', '00:00:00', ''] %}
             {{ states('input_datetime.dynamic_sunrise') }}
-          {% elif fallback_sunrise not in ['unavailable', 'unknown', ''] %}
-            {{ fallback_sunrise }}
           {% else %}
             06:30:00
           {% endif %}
@@ -2477,8 +2469,6 @@
             {{ (as_datetime(next_setting) | as_local).strftime('%H:%M:%S') }}
           {% elif states('input_datetime.dynamic_sunset') not in ['unavailable', 'unknown', '00:00:00', ''] %}
             {{ states('input_datetime.dynamic_sunset') }}
-          {% elif fallback_sunset not in ['unavailable', 'unknown', ''] %}
-            {{ fallback_sunset }}
           {% else %}
             18:00:00
           {% endif %}
@@ -2487,8 +2477,6 @@
             {{ ((as_datetime(next_setting) - timedelta(minutes=30)) | as_local).strftime('%H:%M:%S') }}
           {% elif states('input_datetime.dynamic_outdoor_dusk') not in ['unavailable', 'unknown', '00:00:00', ''] %}
             {{ states('input_datetime.dynamic_outdoor_dusk') }}
-          {% elif fallback_outdoor_dusk not in ['unavailable', 'unknown', ''] %}
-            {{ fallback_outdoor_dusk }}
           {% else %}
             17:30:00
           {% endif %}

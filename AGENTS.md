@@ -207,7 +207,7 @@ homeassistant:
 - **Scripts:**
   - `script.tv_launch_app`: Launches streaming apps by key on `media_player.salon_2` via `remote.turn_on` and `media_player.play_media`
   - `script.tv_show_camera`: Streams camera via `camera.play_stream` (format: HLS) to `media_player.googletv8897_2`, or stops stream (`camera: stop`)
-  - `script.salon_cinema_mode`: Turns on TV and activates `scene.salon_kino_1`. If after dark (`after: input_datetime.pora_zmroku, before: input_datetime.pora_switu`), sets `input_select.salon_kolor_wybor` to option 2 (`script.light_salon_color_2`), executes it, and turns off ceiling light `light.salon_mqtt`
+  - `script.salon_cinema_mode`: Turns on TV and activates `scene.salon_kino_1`. If after dark (`after: input_datetime.dynamic_sunset, before: input_datetime.dynamic_dawn`), sets `input_select.salon_kolor_wybor` to option 2 (`script.light_salon_color_2`), executes it, and turns off ceiling light `light.salon_mqtt`
 - **Dashboard View:** `/dashboard-home/media` in `config/dashboard_modern_reference.yaml` (Dom iPad Modern) and `config/dashboard_home_improved.yaml` featuring side-by-side TV controls (tile with volume slider, Cinema Mode toggle, power toggle) and Radio Voice PE component (tile with volume slider and toggle tap action, 2-column Włącz / Wyłącz action grid, reactive station dropdown selector), 6-app quick launch grid, scenes & mood grid, conditional D-pad remote, and 5 camera glance cards with Cast / Stop buttons
 - **Voice Intents:**
   - `WlaczAplikacjeTV`: *"włącz [aplikacja] na telewizorze"* / *"open [app] on tv"*
@@ -284,7 +284,7 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 - `Tesla Charging Best Window` - triggers on `binary_sensor.pstryk_in_best_window_dol`
 - `pstryk_best_window_voice_announcement` - triggers on `binary_sensor.pstryk_in_best_window_dol` to speak dynamic announcement on Home Assistant Voice PE speaker
 
-## Dynamic Solar Calculation Engine & Astronomy (Phase 1)
+## Dynamic Solar Calculation Engine & Astronomy
 
 **Script:** `config/solar_engine.py` (CLI & Python library based on Astral 2.2)
 **Unit Tests:** `tests/unit/test_solar_engine.py` (seasonal solstices, outdoor dusk offset, coordinate boundary fallbacks, solar phase classification)
@@ -304,7 +304,7 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 - `binary_sensor.dynamic_is_sun_up`: Solar disk elevation above horizon
 
 **Automations:**
-- `automation.sync_dynamic_solar_times`: Triggers at 00:00:05 and HA startup, evaluating solar attributes with 3-tier fallback (Tier 0 sticky memory, Tier 1 helper inheritance, Tier 2 static defaults).
+- `automation.sync_dynamic_solar_times`: Triggers at 00:00:05 and HA startup, evaluating solar attributes with 2-tier fallback (Tier 0 sticky memory, Tier 1 static defaults). All system automations and scripts have migrated to `input_datetime.dynamic_*`. Deprecated static helpers have been removed.
 
 ## Important Files
 
