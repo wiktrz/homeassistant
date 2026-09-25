@@ -49,13 +49,13 @@ def calculate_solar_data(
     except Exception:
         tz = ZoneInfo("UTC")
 
-    if target_date is None:
-        target_date = datetime.datetime.now(tz).date()
-
     if ref_time is None:
         ref_time = datetime.datetime.now(tz)
     elif ref_time.tzinfo is None:
         ref_time = ref_time.replace(tzinfo=tz)
+
+    if target_date is None:
+        target_date = ref_time.date()
 
     try:
         # Validate coordinate boundaries

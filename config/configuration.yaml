@@ -424,7 +424,7 @@ input_datetime:
     name: Pora Pobudka
     has_date: false
     has_time: true
-    initial: "06:45:00"
+    initial: "07:00:00"
   pora_pobudka_weekend:
     name: Pora Pobudka Weekend
     has_date: false

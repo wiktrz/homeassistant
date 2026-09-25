@@ -190,7 +190,7 @@ homeassistant:
   - `script.radio_volume_down`: decreases volume on Voice PE via `media_player.volume_down`
 - **Supported Stations:** Eska Rock (default), RMF FM, Radio ZET, Antyradio, Radio 357, TOK FM, VOX FM, Polskie Radio Trójka
 - **Automations:**
-  - `morning_radio_schedule`: Mon-Fri at `input_datetime.pora_pobudka` -> Radio ZET; Sat-Sun at `input_datetime.pora_pobudka_weekend` -> Antyradio on Voice PE (sets volume to 10% before playback)
+  - `morning_radio_schedule`: Mon-Fri at `input_datetime.pora_pobudka` (default 07:00) -> Radio ZET; Sat-Sun at `input_datetime.pora_pobudka_weekend` (default 08:30) -> Antyradio on Voice PE (sets volume to 10% before playback)
   - `radio_station_changed_auto_play`: Automatically switches radio stream when user selects a different station in `input_select.last_radio_station` while radio is playing; guarded by `not is_state('script.play_radio', 'on')` to prevent re-entrant cancellation
   - `voice_pe_media_playback_intercept`: Intercepts HA `call_service` events (`media_play`, `media_play_pause`, `media_pause`) targeting Voice PE and maps them to `script.play_radio`, `script.toggle_radio`, and `script.stop_radio`
 

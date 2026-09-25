@@ -211,7 +211,7 @@ Before reviewing individual places, the following hardware platforms and safety 
    - `script.roller_bedroom_up_1_5`: Energizes UP for 6s (slat ventilation crack).
 2. **Time-Based Automated Shutter Schedules:**
    - **Night Mode (`Night time roller down`):** At `input_datetime.pora_nocna` (23:00) -> calls `script.roller_bedroom_down_almost`.
-   - **Morning Wakeup (`Day time`):** Mon–Fri at `input_datetime.pora_pobudka` (06:45) and Sat–Sun at `input_datetime.pora_pobudka_weekend` (08:30) -> calls `script.roller_bedroom_on`.
+   - **Morning Wakeup (`Day time`):** Mon–Fri at `input_datetime.pora_pobudka` (07:00) and Sat–Sun at `input_datetime.pora_pobudka_weekend` (08:30) -> calls `script.roller_bedroom_on`.
    - **Sunrise Alignment (`Sunrise time roller`):** Additional weekday triggers at 05:40 / 06:40.
 3. **Master Bedroom Cinema Mode (`bedroom_cinema_on` / `bedroom_cinema_off`):**
    - Turns on bedroom TV receiver and triggers `script.roller_bedroom_down_almost`.

@@ -223,6 +223,12 @@ views:
                   - entity: input_select.last_radio_station
                     name: Wybierz stację
                     icon: mdi:radio-tower
+                  - entity: input_datetime.pora_pobudka
+                    name: Pora pobudki (dni robocze)
+                    icon: mdi:alarm
+                  - entity: input_datetime.pora_pobudka_weekend
+                    name: Pora pobudki (weekend)
+                    icon: mdi:alarm-check
 
       # --- SCENY I NASTRÓJ ---
       - type: grid
