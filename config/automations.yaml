@@ -2329,7 +2329,7 @@
   mode: single
 - id: 'morning_radio_schedule'
   alias: 'Poranne Radio: Radio ZET (Pn-Pt Pora Pobudka) i Antyradio (Sb-Nd Pora Weekend)'
-  description: 'Poranna rutyna w dwóch krokach: 1. Losowa muzyka z dedykowanego folderu morning_music (~3 min), 2. Radio na żywo (Radio ZET / Antyradio).'
+  description: 'Poranna rutyna w dwóch krokach: 1. Losowa muzyka z dedykowanego folderu morning_music (głośność 40%, ~3 min), 2. Radio na żywo (głośność 10%, Radio ZET / Antyradio).'
   triggers:
     - trigger: time
       at: input_datetime.pora_pobudka
@@ -2337,16 +2337,33 @@
     - trigger: time
       at: input_datetime.pora_pobudka_weekend
       id: weekend_morning
-  conditions: []
+  conditions:
+    # Zabezpieczenie przed uruchomieniem w niewłaściwy dzień tygodnia (przepuszcza również ręczne uruchomienie testowe z UI)
+    - condition: or
+      conditions:
+        - condition: template
+          value_template: "{{ trigger.platform is not defined or trigger.platform != 'time' }}"
+        - condition: and
+          conditions:
+            - condition: trigger
+              id: weekday_morning
+            - condition: time
+              weekday:
+                - mon
+                - tue
+                - wed
+                - thu
+                - fri
+        - condition: and
+          conditions:
+            - condition: trigger
+              id: weekend_morning
+            - condition: time
+              weekday:
+                - sat
+                - sun
   actions:
-    # 0. Ustawienie poziomu głośności
-    - action: media_player.volume_set
-      target:
-        entity_id: media_player.home_assistant_voice_0a9bfd_media_player
-      data:
-        volume_level: 0.1
-
-    # --- KROK 1: ODTWORZENIE LOSOWEGO UTWORU MUZYCZNEGO ---
+    # --- KROK 1: ODTWORZENIE LOSOWEGO UTWORU MUZYCZNEGO (GŁOŚNOŚĆ 40%) ---
     - action: homeassistant.update_entity
       target:
         entity_id: sensor.morning_music
@@ -2360,9 +2377,14 @@
         - condition: template
           value_template: "{{ music_files | length > 0 }}"
       then:
+        - action: media_player.volume_set
+          target:
+            entity_id: media_player.home_assistant_voice_0a9bfd_media_player
+          data:
+            volume_level: 0.4
         - action: script.play_morning_music
         - delay:
-            seconds: 3
+            seconds: 5
         - wait_for_trigger:
             - trigger: state
               entity_id: media_player.home_assistant_voice_0a9bfd_media_player
@@ -2374,33 +2396,32 @@
             minutes: 4
           continue_on_timeout: true
 
-    # --- KROK 2: WŁĄCZENIE RADIA WG HARMONOGRAMU ---
+    # --- KROK 2: WŁĄCZENIE RADIA (GŁOŚNOŚĆ 10%) ---
+    - action: media_player.volume_set
+      target:
+        entity_id: media_player.home_assistant_voice_0a9bfd_media_player
+      data:
+        volume_level: 0.1
     - choose:
+        # Weekend: Sobota i Niedziela -> Antyradio
         - conditions:
-            - condition: trigger
-              id: weekday_morning
-            - condition: time
-              weekday:
-                - mon
-                - tue
-                - wed
-                - thu
-                - fri
-          sequence:
-            - action: script.play_radio
-              data:
-                station: radio_zet
-        - conditions:
-            - condition: trigger
-              id: weekend_morning
-            - condition: time
-              weekday:
-                - sat
-                - sun
+            - condition: or
+              conditions:
+                - condition: trigger
+                  id: weekend_morning
+                - condition: time
+                  weekday:
+                    - sat
+                    - sun
           sequence:
             - action: script.play_radio
               data:
                 station: antyradio
+      # Dni robocze (lub domyślne przy ręcznym teście w tygodniu) -> Radio ZET
+      default:
+        - action: script.play_radio
+          data:
+            station: radio_zet
   mode: single
 - id: 'radio_station_changed_auto_play'
   alias: 'Radio: Przełącz Stację po Zmianie Wyboru'

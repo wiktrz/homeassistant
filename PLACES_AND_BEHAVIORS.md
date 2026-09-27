@@ -354,8 +354,8 @@ flowchart TD
    - Saying *"włącz radio"* resumes last selected station from `input_select.last_radio_station` (defaults to Eska Rock).
    - Changing or switching stations by voice (*"zmień stację na [stacja]"*, *"przełącz na [stacja]"*, *"włącz [stacja]"*) seamlessly resolves aliases and transitions live streams.
    - **Two-Step Morning Wakeup Routine (`morning_radio_schedule`):** Mon–Fri at `pora_pobudka` (07:00) and Sat–Sun at `pora_pobudka_weekend` (08:15):
-     - **Step 1:** Random gentle audio track from dedicated folder `/config/media/morning_music/` via `script.play_morning_music` (~3 minutes). If empty, safely falls back straight to radio.
-     - **Step 2:** Seamlessly transitions to live radio (Radio ZET on weekdays, Antyradio on weekends).
+     - **Step 1:** Random gentle audio track from dedicated folder `/config/media/morning_music/` via `script.play_morning_music` (~3 minutes) at **40% volume** (`0.4`). If empty, safely falls back straight to radio.
+     - **Step 2:** Sets volume to **10% volume** (`0.1`) and seamlessly transitions to live radio (Radio ZET on weekdays, Antyradio on weekends; robust fallback for manual tests).
      - Stopping playback during Step 1 automatically halts the morning routine.
    - Changing the dropdown in Lovelace automatically re-streams to the Voice PE speaker via `radio_station_changed_auto_play` (guarded against recursive re-entry).
    - Pstryk cheapest window announcement spoke aloud automatically via Nabu Casa TTS.
@@ -604,7 +604,7 @@ flowchart TD
   - `script.toggle_radio`: Contextual toggle based on whether the entity is playing.
   - `script.radio_volume_up` & `script.radio_volume_down`: Adjusts volume on Voice PE.
 - **Automations:**
-  - `morning_radio_schedule`: Two-step morning routine: Step 1 plays random gentle MP3 track from `/config/media/morning_music/` (~3 min) via `script.play_morning_music`, Step 2 starts scheduled radio (Mon–Fri 07:00 -> Radio ZET; Sat–Sun 08:15 -> Antyradio).
+  - `morning_radio_schedule`: Two-step morning routine: Step 1 plays random gentle MP3 track from `/config/media/morning_music/` (~3 min) at 40% volume via `script.play_morning_music`, Step 2 starts scheduled radio at 10% volume (Mon–Fri 07:00 -> Radio ZET; Sat–Sun 08:15 -> Antyradio).
   - `radio_station_changed_auto_play`: Seamlessly switches radio stream when a user picks a different station on the dashboard; guarded by `not is_state('script.play_radio', 'on')` against re-entrant script cancellation.
   - `voice_pe_media_playback_intercept`: Intercepts standard UI Play/Pause buttons to route through radio scripts.
 
