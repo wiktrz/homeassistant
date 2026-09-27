@@ -30,12 +30,12 @@ homeassistant:
   # customize_glob: !include customize_glob.yaml
   # packages: !include_dir_named packages
   allowlist_external_dirs:
-    # - /home/homeAssistant/.homeAssistant/downloads
     - /tmp
-    # - /home/homeAssistant/.homeAssistant/downloads/camera/
+    - /config/media
+    - /config/media/morning_music
   media_dirs:
-    local: /media
-    # recording: /mnt/recordings
+    local: /config/media
+    morning_music: /config/media/morning_music
   
 # sensor: !include sensor.yaml
 automation: !include automations.yaml
@@ -115,6 +115,8 @@ system_log:
   max_entries: 400
 
 sensor:
+  - platform: folder
+    folder: /config/media/morning_music
   - platform: group
     name: Local 01 Sensors
     type: mean
@@ -429,7 +431,7 @@ input_datetime:
     name: Pora Pobudka Weekend
     has_date: false
     has_time: true
-    initial: "08:30:00"
+    initial: "08:15:00"
 
   # --- Dynamic Solar References ---
   dynamic_dawn:

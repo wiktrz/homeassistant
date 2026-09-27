@@ -184,13 +184,14 @@ homeassistant:
 - **Stateful Memory:** `input_select.last_radio_station` stores the last active station (resumed when saying *"włącz radio"* / *"play radio"* without specifying a station; defaults to Eska Rock on initial run)
 - **Scripts:**
   - `script.play_radio`: resolves stream URL via multi-alias dictionary (handling canonical IDs like `rmf_fm` as well as natural spoken aliases like `"RMF FM"`, `"Radio ZET"`, `"357"`), updates helper only when changed, streams directly on Voice PE via `media_player.play_media` (ESPHome Voice PE does not support `media_player.turn_on`)
-  - `script.stop_radio`: stops Voice PE stream cleanly via `media_player.media_stop` (ESPHome does not support `media_player.turn_off`)
+  - `script.stop_radio`: stops Voice PE stream cleanly via `media_player.media_stop` (ESPHome does not support `media_player.turn_off`); cleanly halts running `morning_radio_schedule` routine if active
+  - `script.play_morning_music`: randomly picks and plays an audio file from dedicated folder `/config/media/morning_music/` on Voice PE
   - `script.toggle_radio`: smart toggle checking if Voice PE is playing -> `script.stop_radio`, otherwise -> `script.play_radio`
   - `script.radio_volume_up`: increases volume on Voice PE via `media_player.volume_up`
   - `script.radio_volume_down`: decreases volume on Voice PE via `media_player.volume_down`
 - **Supported Stations:** Eska Rock (default), RMF FM, Radio ZET, Antyradio, Radio 357, TOK FM, VOX FM, Polskie Radio Trójka
 - **Automations:**
-  - `morning_radio_schedule`: Mon-Fri at `input_datetime.pora_pobudka` (default 07:00) -> Radio ZET; Sat-Sun at `input_datetime.pora_pobudka_weekend` (default 08:30) -> Antyradio on Voice PE (sets volume to 10% before playback)
+  - `morning_radio_schedule`: Two-step wake-up routine: Step 1 plays random MP3 track from `/config/media/morning_music/` (~3 min) via `script.play_morning_music`, Step 2 starts scheduled radio (Mon-Fri at `input_datetime.pora_pobudka` default 07:00 -> Radio ZET; Sat-Sun at `input_datetime.pora_pobudka_weekend` default 08:15 -> Antyradio on Voice PE; sets volume to 10% before playback)
   - `radio_station_changed_auto_play`: Automatically switches radio stream when user selects a different station in `input_select.last_radio_station` while radio is playing; guarded by `not is_state('script.play_radio', 'on')` to prevent re-entrant cancellation
   - `voice_pe_media_playback_intercept`: Intercepts HA `call_service` events (`media_play`, `media_play_pause`, `media_pause`) targeting Voice PE and maps them to `script.play_radio`, `script.toggle_radio`, and `script.stop_radio`
 

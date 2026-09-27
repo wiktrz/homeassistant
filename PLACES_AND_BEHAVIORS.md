@@ -211,7 +211,7 @@ Before reviewing individual places, the following hardware platforms and safety 
    - `script.roller_bedroom_up_1_5`: Energizes UP for 6s (slat ventilation crack).
 2. **Time-Based Automated Shutter Schedules:**
    - **Night Mode (`Night time roller down`):** At `input_datetime.pora_nocna` (23:00) -> calls `script.roller_bedroom_down_almost`.
-   - **Morning Wakeup (`Day time`):** Mon–Fri at `input_datetime.pora_pobudka` (07:00) and Sat–Sun at `input_datetime.pora_pobudka_weekend` (08:30) -> calls `script.roller_bedroom_on`.
+   - **Morning Wakeup (`Day time`):** Mon–Fri at `input_datetime.pora_pobudka` (07:00) and Sat–Sun at `input_datetime.pora_pobudka_weekend` (08:15) -> calls `script.roller_bedroom_on`.
    - **Sunrise Alignment (`Sunrise time roller`):** Additional weekday triggers at 05:40 / 06:40.
 3. **Master Bedroom Cinema Mode (`bedroom_cinema_on` / `bedroom_cinema_off`):**
    - Turns on bedroom TV receiver and triggers `script.roller_bedroom_down_almost`.
@@ -350,10 +350,13 @@ flowchart TD
    - Motion between dusk and dawn turns on vestibule light `light.boneio_32_l_07_new_light_01`.
    - Turns off 15 seconds after motion ceases.
    - Wall button `binary_sensor.boneio_dr_8ch_03_2c7fbc_in_01` overrides auto-off by setting `input_boolean.hall_entrance_input_manual`.
-5. **Stateful Radio & Voice Satellite Subsystem (`play_radio`, `stop_radio`, `morning_radio_schedule`):**
+5. **Stateful Radio & Voice Satellite Subsystem (`play_radio`, `stop_radio`, `play_morning_music`, `morning_radio_schedule`):**
    - Saying *"włącz radio"* resumes last selected station from `input_select.last_radio_station` (defaults to Eska Rock).
    - Changing or switching stations by voice (*"zmień stację na [stacja]"*, *"przełącz na [stacja]"*, *"włącz [stacja]"*) seamlessly resolves aliases and transitions live streams.
-   - Morning alarm: Mon–Fri at `pora_pobudka` plays Radio ZET; Sat–Sun at `pora_pobudka_weekend` plays Antyradio.
+   - **Two-Step Morning Wakeup Routine (`morning_radio_schedule`):** Mon–Fri at `pora_pobudka` (07:00) and Sat–Sun at `pora_pobudka_weekend` (08:15):
+     - **Step 1:** Random gentle audio track from dedicated folder `/config/media/morning_music/` via `script.play_morning_music` (~3 minutes). If empty, safely falls back straight to radio.
+     - **Step 2:** Seamlessly transitions to live radio (Radio ZET on weekdays, Antyradio on weekends).
+     - Stopping playback during Step 1 automatically halts the morning routine.
    - Changing the dropdown in Lovelace automatically re-streams to the Voice PE speaker via `radio_station_changed_auto_play` (guarded against recursive re-entry).
    - Pstryk cheapest window announcement spoke aloud automatically via Nabu Casa TTS.
 
@@ -596,11 +599,12 @@ flowchart TD
   8. `trojka`: Polskie Radio Trójka (`http://stream3.polskieradio.pl:8904/`)
 - **Scripts:**
   - `script.play_radio`: Resolves station via multi-alias dictionary (normalizing raw keys like `rmf_fm` as well as natural spoken aliases like `"RMF FM"`, `"Radio ZET"`, `"357"`, `"Trójka"`), updates helper only when changed, streams MP3/AAC directly via `media_player.play_media` (ESPHome does not support `media_player.turn_on`).
-  - `script.stop_radio`: Stops playback via `media_player.media_stop` (ESPHome does not support `media_player.turn_off`).
+  - `script.stop_radio`: Stops playback via `media_player.media_stop` (ESPHome does not support `media_player.turn_off`); cleanly halts running `morning_radio_schedule` routine if active.
+  - `script.play_morning_music`: Randomly picks and plays an audio track from dedicated folder `/config/media/morning_music/` on Voice PE.
   - `script.toggle_radio`: Contextual toggle based on whether the entity is playing.
   - `script.radio_volume_up` & `script.radio_volume_down`: Adjusts volume on Voice PE.
 - **Automations:**
-  - `morning_radio_schedule`: Weekday wake up -> Radio ZET; weekend wake up -> Antyradio (resets volume to 10% before starting playback).
+  - `morning_radio_schedule`: Two-step morning routine: Step 1 plays random gentle MP3 track from `/config/media/morning_music/` (~3 min) via `script.play_morning_music`, Step 2 starts scheduled radio (Mon–Fri 07:00 -> Radio ZET; Sat–Sun 08:15 -> Antyradio).
   - `radio_station_changed_auto_play`: Seamlessly switches radio stream when a user picks a different station on the dashboard; guarded by `not is_state('script.play_radio', 'on')` against re-entrant script cancellation.
   - `voice_pe_media_playback_intercept`: Intercepts standard UI Play/Pause buttons to route through radio scripts.
 

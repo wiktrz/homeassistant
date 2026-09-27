@@ -137,14 +137,15 @@ The installation uses industrial BoneIO DIN rail hardware:
 - **Supported Stations:** Eska Rock, RMF FM, Radio ZET, Antyradio, Radio 357, TOK FM, VOX FM, Polskie Radio Trójka.
 - **Scripts:**
   - `script.play_radio`: Resolves station via multi-alias dictionary (normalizing raw keys like `rmf_fm` as well as natural spoken aliases like `"RMF FM"`, `"Radio ZET"`, `"357"`, `"Trójka"`), updates `input_select.last_radio_station` only when value changed, and streams audio directly via `media_player.play_media` (ESPHome Voice PE does not support `media_player.turn_on`).
-  - `script.stop_radio`: Stops stream cleanly via `media_player.media_stop`.
+  - `script.stop_radio`: Stops stream cleanly via `media_player.media_stop`; halts active morning routine if running.
+  - `script.play_morning_music`: Randomly selects and plays an audio file from dedicated folder `/config/media/morning_music/` on Voice PE.
   - `script.toggle_radio`: Smart toggle checking if Voice PE is playing -> `script.stop_radio`, otherwise -> `script.play_radio`.
   - `script.radio_volume_up` & `script.radio_volume_down`: Adjusts volume on Voice PE.
 - **Voice Intents:**
   - `WlaczRadio`: Handles playing, starting, and switching stations (*"włącz radio [stacja]"*, *"włącz [stacja]"*, *"zmień stację na [stacja]"*, *"przełącz na [stacja]"*, *"switch radio to [station]"*). Dynamically responds with *"Przełączam na..."* if radio is already playing.
   - `ZatrzymajRadio`, `GlosniejRadio`, `CiszejRadio`.
 - **Automations:**
-  - `morning_radio_schedule`: Weekdays at `input_datetime.pora_pobudka` (default 07:00) -> Radio ZET; Weekends at `input_datetime.pora_pobudka_weekend` (default 08:30) -> Antyradio (sets volume to 10% before playback).
+  - `morning_radio_schedule`: Two-step wake-up routine: Step 1 plays random MP3 track from `/config/media/morning_music/` (~3 min), Step 2 streams scheduled radio (Weekdays at `input_datetime.pora_pobudka` default 07:00 -> Radio ZET; Weekends at `input_datetime.pora_pobudka_weekend` default 08:15 -> Antyradio). Sets volume to 10% before playback.
   - `radio_station_changed_auto_play`: Seamlessly switches live stream when a user selects a different station in Lovelace while radio is active; guarded by `not is_state('script.play_radio', 'on')` to prevent recursive cancellation loops.
   - `voice_pe_media_playback_intercept`: Routes standard UI Play/Pause events to radio scripts.
 

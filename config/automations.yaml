@@ -584,7 +584,7 @@
   mode: single
 - id: '1743600259980'
   alias: Test Image Recognition
-  enabled: false
+  initial_state: false
   description: ''
   triggers: []
   conditions: []
@@ -2329,7 +2329,7 @@
   mode: single
 - id: 'morning_radio_schedule'
   alias: 'Poranne Radio: Radio ZET (Pn-Pt Pora Pobudka) i Antyradio (Sb-Nd Pora Weekend)'
-  description: 'Włącza radio na Home Assistant Voice PE rano: w dni robocze o godzinie Pora Pobudka (Radio ZET), w weekendy o godzinie Pora Pobudka Weekend (Antyradio).'
+  description: 'Poranna rutyna w dwóch krokach: 1. Losowa muzyka z dedykowanego folderu morning_music (~3 min), 2. Radio na żywo (Radio ZET / Antyradio).'
   triggers:
     - trigger: time
       at: input_datetime.pora_pobudka
@@ -2339,11 +2339,42 @@
       id: weekend_morning
   conditions: []
   actions:
+    # 0. Ustawienie poziomu głośności
     - action: media_player.volume_set
       target:
         entity_id: media_player.home_assistant_voice_0a9bfd_media_player
       data:
         volume_level: 0.1
+
+    # --- KROK 1: ODTWORZENIE LOSOWEGO UTWORU MUZYCZNEGO ---
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.morning_music
+    - variables:
+        music_files: >-
+          {{ state_attr('sensor.morning_music', 'file_list')
+             | default([], true)
+             | select('search', '(?i)\.(mp3|wav|ogg|flac|m4a)$')
+             | list }}
+    - if:
+        - condition: template
+          value_template: "{{ music_files | length > 0 }}"
+      then:
+        - action: script.play_morning_music
+        - delay:
+            seconds: 3
+        - wait_for_trigger:
+            - trigger: state
+              entity_id: media_player.home_assistant_voice_0a9bfd_media_player
+              to:
+                - idle
+                - 'off'
+                - paused
+          timeout:
+            minutes: 4
+          continue_on_timeout: true
+
+    # --- KROK 2: WŁĄCZENIE RADIA WG HARMONOGRAMU ---
     - choose:
         - conditions:
             - condition: trigger
