@@ -947,7 +947,6 @@ play_radio:
           vox: vox_fm
           trojka: trojka
           'trójka': trojka
-          'trojka': trojka
           'polskie radio trójka': trojka
           'polskie radio trojka': trojka
           'radio trójka': trojka

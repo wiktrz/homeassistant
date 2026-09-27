@@ -486,11 +486,11 @@ input_button:
 
 
 
-camera:
-  - platform: mjpeg
-    name: Sance Camera
-    # still_image_url: http://10.20.100.245:18706/snapshot.htm
-    mjpeg_url: http://100.100.10.180:18706/videostream.cgi?loginuse=WktrAdmin&loginpas=Boryson68
+# camera:
+#   - platform: mjpeg
+#     name: Sance Camera
+#     # still_image_url: http://10.20.100.245:18706/snapshot.htm
+#     mjpeg_url: http://100.100.10.180:18706/videostream.cgi?loginuse=WktrAdmin&loginpas=Boryson68
 
   # - platform: onvif
   #   host: 100.100.10.194
