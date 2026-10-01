@@ -422,7 +422,7 @@ input_datetime:
     name: Pora Nocna
     has_date: false
     has_time: true
-    initial: "23:00:00"
+    initial: "22:30:00"
   pora_pobudka:
     name: Pora Pobudka
     has_date: false

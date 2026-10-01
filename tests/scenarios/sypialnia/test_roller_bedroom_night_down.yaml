@@ -1,0 +1,30 @@
+id: test_roller_bedroom_night_down
+area: sypialnia
+description: "Verify that input_datetime.pora_nocna is configured to 22:30:00 and automation.night_time_roller_down executes script.roller_bedroom_down_almost cleanly"
+tags: [sypialnia, roller, blinds, time, regression]
+status: active
+
+preconditions:
+  entities:
+    input_datetime.pora_nocna:
+      state: "22:30:00"
+      attributes:
+        has_date: false
+        has_time: true
+        hour: 22
+        minute: 30
+        second: 0
+        timestamp: 81000
+
+action:
+  type: call_service
+  service: automation.trigger
+  data:
+    entity_id: automation.night_time_roller_down
+    skip_condition: true
+
+wait_seconds: 1.0
+
+assertions:
+  - entity: input_datetime.pora_nocna
+    state: "22:30:00"
