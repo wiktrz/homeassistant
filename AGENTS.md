@@ -56,6 +56,7 @@ config/
 ├── scripts.yaml          # HA scripts (roller, lighting, cinema)
 ├── scenes.yaml           # Scene definitions
 ├── templates.yaml        # Template sensors (Pstryk pricing)
+├── rest.yaml             # REST sensors (InPost Paczkomat MAR13M air quality & weather)
 ├── customize.yaml        # Entity customization
 ├── secrets.yaml          # Sensitive configuration
 ├── views.yaml            # View definitions

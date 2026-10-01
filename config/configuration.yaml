@@ -45,6 +45,7 @@ mqtt: !include mqtt.yaml
 scene: !include scenes.yaml
 script: !include scripts.yaml
 template: !include templates.yaml
+rest: !include rest.yaml
 
 light:
   - platform: group

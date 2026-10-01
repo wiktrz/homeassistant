@@ -13,7 +13,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-09-27T15:39:38.381811'
+  last_verified: '2026-10-01T10:28:48.173063'
 - id: test_salon_cinema_mode_on_night
   area: salon
   file: scenarios/salon/test_cinema_mode.yaml
@@ -53,7 +53,7 @@ tests:
   - rental
   - regression
   status: active
-  last_verified: '2026-09-24T14:49:07.336354'
+  last_verified: '2026-10-01T11:43:57.468398'
 - id: test_protected_power_supplies_integrity
   area: bezpieczenstwo
   file: scenarios/bezpieczenstwo/test_power_supplies_untouched.yaml
@@ -79,7 +79,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-09-24T14:49:10.097224'
+  last_verified: '2026-10-01T10:29:22.331441'
 - id: test_radio_volume_up_execution
   area: multimedia
   file: scenarios/multimedia/test_radio_volume_up.yaml
@@ -91,7 +91,7 @@ tests:
   - script
   - regression
   status: active
-  last_verified: '2026-09-27T15:39:39.899924'
+  last_verified: '2026-10-01T10:28:49.711355'
 - id: test_radio_station_switch_playing
   area: multimedia
   file: scenarios/multimedia/test_radio_station_switch_playing.yaml
@@ -105,7 +105,7 @@ tests:
   - alias
   - regression
   status: active
-  last_verified: '2026-09-27T15:39:41.421999'
+  last_verified: '2026-10-01T10:28:51.272538'
 - id: test_pstryk_engine_unit_suite
   area: pstryk
   file: unit/test_pstryk_engine.py
@@ -132,7 +132,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-09-24T14:49:14.690966'
+  last_verified: '2026-10-01T10:29:23.919199'
 - id: test_solar_engine_unit_suite
   area: solar
   file: unit/test_solar_engine.py
@@ -159,3 +159,17 @@ tests:
   - regression
   status: active
   last_verified: '2026-09-24T14:49:16.211367'
+- id: test_inpost_rest_sensors_unit_suite
+  area: outdoor
+  file: unit/test_inpost_rest_sensors.py
+  description: Comprehensive unit test suite for InPost Paczkomat MAR13M REST integration
+    covering YAML syntax, 2h scan_interval, 7 environmental sensors metadata, and
+    Jinja2 rendering.
+  tags:
+  - outdoor
+  - inpost
+  - weather
+  - air_quality
+  - unit
+  - regression
+  status: active

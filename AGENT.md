@@ -60,6 +60,7 @@ The overall system automates and manages a primary residence (**`local00`**) and
 | **Heating Station** | `home_automation/` (`esp32dev_ttgo_t4`) | C++, PlatformIO, TFT_eSPI, CircleViews | Room thermostats with ILI9341 display, target temperature setpoints, routine schedule display |
 | **Pstryk Engine** | `homeassistant/config/pstryk_engine.py` & `pstryk_pricing.py` | Python 3, `urllib.request` | Dynamic Polish hourly energy pricing & multi-period backend aggregation engine (`dol` & `gora`), 15-min smart caching in `/tmp/pstryk_cache_{installation}.json`, 5-dataset fetch (latest, forward 48h, today hourly, month daily, year monthly), prosumer selling tariffs, consolidated backward-compatible schema |
 | **Solar Engine** | `homeassistant/config/solar_engine.py` & `sync_dynamic_solar_times` | Python 3, Astral 2.2, Jinja2 | Dynamic solar calculation engine (dawn, sunrise, solar noon, sunset, dusk, outdoor dusk) with 3-tier fallback, Polish UI labels, English entity IDs (`input_datetime.dynamic_*`) |
+| **InPost REST Integration** | `homeassistant/config/rest.yaml` | YAML, REST API, Jinja2 | Local outdoor weather & air quality sensors from InPost Paczkomat MAR13M (`sensor.paczkomat_mar13m_*`: air index level, temperature, humidity, pressure, PM1, PM2.5, PM10) |
 
 ---
 

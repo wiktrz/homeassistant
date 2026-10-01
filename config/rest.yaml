@@ -1,0 +1,133 @@
+# InPost Paczkomat MAR13M Air Quality & Weather Integration
+# Locker: MAR13M, CMS Entity ID: 45898
+# Scan interval: 7200 seconds (2 hours)
+- resource: https://inpost.pl/shipx-point-data/45898/MAR13M/air_index_level
+  method: POST
+  headers:
+    X-Requested-With: XMLHttpRequest
+    User-Agent: "Mozilla/5.0 (HomeAssistant; Linux x86_64) AppleWebKit/537.36"
+  scan_interval: 7200
+  sensor:
+    - name: "Paczkomat MAR13M Air Index Level"
+      unique_id: paczkomat_mar13m_air_index_level
+      icon: mdi:air-filter
+      value_template: >-
+        {% set ns = namespace(val='unavailable') %}
+        {% if value_json is defined and value_json is mapping and 'air_index_level' in value_json and value_json.air_index_level is not none and value_json.air_index_level | string | trim != '' %}
+          {% set ns.val = value_json.air_index_level | string | trim %}
+        {% endif %}
+        {{ ns.val }}
+
+    - name: "Paczkomat MAR13M Temperature"
+      unique_id: paczkomat_mar13m_temperature
+      device_class: temperature
+      unit_of_measurement: "°C"
+      state_class: measurement
+      value_template: >-
+        {% set ns = namespace(val='unavailable') %}
+        {% if value_json is defined and value_json is mapping and 'air_sensors' in value_json and value_json.air_sensors is iterable and value_json.air_sensors is not string %}
+          {% for s in value_json.air_sensors %}
+            {% if s is string and s.startswith('TEMPERATURE:') %}
+              {% set parts = s.split(':') %}
+              {% if parts | length > 1 and parts[1] | trim != '' %}
+                {% set ns.val = parts[1] | trim %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {{ ns.val }}
+
+    - name: "Paczkomat MAR13M Humidity"
+      unique_id: paczkomat_mar13m_humidity
+      device_class: humidity
+      unit_of_measurement: "%"
+      state_class: measurement
+      value_template: >-
+        {% set ns = namespace(val='unavailable') %}
+        {% if value_json is defined and value_json is mapping and 'air_sensors' in value_json and value_json.air_sensors is iterable and value_json.air_sensors is not string %}
+          {% for s in value_json.air_sensors %}
+            {% if s is string and s.startswith('HUMIDITY:') %}
+              {% set parts = s.split(':') %}
+              {% if parts | length > 1 and parts[1] | trim != '' %}
+                {% set ns.val = parts[1] | trim %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {{ ns.val }}
+
+    - name: "Paczkomat MAR13M Pressure"
+      unique_id: paczkomat_mar13m_pressure
+      device_class: pressure
+      unit_of_measurement: "hPa"
+      state_class: measurement
+      value_template: >-
+        {% set ns = namespace(val='unavailable') %}
+        {% if value_json is defined and value_json is mapping and 'air_sensors' in value_json and value_json.air_sensors is iterable and value_json.air_sensors is not string %}
+          {% for s in value_json.air_sensors %}
+            {% if s is string and s.startswith('PRESSURE:') %}
+              {% set parts = s.split(':') %}
+              {% if parts | length > 1 and parts[1] | trim != '' %}
+                {% set ns.val = parts[1] | trim %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {{ ns.val }}
+
+    - name: "Paczkomat MAR13M PM25"
+      unique_id: paczkomat_mar13m_pm25
+      device_class: pm25
+      unit_of_measurement: "µg/m³"
+      state_class: measurement
+      value_template: >-
+        {% set ns = namespace(val='unavailable') %}
+        {% if value_json is defined and value_json is mapping and 'air_sensors' in value_json and value_json.air_sensors is iterable and value_json.air_sensors is not string %}
+          {% for s in value_json.air_sensors %}
+            {% if s is string and s.startswith('PM25:') %}
+              {% set parts = s.split(':') %}
+              {% if parts | length > 1 and parts[1] | trim != '' %}
+                {% set ns.val = parts[1] | trim %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {{ ns.val }}
+
+    - name: "Paczkomat MAR13M PM10"
+      unique_id: paczkomat_mar13m_pm10
+      device_class: pm10
+      unit_of_measurement: "µg/m³"
+      state_class: measurement
+      value_template: >-
+        {% set ns = namespace(val='unavailable') %}
+        {% if value_json is defined and value_json is mapping and 'air_sensors' in value_json and value_json.air_sensors is iterable and value_json.air_sensors is not string %}
+          {% for s in value_json.air_sensors %}
+            {% if s is string and s.startswith('PM10:') %}
+              {% set parts = s.split(':') %}
+              {% if parts | length > 1 and parts[1] | trim != '' %}
+                {% set ns.val = parts[1] | trim %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {{ ns.val }}
+
+    - name: "Paczkomat MAR13M PM1"
+      unique_id: paczkomat_mar13m_pm1
+      device_class: pm1
+      unit_of_measurement: "µg/m³"
+      state_class: measurement
+      value_template: >-
+        {% set ns = namespace(val='unavailable') %}
+        {% if value_json is defined and value_json is mapping and 'air_sensors' in value_json and value_json.air_sensors is iterable and value_json.air_sensors is not string %}
+          {% for s in value_json.air_sensors %}
+            {% if s is string and s.startswith('PM1:') %}
+              {% set parts = s.split(':') %}
+              {% if parts | length > 1 and parts[1] | trim != '' %}
+                {% set ns.val = parts[1] | trim %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {{ ns.val }}

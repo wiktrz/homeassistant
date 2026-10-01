@@ -464,6 +464,13 @@ flowchart TD
 | Camera AI Last Result | `sensor.camera_ai_last_result` | Template Sensor | Last vision AI result (face/plate/description) |
 | Camera AI Gate Auto-Open | `input_boolean.camera_ai_gate_auto_open` | HA Helper | Master enable switch for AI automatic gate opening |
 | Camera AI Gate Cooldown | `input_datetime.camera_ai_last_gate_trigger` | HA Helper | Timestamp of last gate trigger for debounce cooldown |
+| Paczkomat Air Quality Index | `sensor.paczkomat_mar13m_air_index_level` | REST Integration (`config/rest.yaml`) | InPost MAR13M overall air quality index level |
+| Paczkomat Temperature | `sensor.paczkomat_mar13m_temperature` | REST Integration (`config/rest.yaml`) | Local outdoor temperature (°C) |
+| Paczkomat Humidity | `sensor.paczkomat_mar13m_humidity` | REST Integration (`config/rest.yaml`) | Local outdoor relative humidity (%) |
+| Paczkomat Atmospheric Pressure | `sensor.paczkomat_mar13m_pressure` | REST Integration (`config/rest.yaml`) | Local atmospheric pressure (hPa) |
+| Paczkomat Particulate PM2.5 | `sensor.paczkomat_mar13m_pm25` | REST Integration (`config/rest.yaml`) | Fine particulate matter concentration (µg/m³) |
+| Paczkomat Particulate PM10 | `sensor.paczkomat_mar13m_pm10` | REST Integration (`config/rest.yaml`) | Coarse particulate matter concentration (µg/m³) |
+| Paczkomat Particulate PM1.0 | `sensor.paczkomat_mar13m_pm1` | REST Integration (`config/rest.yaml`) | Ultrafine particulate matter concentration (µg/m³) |
 
 #### Behaviors & Automations
 1. **Unified Terrace Lighting (`light.taras_lampy`):**
@@ -695,5 +702,5 @@ flowchart TD
 | **Wiatrołap & Hol Wejście** | `light.boneio_32_l_07_new_light_01`, `light.boneio_dr_8ch_03_2c7fbc_chl_01`, `chr_04` | `sensor.local00_wiatrolap_*`, `sensor.local00_holwejscie_*` | `binary_sensor...in_25_reed_entrance`, `...in_26_pir_entrance` | `media_player.home_assistant_voice_0a9bfd...`, `lock.rygiel_drzwi_wejsciowych_lock`, `input_button.btn_entrance_door` |
 | **Korytarz Sypialnie & Klatki** | `light.boneio_dr_8ch_03_2c7fbc_chl_02`, `chr_01` | `climate.local00_klatka1p_termostat`, `_klatka2p_termostat` | `binary_sensor...in_31_pir_hall_bedroom`, `sensor.local00_holsypialnia_*` | Automatic night dimming |
 | **Pokoje Dziecięce & Gabinet** | `light.boneio_32_l_07_new_light_14`, `_16`, `_19` | `climate.local00_klara_termostat`, `_nikola_termostat`, `_gabinet_termostat` | `sensor.local00_klara_*`, `_nikola_*`, `_gabinet_*` | Independent heating routines |
-| **Taras, Ogród & Podjazd** | `light.taras_lampy` (`bulb_1` + `bulb_2`), `light.boneio_32_l_07_new_light_12` | N/A | Terrace PIR, Garden Reed | `cover.brama_wynajem_zaslona`, `siren.reolink_duo_floodlight_poe_syrena`, 5 Reolink Cameras |
+| **Taras, Ogród & Podjazd** | `light.taras_lampy` (`bulb_1` + `bulb_2`), `light.boneio_32_l_07_new_light_12` | N/A | Terrace PIR, Garden Reed, Paczkomat MAR13M Air & Weather (7 REST sensors) | `cover.brama_wynajem_zaslona`, `siren.reolink_duo_floodlight_poe_syrena`, 5 Reolink Cameras |
 | **Lokale Wynajem (01-06)** | Controlled via apartments | 18 Climates: `climate.local01_glowny`..`local06_sypialnia` | 18 Temperature & Setpoint Sensors | 18 Routine Helpers: `input_select.local0X_*_heating_routine`, TTGO T4 Displays |
