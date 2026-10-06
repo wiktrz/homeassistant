@@ -221,6 +221,7 @@ The installation uses industrial BoneIO DIN rail hardware:
   - Main view (`/energia`) features dual sections ("Pstryk Energy — Instalacja Dół" and "Pstryk Energy — Instalacja Góra") with 8 dynamic tiles each (Kupno, Sprzedaż, Najlepsze Okno, Zużycie Dziś, Koszt Dziś, Zużycie Miesiąc, Koszt Miesiąc, Ślad Węglowy) with reactive color thresholds and one-tap navigation to the detailed report. Obsolete phase 1 legacy grid removed; Tesla Model Y cards conditional.
   - Interactive reporting subview (`/dashboard-home/energia-raport`) provides native back navigation, Dół vs Góra side-by-side comparison tables, Jinja2 hourly today breakdown, daily month history, 2026 year monthly table, and 48h live history graphs.
   - Test dashboard (`config/dashboard_energy_test.yaml` at `/dashboard-enegery/energy`) provides quick glance at prices, heating zones, conditional Tesla metrics, and scenes.
+  - Main Dom view (`config/dashboard_modern_reference.yaml` at `/dashboard-home/dom`) integrates home shortcuts, weather forecast, `Energia i Info`, InPost Paczkomat MAR13M telemetric tiles (air quality index, temp, PM2.5, PM10, humidity, pressure), lighting matrix, and climate controls.
 - Automation `daily_energy_price_notification` runs at 22:00 (notification click opens `/dashboard-home/energia`).
 
 ### Voice Assistant & Media Players (Voice PE)

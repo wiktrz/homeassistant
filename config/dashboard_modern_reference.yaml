@@ -45,6 +45,34 @@ views:
               {% endif %}
             tap_action:
               action: toggle
+      - square: false
+        type: grid
+        columns: 2
+        cards:
+          - type: tile
+            entity: sensor.paczkomat_mar13m_air_index_level
+            name: Jakość Powietrza
+            icon: mdi:air-filter
+          - type: tile
+            entity: sensor.paczkomat_mar13m_temperature
+            name: Temp. Zewnętrzna
+            icon: mdi:thermometer
+          - type: tile
+            entity: sensor.paczkomat_mar13m_pm25
+            name: Pył PM2.5
+            icon: mdi:blur
+          - type: tile
+            entity: sensor.paczkomat_mar13m_pm10
+            name: Pył PM10
+            icon: mdi:blur-radial
+          - type: tile
+            entity: sensor.paczkomat_mar13m_humidity
+            name: Wilgotność Zewn.
+            icon: mdi:water-percent
+          - type: tile
+            entity: sensor.paczkomat_mar13m_pressure
+            name: Ciśnienie Zewn.
+            icon: mdi:gauge
       - type: weather-forecast
         entity: weather.forecast_home
         name: Pogoda Dom
@@ -112,16 +140,6 @@ views:
             entity: light.boneio_32_l_07_new_light_12
             name: Podjazd
             icon: mdi:car-light-high
-      - type: entities
-        entities:
-          - entity: input_select.shelly_mode
-            name: Tryb Salon
-          - entity: input_number.shelly_brightness
-            name: Jasność
-          - entity: input_number.kolor_bialy_salon
-            name: Kanał Biały
-          - entity: input_number.kolor_czerwony_salon
-            name: Kanał Czerwony
       - square: false
         type: grid
         columns: 2
@@ -161,6 +179,16 @@ views:
             type: picture-entity
             entity: camera.520a_plynny
             name: Front / Brama
+      - type: entities
+        entities:
+          - entity: input_select.shelly_mode
+            name: Tryb Salon
+          - entity: input_number.shelly_brightness
+            name: Jasność
+          - entity: input_number.kolor_bialy_salon
+            name: Kanał Biały
+          - entity: input_number.kolor_czerwony_salon
+            name: Kanał Czerwony
   - title: Klimat
     path: klimat
     icon: mdi:thermometer
@@ -437,10 +465,8 @@ views:
         tap_action:
           action: navigate
           navigation_path: /dashboard-home/energia-raport
-
       - type: heading
         heading: Pstryk Energy — Instalacja Dół
-
       - type: grid
         columns: 4
         square: false
@@ -448,10 +474,11 @@ views:
           - type: tile
             entity: sensor.pstryk_cena_kupno_dol
             name: Kupno
-            icon: |
+            icon: >
               {% if is_state('binary_sensor.pstryk_droga_godzina_dol', 'on') %}
                 mdi:tag-alert
-              {% elif is_state('binary_sensor.pstryk_tania_godzina_dol', 'on') %}
+              {% elif is_state('binary_sensor.pstryk_tania_godzina_dol', 'on')
+              %}
                 mdi:tag-check
               {% else %}
                 mdi:currency-usd
@@ -467,7 +494,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
           - type: tile
             entity: sensor.pstryk_cena_sprzedaz_dol
             name: Sprzedaż
@@ -476,7 +502,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
           - type: tile
             entity: sensor.pstryk_best_window_dol
             name: Najlepsze Okno
@@ -495,7 +520,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
           - type: tile
             entity: sensor.pstryk_zuzycie_dzis_dol
             name: Zużycie Dziś
@@ -504,7 +528,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
           - type: tile
             entity: sensor.pstryk_koszt_dzis_dol
             name: Koszt Dziś
@@ -513,7 +536,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
           - type: tile
             entity: sensor.pstryk_zuzycie_miesiac_dol
             name: Zużycie Miesiąc
@@ -522,7 +544,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
           - type: tile
             entity: sensor.pstryk_koszt_miesiac_dol
             name: Koszt Miesiąc
@@ -531,7 +552,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
           - type: tile
             entity: sensor.pstryk_slad_weglowy_dol
             name: Ślad Węglowy
@@ -540,10 +560,8 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
       - type: heading
         heading: Pstryk Energy — Instalacja Góra
-
       - type: grid
         columns: 4
         square: false
@@ -551,10 +569,11 @@ views:
           - type: tile
             entity: sensor.pstryk_cena_kupno_gora
             name: Kupno
-            icon: |
+            icon: >
               {% if is_state('binary_sensor.pstryk_droga_godzina_gora', 'on') %}
                 mdi:tag-alert
-              {% elif is_state('binary_sensor.pstryk_tania_godzina_gora', 'on') %}
+              {% elif is_state('binary_sensor.pstryk_tania_godzina_gora', 'on')
+              %}
                 mdi:tag-check
               {% else %}
                 mdi:currency-usd
@@ -570,7 +589,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
           - type: tile
             entity: sensor.pstryk_cena_sprzedaz_gora
             name: Sprzedaż
@@ -579,18 +597,19 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
           - type: tile
             entity: sensor.pstryk_best_window_gora
             name: Najlepsze Okno
-            icon: |
-              {% if is_state('binary_sensor.pstryk_in_best_window_gora', 'on') %}
+            icon: >
+              {% if is_state('binary_sensor.pstryk_in_best_window_gora', 'on')
+              %}
                 mdi:clock-check
               {% else %}
                 mdi:clock-outline
               {% endif %}
-            color: |
-              {% if is_state('binary_sensor.pstryk_in_best_window_gora', 'on') %}
+            color: >
+              {% if is_state('binary_sensor.pstryk_in_best_window_gora', 'on')
+              %}
                 green
               {% else %}
                 purple
@@ -598,7 +617,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
           - type: tile
             entity: sensor.pstryk_zuzycie_dzis_gora
             name: Zużycie Dziś
@@ -607,7 +625,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
           - type: tile
             entity: sensor.pstryk_koszt_dzis_gora
             name: Koszt Dziś
@@ -616,7 +633,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
           - type: tile
             entity: sensor.pstryk_zuzycie_miesiac_gora
             name: Zużycie Miesiąc
@@ -625,7 +641,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
           - type: tile
             entity: sensor.pstryk_koszt_miesiac_gora
             name: Koszt Miesiąc
@@ -634,7 +649,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
           - type: tile
             entity: sensor.pstryk_slad_weglowy_gora
             name: Ślad Węglowy
@@ -643,8 +657,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-
-      # --- TESLA MODEL Y (CONDITIONAL) ---
       - type: conditional
         conditions:
           - entity: device_tracker.tesla_y_location
@@ -674,10 +686,11 @@ views:
                   entity: sensor.tesla_y_battery_level
                   name: Bateria
                   icon: mdi:battery
-                  color: |
+                  color: >
                     {% if states('sensor.tesla_y_battery_level') | float > 80 %}
                       green
-                    {% elif states('sensor.tesla_y_battery_level') | float > 30 %}
+                    {% elif states('sensor.tesla_y_battery_level') | float > 30
+                    %}
                       orange
                     {% else %}
                       red
@@ -690,7 +703,6 @@ views:
                   entity: device_tracker.tesla_y_location
                   name: Lokalizacja
                   icon: mdi:map-marker
-
   - title: Raport Energii
     path: energia-raport
     subview: true
@@ -698,11 +710,8 @@ views:
     cards:
       - type: heading
         heading: Raport Zużycia i Kosztów Energii (Pstryk)
-
-      # --- PODSUMOWANIE I PORÓWNANIE (DÓŁ VS GÓRA) ---
       - type: heading
         heading: Porównanie Instalacji (Dół vs Góra)
-
       - type: grid
         columns: 4
         square: false
@@ -747,80 +756,140 @@ views:
             name: Góra — Miesiąc (PLN)
             icon: mdi:wallet
             color: deep-orange
-
       - type: markdown
         title: Podsumowanie Zbiorcze
-        content: |
-          | Okres | Dół — Zużycie | Dół — Koszt | Góra — Zużycie | Góra — Koszt | Łącznie Zużycie | Łączny Koszt |
-          | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-          | **Dziś** | {{ states('sensor.pstryk_zuzycie_dzis_dol') }} kWh | {{ states('sensor.pstryk_koszt_dzis_dol') }} PLN | {{ states('sensor.pstryk_zuzycie_dzis_gora') }} kWh | {{ states('sensor.pstryk_koszt_dzis_gora') }} PLN | {{ ((states('sensor.pstryk_zuzycie_dzis_dol') | float(0)) + (states('sensor.pstryk_zuzycie_dzis_gora') | float(0))) | round(2) }} kWh | {{ ((states('sensor.pstryk_koszt_dzis_dol') | float(0)) + (states('sensor.pstryk_koszt_dzis_gora') | float(0))) | round(2) }} PLN |
-          | **Ten Miesiąc** | {{ states('sensor.pstryk_zuzycie_miesiac_dol') }} kWh | {{ states('sensor.pstryk_koszt_miesiac_dol') }} PLN | {{ states('sensor.pstryk_zuzycie_miesiac_gora') }} kWh | {{ states('sensor.pstryk_koszt_miesiac_gora') }} PLN | {{ ((states('sensor.pstryk_zuzycie_miesiac_dol') | float(0)) + (states('sensor.pstryk_zuzycie_miesiac_gora') | float(0))) | round(2) }} kWh | {{ ((states('sensor.pstryk_koszt_miesiac_dol') | float(0)) + (states('sensor.pstryk_koszt_miesiac_gora') | float(0))) | round(2) }} PLN |
+        content: >
+          | Okres | Dół — Zużycie | Dół — Koszt | Góra — Zużycie | Góra — Koszt
+          | Łącznie Zużycie | Łączny Koszt |
 
-      # --- DZIŚ: GODZINOWY ROZKŁAD ZUŻYCIA I KOSZTÓW ---
+          | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+
+          | **Dziś** | {{ states('sensor.pstryk_zuzycie_dzis_dol') }} kWh | {{
+          states('sensor.pstryk_koszt_dzis_dol') }} PLN | {{
+          states('sensor.pstryk_zuzycie_dzis_gora') }} kWh | {{
+          states('sensor.pstryk_koszt_dzis_gora') }} PLN | {{
+          ((states('sensor.pstryk_zuzycie_dzis_dol') | float(0)) +
+          (states('sensor.pstryk_zuzycie_dzis_gora') | float(0))) | round(2) }}
+          kWh | {{ ((states('sensor.pstryk_koszt_dzis_dol') | float(0)) +
+          (states('sensor.pstryk_koszt_dzis_gora') | float(0))) | round(2) }}
+          PLN |
+
+          | **Ten Miesiąc** | {{ states('sensor.pstryk_zuzycie_miesiac_dol') }}
+          kWh | {{ states('sensor.pstryk_koszt_miesiac_dol') }} PLN | {{
+          states('sensor.pstryk_zuzycie_miesiac_gora') }} kWh | {{
+          states('sensor.pstryk_koszt_miesiac_gora') }} PLN | {{
+          ((states('sensor.pstryk_zuzycie_miesiac_dol') | float(0)) +
+          (states('sensor.pstryk_zuzycie_miesiac_gora') | float(0))) | round(2)
+          }} kWh | {{ ((states('sensor.pstryk_koszt_miesiac_dol') | float(0)) +
+          (states('sensor.pstryk_koszt_miesiac_gora') | float(0))) | round(2) }}
+          PLN |
       - type: heading
         heading: Dziś — Rozkład Godzinowy (Pstryk)
-
       - type: markdown
         title: Szczegółowy Rozkład Godzinowy
-        content: |
-          | Godzina | Zużycie Dół (kWh) | Koszt Dół (PLN) | Stawka (PLN/kWh) | Zużycie Góra (kWh) | Koszt Góra (PLN) |
-          | :---: | :---: | :---: | :---: | :---: | :---: |
-          {% set rows_dol = state_attr('sensor.pstryk_zuzycie_dzis_dol', 'hourly') %}
-          {% set rows_gora = state_attr('sensor.pstryk_zuzycie_dzis_gora', 'hourly') %}
-          {% if rows_dol and rows_dol | length > 0 %}
-          {% for r in rows_dol %}
-          {% set g = rows_gora[loop.index0] if rows_gora and loop.index0 < (rows_gora | length) else none %}
-          | {{ r.start }} - {{ r.end }} | {{ r.kwh }} | {{ r.cost_pln }} | {{ r.rate_gross }} | {{ g.kwh if g else '-' }} | {{ g.cost_pln if g else '-' }} |
-          {% endfor %}
-          {% else %}
-          | - | Brak danych godzinowych | - | - | - | - |
-          {% endif %}
+        content: >
+          | Godzina | Zużycie Dół (kWh) | Koszt Dół (PLN) | Stawka (PLN/kWh) |
+          Zużycie Góra (kWh) | Koszt Góra (PLN) |
 
-      # --- MIESIĄC: DZIENNY ROZKŁAD ZUŻYCIA I KOSZTÓW ---
+          | :---: | :---: | :---: | :---: | :---: | :---: |
+
+          {% set rows_dol = state_attr('sensor.pstryk_zuzycie_dzis_dol',
+          'hourly') %}
+
+          {% set rows_gora = state_attr('sensor.pstryk_zuzycie_dzis_gora',
+          'hourly') %}
+
+          {% if rows_dol and rows_dol | length > 0 %}
+
+          {% for r in rows_dol %}
+
+          {% set g = rows_gora[loop.index0] if rows_gora and loop.index0 <
+          (rows_gora | length) else none %}
+
+          | {{ r.start }} - {{ r.end }} | {{ r.kwh }} | {{ r.cost_pln }} | {{
+          r.rate_gross }} | {{ g.kwh if g else '-' }} | {{ g.cost_pln if g else
+          '-' }} |
+
+          {% endfor %}
+
+          {% else %}
+
+          | - | Brak danych godzinowych | - | - | - | - |
+
+          {% endif %}
       - type: heading
         heading: Ten Miesiąc — Historia Dzienna
-
       - type: markdown
         title: Dzienny Rozkład Zużycia w Bieżącym Miesiącu
-        content: |
-          | Data | Zużycie Dół (kWh) | Koszt Dół (PLN) | Śr. Stawka (PLN/kWh) | Zużycie Góra (kWh) | Koszt Góra (PLN) |
-          | :---: | :---: | :---: | :---: | :---: | :---: |
-          {% set days_dol = state_attr('sensor.pstryk_zuzycie_miesiac_dol', 'daily') %}
-          {% set days_gora = state_attr('sensor.pstryk_zuzycie_miesiac_gora', 'daily') %}
-          {% if days_dol and days_dol | length > 0 %}
-          {% for d in days_dol %}
-          {% set dg = days_gora[loop.index0] if days_gora and loop.index0 < (days_gora | length) else none %}
-          | {{ d.date }} | {{ d.kwh }} | {{ d.cost_pln }} | {{ d.avg_rate }} | {{ dg.kwh if dg else '-' }} | {{ dg.cost_pln if dg else '-' }} |
-          {% endfor %}
-          {% else %}
-          | - | Brak danych dziennych | - | - | - | - |
-          {% endif %}
+        content: >
+          | Data | Zużycie Dół (kWh) | Koszt Dół (PLN) | Śr. Stawka (PLN/kWh) |
+          Zużycie Góra (kWh) | Koszt Góra (PLN) |
 
-      # --- ROK: MIESIĘCZNA HISTORIA ---
+          | :---: | :---: | :---: | :---: | :---: | :---: |
+
+          {% set days_dol = state_attr('sensor.pstryk_zuzycie_miesiac_dol',
+          'daily') %}
+
+          {% set days_gora = state_attr('sensor.pstryk_zuzycie_miesiac_gora',
+          'daily') %}
+
+          {% if days_dol and days_dol | length > 0 %}
+
+          {% for d in days_dol %}
+
+          {% set dg = days_gora[loop.index0] if days_gora and loop.index0 <
+          (days_gora | length) else none %}
+
+          | {{ d.date }} | {{ d.kwh }} | {{ d.cost_pln }} | {{ d.avg_rate }} |
+          {{ dg.kwh if dg else '-' }} | {{ dg.cost_pln if dg else '-' }} |
+
+          {% endfor %}
+
+          {% else %}
+
+          | - | Brak danych dziennych | - | - | - | - |
+
+          {% endif %}
       - type: heading
         heading: Rok 2026 — Historia Miesięczna
-
       - type: markdown
         title: Miesięczna Historia Kosztów i Zużycia
-        content: |
-          | Miesiąc | Dół — Zużycie (kWh) | Dół — Koszt (PLN) | Góra — Zużycie (kWh) | Góra — Koszt (PLN) | Łączny Koszt (PLN) |
-          | :---: | :---: | :---: | :---: | :---: | :---: |
-          {% set months_dol = state_attr('sensor.pstryk_koszt_miesiac_dol', 'monthly') or state_attr('sensor.pstryk_koszt_miesiac_dol', 'monthly_history') %}
-          {% set months_gora = state_attr('sensor.pstryk_koszt_miesiac_gora', 'monthly') or state_attr('sensor.pstryk_koszt_miesiac_gora', 'monthly_history') %}
-          {% if months_dol and months_dol | length > 0 %}
-          {% for m in months_dol %}
-          {% set mg = months_gora[loop.index0] if months_gora and loop.index0 < (months_gora | length) else none %}
-          {% set total_cost = ((m.cost_pln | float(0)) + (mg.cost_pln | float(0) if mg else 0)) | round(2) %}
-          | {{ m.month }} | {{ m.kwh }} | {{ m.cost_pln }} | {{ mg.kwh if mg else '-' }} | {{ mg.cost_pln if mg else '-' }} | {{ total_cost }} |
-          {% endfor %}
-          {% else %}
-          | - | Brak danych miesięcznych | - | - | - | - |
-          {% endif %}
+        content: >
+          | Miesiąc | Dół — Zużycie (kWh) | Dół — Koszt (PLN) | Góra — Zużycie
+          (kWh) | Góra — Koszt (PLN) | Łączny Koszt (PLN) |
 
-      # --- WYKRESY I TRENDY CENOWE ---
+          | :---: | :---: | :---: | :---: | :---: | :---: |
+
+          {% set months_dol = state_attr('sensor.pstryk_koszt_miesiac_dol',
+          'monthly') or state_attr('sensor.pstryk_koszt_miesiac_dol',
+          'monthly_history') %}
+
+          {% set months_gora = state_attr('sensor.pstryk_koszt_miesiac_gora',
+          'monthly') or state_attr('sensor.pstryk_koszt_miesiac_gora',
+          'monthly_history') %}
+
+          {% if months_dol and months_dol | length > 0 %}
+
+          {% for m in months_dol %}
+
+          {% set mg = months_gora[loop.index0] if months_gora and loop.index0 <
+          (months_gora | length) else none %}
+
+          {% set total_cost = ((m.cost_pln | float(0)) + (mg.cost_pln | float(0)
+          if mg else 0)) | round(2) %}
+
+          | {{ m.month }} | {{ m.kwh }} | {{ m.cost_pln }} | {{ mg.kwh if mg
+          else '-' }} | {{ mg.cost_pln if mg else '-' }} | {{ total_cost }} |
+
+          {% endfor %}
+
+          {% else %}
+
+          | - | Brak danych miesięcznych | - | - | - | - |
+
+          {% endif %}
       - type: heading
         heading: Wykresy i Trendy Cenowe
-
       - type: history-graph
         title: Historia Cen Energii (PLN/kWh)
         hours_to_show: 48
@@ -833,7 +902,6 @@ views:
             name: Sprzedaż Dół
           - entity: sensor.pstryk_cena_sprzedaz_gora
             name: Sprzedaż Góra
-
       - type: history-graph
         title: Zużycie Energii (kWh)
         hours_to_show: 48
@@ -846,15 +914,12 @@ views:
             name: Koszt Dziś Dół
           - entity: sensor.pstryk_koszt_dzis_gora
             name: Koszt Dziś Góra
-
   - title: Multimedia
     path: media
     icon: mdi:television-play
     cards:
-      # --- KONTROLA MULTIMEDIÓW: TELEWIZOR & RADIO (1.A + 2.A) ---
       - type: horizontal-stack
         cards:
-          # --- TELEWIZOR SALON (LEWA KOLUMNA) ---
           - type: vertical-stack
             cards:
               - type: tile
@@ -891,8 +956,6 @@ views:
                       perform_action: remote.toggle
                       target:
                         entity_id: remote.salon_2
-
-          # --- RADIO INTERNETOWE VOICE PE (PRAWA KOLUMNA) ---
           - type: vertical-stack
             cards:
               - type: tile
@@ -943,8 +1006,6 @@ views:
                   - entity: input_datetime.pora_pobudka_weekend
                     name: Pora pobudki (weekend)
                     icon: mdi:alarm-check
-
-      # --- SCENY I NASTRÓJ ---
       - type: grid
         columns: 3
         square: false
@@ -964,11 +1025,8 @@ views:
             name: Ruch ON
             icon: mdi:motion-sensor
             color: green
-
-      # --- APLIKACJE STREAMINGOWE ---
       - type: heading
         heading: Aplikacje na Telewizorze
-
       - type: grid
         columns: 3
         square: false
@@ -983,7 +1041,6 @@ views:
               perform_action: script.tv_launch_app
               data:
                 app: netflix
-
           - type: tile
             entity: remote.salon_2
             name: YouTube
@@ -994,7 +1051,6 @@ views:
               perform_action: script.tv_launch_app
               data:
                 app: youtube
-
           - type: tile
             entity: remote.salon_2
             name: Disney+
@@ -1005,7 +1061,6 @@ views:
               perform_action: script.tv_launch_app
               data:
                 app: disney
-
           - type: tile
             entity: remote.salon_2
             name: Max
@@ -1016,7 +1071,6 @@ views:
               perform_action: script.tv_launch_app
               data:
                 app: max
-
           - type: tile
             entity: remote.salon_2
             name: Spotify
@@ -1027,7 +1081,6 @@ views:
               perform_action: script.tv_launch_app
               data:
                 app: spotify
-
           - type: tile
             entity: remote.salon_2
             name: Prime Video
@@ -1038,13 +1091,10 @@ views:
               perform_action: script.tv_launch_app
               data:
                 app: prime_video
-
-      # --- NAWIGACJA I PILOT D-PAD (Zawsze widoczny) ---
       - type: vertical-stack
         cards:
           - type: heading
             heading: Nawigacja i Pilot
-
           - type: grid
             columns: 3
             square: false
@@ -1139,11 +1189,8 @@ views:
                     entity_id: remote.salon_2
                   data:
                     command: VOLUME_UP
-
-      # --- KAMERY I STRUMIENIOWANIE NA TV ---
       - type: heading
         heading: Kamery — Podgląd i Przesyłanie na TV
-
       - type: grid
         columns: 2
         square: false
@@ -1167,7 +1214,6 @@ views:
                   perform_action: script.tv_show_camera
                   data:
                     camera: stop
-
           - type: picture-glance
             title: Wejście
             camera_image: camera.rlc_822a_plynny
@@ -1187,7 +1233,6 @@ views:
                   perform_action: script.tv_show_camera
                   data:
                     camera: stop
-
           - type: picture-glance
             title: Taras
             camera_image: camera.taras_plynny
@@ -1207,7 +1252,6 @@ views:
                   perform_action: script.tv_show_camera
                   data:
                     camera: stop
-
           - type: picture-glance
             title: Ogród
             camera_image: camera.rlc_820a_niska_rozdzielczosc
@@ -1227,7 +1271,6 @@ views:
                   perform_action: script.tv_show_camera
                   data:
                     camera: stop
-
           - type: picture-glance
             title: Front / Brama
             camera_image: camera.520a_plynny
@@ -1247,7 +1290,6 @@ views:
                   perform_action: script.tv_show_camera
                   data:
                     camera: stop
-
       - type: tile
         entity: media_player.googletv8897_2
         name: Zatrzymaj Podgląd Kamery na TV
@@ -1258,4 +1300,3 @@ views:
           perform_action: script.tv_show_camera
           data:
             camera: stop
-

@@ -502,6 +502,7 @@ flowchart TD
 #### Interactive Controls
 - **Voice Intents (PL):** *"otwórz bramę"*, *"zamknij bramę"*, *"włącz lampy na tarasie"*, *"światło na podjeździe"*, *"pokaż [taras/wejście/podwórze/front/ogród] na telewizorze"*, *"zamknij podgląd kamery"*.
 - **Voice Intents (EN):** *"open gate"*, *"close gate"*, *"terrace lights on"*, *"driveway light on"*, *"show [camera] on tv"*, *"stop camera on tv"*.
+- **Dashboard Integration:** InPost Paczkomat MAR13M telemetric tiles (`sensor.paczkomat_mar13m_*`: air quality index level, temperature, PM2.5, PM10, humidity, pressure) are displayed on the Dom iPad Modern dashboard (`/dashboard-home/dom`) directly beneath the `Energia i Info` card. Outdoor cameras and terrace lights are also accessible via `/dashboard-home/dom` and `/dashboard-home/media`.
 
 ---
 

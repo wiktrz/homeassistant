@@ -13,7 +13,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-01T11:55:02.522616'
+  last_verified: '2026-10-01T12:43:16.302192'
 - id: test_salon_cinema_mode_on_night
   area: salon
   file: scenarios/salon/test_cinema_mode.yaml
@@ -27,7 +27,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-01T11:55:04.593432'
+  last_verified: '2026-10-01T12:45:02.865105'
 - id: test_kitchen_island_light_state
   area: kuchnia
   file: scenarios/kuchnia/test_kitchen_island_light.yaml
@@ -40,7 +40,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-01T11:55:05.610650'
+  last_verified: '2026-10-01T12:43:19.454295'
 - id: test_local01_heating_routine_selection
   area: termostaty
   file: scenarios/termostaty/test_local01_heating_routine.yaml
@@ -53,7 +53,7 @@ tests:
   - rental
   - regression
   status: active
-  last_verified: '2026-10-01T11:55:07.130715'
+  last_verified: '2026-10-01T12:43:20.983547'
 - id: test_protected_power_supplies_integrity
   area: bezpieczenstwo
   file: scenarios/bezpieczenstwo/test_power_supplies_untouched.yaml
@@ -66,7 +66,7 @@ tests:
   - safety
   - regression
   status: active
-  last_verified: '2026-10-01T11:55:08.660943'
+  last_verified: '2026-10-01T12:43:22.570876'
 - id: test_pstryk_price_meter_dol_state
   area: pstryk
   file: scenarios/pstryk/test_energy_price_sensor.yaml
@@ -79,7 +79,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-01T11:55:09.684729'
+  last_verified: '2026-10-01T12:43:23.590103'
 - id: test_radio_volume_up_execution
   area: multimedia
   file: scenarios/multimedia/test_radio_volume_up.yaml
@@ -91,7 +91,7 @@ tests:
   - script
   - regression
   status: active
-  last_verified: '2026-10-01T11:55:11.222941'
+  last_verified: '2026-10-01T12:43:25.124377'
 - id: test_radio_station_switch_playing
   area: multimedia
   file: scenarios/multimedia/test_radio_station_switch_playing.yaml
@@ -105,7 +105,7 @@ tests:
   - alias
   - regression
   status: active
-  last_verified: '2026-10-01T11:55:12.758595'
+  last_verified: '2026-10-01T12:43:26.668057'
 - id: test_pstryk_engine_unit_suite
   area: pstryk
   file: unit/test_pstryk_engine.py
@@ -132,7 +132,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-01T11:55:14.296615'
+  last_verified: '2026-10-01T12:43:28.222184'
 - id: test_solar_engine_unit_suite
   area: solar
   file: unit/test_solar_engine.py
@@ -158,7 +158,7 @@ tests:
   - helper
   - regression
   status: active
-  last_verified: '2026-10-01T11:55:15.855989'
+  last_verified: '2026-10-01T12:43:29.759058'
 - id: test_inpost_rest_sensors_unit_suite
   area: outdoor
   file: unit/test_inpost_rest_sensors.py
@@ -185,4 +185,4 @@ tests:
   - time
   - regression
   status: active
-  last_verified: '2026-10-01T11:55:17.502476'
+  last_verified: '2026-10-01T12:43:31.303070'
