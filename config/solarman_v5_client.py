@@ -523,12 +523,21 @@ def read_inverter_telemetry(host: Optional[str] = None, port: Optional[int] = No
             power = r[8 + i]
             soc = r[14 + i]
             charge = bool(r[20 + i] & 0x01)
+            if charge:
+                label = "Najtańsze Ładowanie"
+            elif soc >= 80:
+                label = "Czuwanie Przed Szczytem (Hold)"
+            elif soc <= 30:
+                label = "Szczyt Cenowy (Autokonsumpcja)"
+            else:
+                label = "Autokonsumpcja PV"
             active_tou["slots"].append({
                 "slot": i + 1,
                 "time": time_str,
                 "power_w": power,
                 "target_soc": soc,
                 "grid_charge": charge,
+                "label": label,
             })
 
     overall_success = cfg_res["success"] or telem_res["success"]

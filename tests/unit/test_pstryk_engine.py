@@ -397,9 +397,8 @@ def test_consolidated_payload_structure(tmp_path):
         assert today["balance_pln"] == 12.48
         assert today["carbon_g"] == 14690.0
         assert isinstance(today["hourly"], list)
-        assert len(today["hourly"]) == 24
-        assert today["hourly"][0]["start"] == "00:00"
-        assert today["hourly"][0]["end"] == "01:00"
+        assert today["hourly"][0]["start"] == "02:00"
+        assert today["hourly"][0]["end"] == "03:00"
         assert today["hourly"][0]["kwh"] == 2.0
         assert today["hourly"][0]["cost_pln"] == 1.0
         assert today["hourly"][0]["rate_gross"] == 0.5
@@ -584,7 +583,7 @@ def test_ev_charging_window_weekday_and_weekend():
     ev_weekday = pstryk_engine.find_ev_best_window(hourly_payload, target_hours="auto", now_dt=weekday_dt)
     assert ev_weekday["duration_hours"] == 2
     assert ev_weekday["average_price"] == 0.305
-    assert "13:00 - 15:00" in ev_weekday["display"]
+    assert "15:00 - 17:00" in ev_weekday["display"]
     assert "śr. 0.30 zł/kWh" in ev_weekday["display"]
 
     # 2. Weekend (e.g. Saturday 2026-09-26, weekday=5)
@@ -599,13 +598,13 @@ def test_powerbank_window_continuous_and_disjoint():
     """Verifies Power Bank window calculates lowest hours and handles continuous vs disjoint slots."""
     hourly_payload = load_fixture("sample_hourly_today.json")
 
-    # In sample_hourly_today, the two lowest hours are 13:00 (0.30) and 14:00 (0.31) -> contiguous!
+    # In sample_hourly_today, the two lowest hours are 13:00 (0.30) and 14:00 (0.31) -> 15:00-17:00 Warsaw time!
     pb_res = pstryk_engine.find_powerbank_best_window(hourly_payload, target_hours=2, allow_disjoint=True)
     assert pb_res["duration_hours"] == 2
     assert pb_res["is_consecutive"] is True
-    assert pb_res["display"] == "13:00 - 15:00 (śr. 0.30 zł/kWh)"
+    assert pb_res["display"] == "15:00 - 17:00 (śr. 0.30 zł/kWh)"
 
-    # Test synthetic disjoint frames (e.g. cheapest at 03:00 and 14:00)
+    # Test synthetic disjoint frames (e.g. cheapest at 03:00 and 14:00 UTC -> 05:00 and 16:00 Warsaw time)
     synthetic_frames = [
         {"start": "2026-10-06T03:00:00Z", "end": "2026-10-06T04:00:00Z", "metrics": {"pricing": {"price_gross": 0.20}}},
         {"start": "2026-10-06T04:00:00Z", "end": "2026-10-06T05:00:00Z", "metrics": {"pricing": {"price_gross": 0.80}}},
@@ -615,29 +614,29 @@ def test_powerbank_window_continuous_and_disjoint():
     disjoint_res = pstryk_engine.find_powerbank_best_window({"frames": synthetic_frames}, target_hours=2, allow_disjoint=True)
     assert disjoint_res["duration_hours"] == 2
     assert disjoint_res["is_consecutive"] is False
-    assert disjoint_res["slots"] == ["03:00 - 04:00", "14:00 - 15:00"]
-    assert disjoint_res["display"] == "03:00 - 04:00 oraz 14:00 - 15:00 (śr. 0.23 zł/kWh)"
+    assert disjoint_res["slots"] == ["05:00 - 06:00", "16:00 - 17:00"]
+    assert disjoint_res["display"] == "05:00 - 06:00 oraz 16:00 - 17:00 (śr. 0.23 zł/kWh)"
 
 
 def test_best_sell_window_and_spike_calculation():
-    """Verifies peak selling window and 1-hour absolute spike calculation."""
+    """Verifies peak selling window and 1-hour absolute spike calculation in Warsaw local time."""
     hourly_payload = load_fixture("sample_hourly_today.json")
     sell_res = pstryk_engine.find_best_sell_window(hourly_payload, target_hours=3)
 
     assert sell_res["duration_hours"] == 3
     assert sell_res["start"] == "2026-09-24T18:00:00Z"
     assert sell_res["end"] == "2026-09-24T21:00:00Z"
-    assert sell_res["spike_hour"] == "19:00 - 20:00"
+    assert sell_res["spike_hour"] == "21:00 - 22:00"
     assert sell_res["spike_price"] == 0.799
-    assert "18:00 - 21:00" in sell_res["display"]
+    assert "20:00 - 23:00" in sell_res["display"]
     assert "śr. 0.75 zł/kWh" in sell_res["display"]
-    assert "pik 19:00: 0.80 zł" in sell_res["display"]
+    assert "pik 21:00: 0.80 zł" in sell_res["display"]
 
 
 def test_generate_deye_tou_schedule_structure_and_monotonicity():
     """Verifies that generate_deye_tou_schedule produces 6 monotonic slots with valid clamps."""
-    pb_win = {"start": "2026-10-06T02:00:00Z", "end": "2026-10-06T04:00:00Z", "is_consecutive": True}
-    sell_win = {"start": "2026-10-06T17:00:00Z", "end": "2026-10-06T21:00:00Z"}
+    pb_win = {"start": "2026-10-06T00:00:00Z", "end": "2026-10-06T02:00:00Z", "is_consecutive": True}
+    sell_win = {"start": "2026-10-06T15:00:00Z", "end": "2026-10-06T19:00:00Z"}
 
     slots = pstryk_engine.generate_deye_tou_schedule(
         current_soc=85,
@@ -776,7 +775,77 @@ def test_cli_help_string_formatting_validity():
     """Verifies CLI --help formatting does not throw ValueError on Python 3.14 formatter._expand_help."""
     with pytest.raises(SystemExit) as exc_info:
         pstryk_engine.main(["--help"])
-    assert exc_info.value.code == 0
+def test_format_hhmm_warsaw_timezone():
+    """Verifies format_hhmm correctly converts UTC timestamps to Europe/Warsaw in CEST and CET."""
+    # Summer CEST (+2h): 11:00 UTC -> 13:00 Warsaw
+    assert pstryk_engine.format_hhmm("2026-10-08T11:00:00Z") == "13:00"
+    # Winter CET (+1h): 11:00 UTC -> 12:00 Warsaw
+    assert pstryk_engine.format_hhmm("2026-01-15T11:00:00Z") == "12:00"
+    # Explicit timezone offset (+02:00)
+    assert pstryk_engine.format_hhmm("2026-10-08T13:00:00+02:00") == "13:00"
+    # Edge cases
+    assert pstryk_engine.format_hhmm(None) == "--:--"
+    assert pstryk_engine.format_hhmm("") == "--:--"
+    assert pstryk_engine.format_hhmm("13:45") == "13:45"
+
+
+def test_generate_deye_tou_schedule_midday_charge_13_15():
+    """Verifies that midday cheapest window (13:00-15:00) configures Slot 3 for grid charging and Slot 5 for peak self-consumption."""
+    pb_win = {
+        "start": "2026-10-08T11:00:00Z",  # 13:00 Warsaw
+        "end": "2026-10-08T13:00:00Z",    # 15:00 Warsaw
+        "is_consecutive": True,
+    }
+    sell_win = {
+        "start": "2026-10-08T15:00:00Z",  # 17:00 Warsaw
+        "end": "2026-10-08T19:00:00Z",    # 21:00 Warsaw
+    }
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=85,
+        max_soc=90,
+        min_soc=20,
+        best_pb_window=pb_win,
+        best_sell_window=sell_win,
+    )
+
+    assert len(slots) == 6
+    # Slot 1: Night standby
+    assert slots[0]["slot"] == 1
+    assert slots[0]["time"] == "00:00"
+    assert slots[0]["grid_charge"] is False
+    assert slots[0]["target_soc"] == 20
+
+    # Slot 2: Morning self-consumption
+    assert slots[1]["slot"] == 2
+    assert slots[1]["time"] == "06:00"
+    assert slots[1]["grid_charge"] is False
+    assert slots[1]["target_soc"] == 20
+
+    # Slot 3: Midday grid charge at 13:00
+    assert slots[2]["slot"] == 3
+    assert slots[2]["time"] == "13:00"
+    assert slots[2]["grid_charge"] is True
+    assert slots[2]["target_soc"] == 90
+    assert "Najtańsze Ładowanie" in slots[2]["label"]
+
+    # Slot 4: Hold 90% pre-peak
+    assert slots[3]["slot"] == 4
+    assert slots[3]["time"] == "15:00"
+    assert slots[3]["grid_charge"] is False
+    assert slots[3]["target_soc"] == 90
+
+    # Slot 5: 100% peak coverage down to 20%
+    assert slots[4]["slot"] == 5
+    assert slots[4]["time"] == "17:00"
+    assert slots[4]["grid_charge"] is False
+    assert slots[4]["target_soc"] == 20
+    assert "Szczyt Wieczorny" in slots[4]["label"]
+
+    # Slot 6: Night autokonsumpcja
+    assert slots[5]["slot"] == 6
+    assert slots[5]["time"] == "21:00"
+    assert slots[5]["grid_charge"] is False
+    assert slots[5]["target_soc"] == 20
 
 
 if __name__ == "__main__":

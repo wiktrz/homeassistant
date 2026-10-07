@@ -499,9 +499,11 @@
           Wyłączony
         {% endif %}
       attributes:
-        slots: "{{ state_attr('sensor.deye_inverter_status', 'active_tou')['slots'] if state_attr('sensor.deye_inverter_status', 'active_tou') else [] }}"
+        slots: "{{ state_attr('sensor.deye_inverter_status', 'active_tou')['slots'] if state_attr('sensor.deye_inverter_status', 'active_tou') and state_attr('sensor.deye_inverter_status', 'active_tou')['slots'] else (state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule') or []) }}"
         recommended_slots: "{{ state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule') or [] }}"
         last_sync: "{{ state_attr('sensor.deye_inverter_status', 'timestamp') or 'Brak' }}"
+        charging_window: "{{ states('sensor.pstryk_powerbank_best_window_dol') }}"
+        peak_discharge_window: "{{ states('sensor.pstryk_best_sell_window_dol') }}"
       icon: mdi:calendar-clock
 
     # --- Deye 12kW & SunDeposit 16.13 kWh Battery Model ---
@@ -605,7 +607,7 @@
         {% elif is_state('binary_sensor.pstryk_in_powerbank_best_window_dol', 'on') %}
           Ładowanie
         {% elif is_state('binary_sensor.pstryk_in_sell_window_dol', 'on') %}
-          Rozładowanie (Sprzedaż)
+          Rozładowanie (Pokrycie Szczytu)
         {% else %}
           Czuwanie
         {% endif %}
@@ -613,16 +615,7 @@
         {% set st = states('sensor.deye_battery_working_state') %}
         {% if st == 'Ładowanie' %}
           mdi:battery-charging
-        {% elif st == 'Rozładowanie (Sprzedaż)' %}
-          mdi:battery-arrow-down
-        {% else %}
-          mdi:battery
-        {% endif %}
-      icon: >
-        {% set st = states('sensor.deye_battery_working_state') %}
-        {% if st == 'Ładowanie' %}
-          mdi:battery-charging
-        {% elif st == 'Rozładowanie (Sprzedaż)' %}
+        {% elif 'Rozładowanie' in st %}
           mdi:battery-arrow-down
         {% else %}
           mdi:battery

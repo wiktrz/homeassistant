@@ -570,6 +570,11 @@ input_datetime:
     has_date: true
     has_time: true
     icon: mdi:history
+  deye_tou_last_synced_date:
+    name: Data Ostatniej Synchronizacji TOU
+    has_date: true
+    has_time: false
+    icon: mdi:calendar-sync
 
 input_number:
   shelly_brightness:

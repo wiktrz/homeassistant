@@ -2222,7 +2222,7 @@
           Prognoza dyspozytorska na najbliższy okres:
           🚗 Okno EV: {{ ev_win }}
           🔋 Magazyn: {{ pb_win }}
-          💰 Szczyt Sprzedaży: {{ sell_win }}
+          ⚡ Szczyt Cenowy (Bateria): {{ sell_win }}
         data:
           channel: energy
           tag: energy_forecast
@@ -2306,29 +2306,34 @@
         cache: true
   mode: single
 
-- id: deye_tou_schedule_4x_daily
-  alias: 'Deye: Dynamiczne Przeliczanie i Synchronizacja Harmonogramu TOU 4x/Dobę'
-  description: 'Przelicza i przesyła 6 slotów Time-of-Use (ładowanie nocne, czuwanie, PV dip, sprzedaż w szczycie) do falownika Deye 4 razy dziennie (00:05, 06:00, 14:15, 20:00) oraz na żądanie.'
+- id: deye_tou_daily_sync_with_retry
+  alias: 'Deye: Dynamiczna Synchronizacja Harmonogramu TOU Raz na Dobę (00:30 + Retry)'
+  description: 'Przelicza i przesyła optymalny 6-slotowy harmonogram TOU (najtańsze okno ładowania, czuwanie, 100% pokrycia szczytu) do falownika Deye raz na dobę o 00:30 z ponawianiem co 15 minut w razie błędu.'
   triggers:
     - trigger: time
-      at: '00:05:00'
-      id: slot_midnight
-    - trigger: time
-      at: '06:00:00'
-      id: slot_morning
-    - trigger: time
-      at: '14:15:00'
-      id: slot_afternoon
-    - trigger: time
-      at: '20:00:00'
-      id: slot_evening
+      at: '00:30:00'
+      id: scheduled_daily
+    - trigger: time_pattern
+      minutes: '/15'
+      id: retry_check
     - trigger: state
       entity_id: input_button.sync_deye_inverter_soc
       id: manual_trigger
-  conditions: []
+  conditions:
+    - condition: or
+      conditions:
+        - condition: template
+          value_template: "{{ trigger.id == 'manual_trigger' }}"
+        - condition: template
+          value_template: "{{ states('input_datetime.deye_tou_last_synced_date') != now().strftime('%Y-%m-%d') }}"
   actions:
     - action: script.sync_deye_inverter_tou
-  mode: restart
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.deye_tou_last_synced_date
+      data:
+        date: "{{ now().strftime('%Y-%m-%d') }}"
+  mode: single
 
 - id: deye_battery_calibration_periodic_scheduler
   alias: 'Deye: Harmonogram Kalibracji Baterii 100% (BMS Health)'

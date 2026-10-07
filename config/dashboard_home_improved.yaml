@@ -722,8 +722,8 @@ views:
               action: more-info
           - type: tile
             entity: sensor.pstryk_best_sell_window_dol
-            name: Okno Szczytu Sprzedaży
-            icon: mdi:cash-clock
+            name: Szczyt Cenowy (Zasilanie z Baterii)
+            icon: mdi:battery-arrow-down
             color: amber
             tap_action:
               action: more-info
@@ -739,8 +739,8 @@ views:
             name: Trwa Okno Ładowania Magazynu Energii
             icon: mdi:battery-charging
           - entity: binary_sensor.pstryk_in_sell_window_dol
-            name: Trwa Szczyt Cenowy Sprzedaży / Oddawania
-            icon: mdi:cash-fast
+            name: Trwa Szczyt Cenowy (Zasilanie Domu z Baterii)
+            icon: mdi:battery-arrow-down
 
       - type: heading
         heading: Magazyn Energii SunDeposit 16.13 kWh & Falownik Deye 12 kW
@@ -822,17 +822,20 @@ views:
             icon: mdi:refresh
 
       - type: entities
-        title: Harmonogram Time-of-Use (TOU - Zapis do Falownika 4x/dobę)
+        title: Harmonogram Time-of-Use (TOU - Zapis o 00:30 + Retry)
         show_header_toggle: false
         entities:
           - entity: sensor.deye_tou_active_schedule
             name: Status Harmonogramu TOU (Reg 248)
             icon: mdi:calendar-clock
+          - entity: input_datetime.deye_tou_last_synced_date
+            name: Data Ostatniej Synchronizacji TOU
+            icon: mdi:calendar-sync
           - entity: input_select.ev_charging_target_hours
             name: Długość Okna Ładowania EV
             icon: mdi:car-electric
           - entity: input_select.battery_discharge_target_hours
-            name: Długość Okna Sprzedaży / Rozładowania
+            name: Długość Szczytu Cenowego (Bateria)
             icon: mdi:battery-arrow-up
           - entity: input_button.sync_deye_inverter_soc
             name: Wymuś Przeliczenie i Zapis TOU Teraz
@@ -841,13 +844,19 @@ views:
       - type: markdown
         title: Aktywne Sloty Falownika Deye (Time-of-Use)
         content: >-
-          {% set slots = state_attr('sensor.deye_inverter_status', 'active_tou')['slots'] if state_attr('sensor.deye_inverter_status', 'active_tou') else [] %}
+          {% set active = state_attr('sensor.deye_inverter_status', 'active_tou') %}
+          {% set slots = active['slots'] if active and active['slots'] is defined else (state_attr('sensor.deye_tou_active_schedule', 'slots') if state_attr('sensor.deye_tou_active_schedule', 'slots') is defined else []) %}
           {% if slots and slots | length == 6 %}
-          | Slot | Czas Start | Moc Limit | Docelowy SOC | Ładowanie z Sieci |
-          |:---:|:---:|:---:|:---:|:---:|
+          | Slot | Przedział | Docelowy SOC | Ładowanie z Sieci | Rola / Tryb Pracy |
+          |:---:|:---:|:---:|:---:|:---|
           {% for s in slots %}
-          | **{{ s.slot }}** | {{ s.time }} | {{ s.power_w }} W | {{ s.target_soc }}% | {{ 'TAK' if s.grid_charge else 'NIE' }} |
+          | **{{ s.slot }}** | {{ s.time }} | {{ s.target_soc }}% | {{ '⚡ TAK' if s.grid_charge else 'NIE' }} | {{ s.label if s.label else ('Najtańsze Ładowanie' if s.grid_charge else ('Czuwanie Przed Szczytem' if s.target_soc >= 80 else 'Szczyt / Autokonsumpcja')) }} |
           {% endfor %}
+
+          ---
+          - ⚡ **Okno Ładowania Magazynu:** `{{ states('sensor.pstryk_powerbank_best_window_dol') }}`
+          - 🔋 **Szczyt Cenowy (Pokrycie 100%):** `{{ states('sensor.pstryk_best_sell_window_dol') }}`
+          - 🕒 **Ostatnia Synchronizacja:** `{{ states('input_datetime.deye_tou_last_synced_date') }}`
           {% else %}
           *Oczekiwanie na synchronizację z falownikiem Deye...*
           {% endif %}

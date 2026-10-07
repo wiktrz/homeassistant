@@ -14,7 +14,10 @@ import urllib.request
 import urllib.parse
 import urllib.error
 from datetime import datetime, timedelta, timezone
+import zoneinfo
 from typing import Dict, Any, List, Optional, Tuple
+
+WARSAW_TZ = zoneinfo.ZoneInfo("Europe/Warsaw")
 
 DEFAULT_API_KEY = "sk-YOUR_TOKEN_HERE"
 BASE_URL = "https://api.pstryk.pl/integrations/meter-data/unified-metrics/"
@@ -827,13 +830,9 @@ def generate_deye_tou_schedule(
 ) -> List[Dict[str, Any]]:
     """
     Generates a 6-slot Time-of-Use (TOU) schedule for Deye Hybrid Inverter.
-    Slots are strictly ordered chronologically:
-      Slot 1: Night Charging (best_pb_window or 01:00) -> Max SOC (or 100% on calibration), Grid Charge ON
-      Slot 2: Morning Hold (pb_window end or 05:00) -> Current/Max SOC, Grid Charge OFF
-      Slot 3: Midday PV Solar Dip / Opportunistic (12:00) -> 80% SOC, Grid Charge ON/OFF
-      Slot 4: Pre-Peak Hold (15:00) -> Hold battery for high export rate
-      Slot 5: Peak Evening Discharge / Sell (best_sell_window or 18:00) -> Min SOC (20%), Grid Charge OFF
-      Slot 6: Night Base / Standby (sell_window end or 22:00) -> Min SOC (20%), Grid Charge OFF
+    Slots adapt dynamically to place the 2-hour charge slot during the cheapest prices
+    (whether midday solar dip e.g. 13:00-15:00 or night e.g. 02:00-04:00), holding charge
+    until the major peak, and discharging to 100% cover house load during the peak.
     """
     def to_minutes(hhmm_str: Optional[str], default_m: int) -> int:
         if not hhmm_str or hhmm_str == "--:--":
@@ -849,116 +848,240 @@ def generate_deye_tou_schedule(
         mm = m % 60
         return f"{hh:02d}:{mm:02d}"
 
-    # Default baseline minutes: 01:00, 05:00, 12:00, 15:00, 18:00, 22:00
-    t1 = 60
-    t2 = 300
-    t3 = 720
-    t4 = 900
-    t5 = 1080
-    t6 = 1320
+    safe_max_soc = 100 if calibration_active else max(50, min(100, int(max_soc)))
+    safe_min_soc = max(10, min(50, int(min_soc)))
 
-    has_midday_charge = False
+    pb_start_m = 120  # Default 02:00 (safe night charge fallback if no pricing data)
+    pb_end_m = 240    # Default 04:00
+    has_disjoint_midday = False
+    disjoint_midday_m = 780
+    disjoint_night_m = 120
 
     if isinstance(best_pb_window, dict) and "error" not in best_pb_window:
+        if not best_pb_window.get("is_consecutive", True):
+            slots_list = best_pb_window.get("slots", [])
+            midday_slots = []
+            night_slots = []
+            for sl in slots_list:
+                st = sl.split(" - ")[0].strip()
+                sm = to_minutes(st, 0)
+                if sm >= 480:
+                    midday_slots.append(sm)
+                else:
+                    night_slots.append(sm)
+            if midday_slots and night_slots:
+                has_disjoint_midday = True
+                disjoint_midday_m = midday_slots[0]
+                disjoint_night_m = night_slots[0]
+
         pb_start_str = format_hhmm(best_pb_window.get("start"))
         pb_end_str = format_hhmm(best_pb_window.get("end"))
-        pb_start_m = to_minutes(pb_start_str, 60)
-        pb_end_m = to_minutes(pb_end_str, 300)
+        pb_start_m = to_minutes(pb_start_str, 780)
+        pb_end_m = to_minutes(pb_end_str, 900)
+        if pb_end_m <= pb_start_m:
+            pb_end_m = pb_start_m + 120
 
-        # If PB starts in night window (before 06:00 / 360 min)
-        if pb_start_m < 360:
-            t1 = pb_start_m
-            if pb_end_m > t1 and pb_end_m < 600:
-                t2 = pb_end_m
-            else:
-                t2 = min(540, t1 + 180)
-
-        # Check for disjoint midday dip slot in PB window
-        if best_pb_window.get("is_consecutive") is False and best_pb_window.get("slots"):
-            for s in best_pb_window.get("slots", []):
-                parts = s.split(" - ")
-                if parts:
-                    sm = to_minutes(parts[0].strip(), -1)
-                    if 660 <= sm <= 900:  # 11:00 - 15:00
-                        t3 = sm
-                        has_midday_charge = True
-                        break
-
+    sell_start_m = 1020  # Default 17:00
+    sell_end_m = 1260    # Default 21:00
     if isinstance(best_sell_window, dict) and "error" not in best_sell_window:
         sell_start_str = format_hhmm(best_sell_window.get("start"))
         sell_end_str = format_hhmm(best_sell_window.get("end"))
-        sell_start_m = to_minutes(sell_start_str, 1080)
-        sell_end_m = to_minutes(sell_end_str, 1320)
+        sell_start_m = to_minutes(sell_start_str, 1020)
+        sell_end_m = to_minutes(sell_end_str, 1260)
+        if sell_end_m <= sell_start_m:
+            sell_end_m = sell_start_m + 180
 
-        if sell_start_m > t3:
-            t5 = sell_start_m
-            if sell_end_m > t5 and sell_end_m < 1440:
-                t6 = sell_end_m
-            else:
-                t6 = min(1410, t5 + 180)
-            t4 = max(t3 + 60, min(t5 - 60, 900))
+    is_midday = (pb_start_m >= 480) and not has_disjoint_midday
 
-    # Validate strictly monotonic progression
-    times = [t1, t2, t3, t4, t5, t6]
-    is_monotonic = all(times[i] < times[i + 1] for i in range(len(times) - 1)) and (times[-1] < 1440)
-    if not is_monotonic:
-        # Fallback to standard safe schedule
-        times = [60, 300, 720, 900, 1080, 1320]
+    if has_disjoint_midday:
+        t1 = disjoint_night_m
+        t2 = t1 + 60
+        t3 = max(t2 + 60, disjoint_midday_m)
+        t4 = t3 + 60
+        t5 = max(t4 + 60, sell_start_m)
+        t6 = max(t5 + 60, sell_end_m)
+        times = [t1, t2, t3, t4, t5, t6]
+        for idx in range(1, len(times)):
+            if times[idx] <= times[idx - 1]:
+                times[idx] = min(1410, times[idx - 1] + 30)
 
-    safe_max_soc = 100 if calibration_active else max(50, min(100, int(max_soc)))
-    safe_min_soc = max(10, min(50, int(min_soc)))
-    safe_current_soc = max(safe_min_soc, min(safe_max_soc, int(current_soc)))
+        slots = [
+            {
+                "slot": 1,
+                "time": to_time_str(times[0]),
+                "power_w": default_power_w,
+                "target_soc": safe_max_soc,
+                "grid_charge": True,
+                "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Ładowanie Nocne ({to_time_str(times[0])}-{to_time_str(times[1])})",
+            },
+            {
+                "slot": 2,
+                "time": to_time_str(times[1]),
+                "power_w": default_power_w,
+                "target_soc": safe_max_soc,
+                "grid_charge": False,
+                "label": "Czuwanie Poranne (Hold)",
+            },
+            {
+                "slot": 3,
+                "time": to_time_str(times[2]),
+                "power_w": default_power_w,
+                "target_soc": safe_max_soc,
+                "grid_charge": True,
+                "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Tania Godzina Dzienna ({to_time_str(times[2])}-{to_time_str(times[3])})",
+            },
+            {
+                "slot": 4,
+                "time": to_time_str(times[3]),
+                "power_w": default_power_w,
+                "target_soc": safe_max_soc,
+                "grid_charge": False,
+                "label": "Rezerwa Przed Szczytem (Hold)",
+            },
+            {
+                "slot": 5,
+                "time": to_time_str(times[4]),
+                "power_w": default_power_w,
+                "target_soc": safe_min_soc,
+                "grid_charge": False,
+                "label": f"Szczyt Wieczorny 100% ({to_time_str(times[4])}-{to_time_str(times[5])})",
+            },
+            {
+                "slot": 6,
+                "time": to_time_str(times[5]),
+                "power_w": default_power_w,
+                "target_soc": safe_min_soc,
+                "grid_charge": False,
+                "label": "Autokonsumpcja Nocna",
+            },
+        ]
+    elif is_midday:
+        t1 = 0
+        t2 = min(pb_start_m - 60, 360)
+        t3 = pb_start_m
+        t4 = max(t3 + 60, pb_end_m)
+        t5 = max(t4 + 60, sell_start_m)
+        t6 = max(t5 + 60, sell_end_m)
+        times = [t1, t2, t3, t4, t5, t6]
+        # Guarantee strict monotonicity
+        for idx in range(1, len(times)):
+            if times[idx] <= times[idx - 1]:
+                times[idx] = min(1410, times[idx - 1] + 30)
 
-    slots = [
-        {
-            "slot": 1,
-            "time": to_time_str(times[0]),
-            "power_w": default_power_w,
-            "target_soc": safe_max_soc,
-            "grid_charge": True,
-            "label": "Ładowanie Nocne (Kalibracja 100%)" if calibration_active else "Ładowanie Nocne",
-        },
-        {
-            "slot": 2,
-            "time": to_time_str(times[1]),
-            "power_w": default_power_w,
-            "target_soc": safe_max_soc,
-            "grid_charge": False,
-            "label": "Czuwanie Poranne",
-        },
-        {
-            "slot": 3,
-            "time": to_time_str(times[2]),
-            "power_w": default_power_w,
-            "target_soc": safe_max_soc if has_midday_charge else max(safe_min_soc, min(80, safe_max_soc)),
-            "grid_charge": has_midday_charge,
-            "label": "Tania Godzina Dzienna" if has_midday_charge else "Autokonsumpcja PV",
-        },
-        {
-            "slot": 4,
-            "time": to_time_str(times[3]),
-            "power_w": default_power_w,
-            "target_soc": max(safe_min_soc + 20, safe_current_soc),
-            "grid_charge": False,
-            "label": "Rezerwa Przed Szczytem",
-        },
-        {
-            "slot": 5,
-            "time": to_time_str(times[4]),
-            "power_w": default_power_w,
-            "target_soc": safe_min_soc,
-            "grid_charge": False,
-            "label": "Szczyt / Sprzedaż",
-        },
-        {
-            "slot": 6,
-            "time": to_time_str(times[5]),
-            "power_w": default_power_w,
-            "target_soc": safe_min_soc,
-            "grid_charge": False,
-            "label": "Czuwanie Nocne",
-        },
-    ]
+        slots = [
+            {
+                "slot": 1,
+                "time": to_time_str(times[0]),
+                "power_w": default_power_w,
+                "target_soc": safe_min_soc,
+                "grid_charge": False,
+                "label": "Czuwanie Nocne",
+            },
+            {
+                "slot": 2,
+                "time": to_time_str(times[1]),
+                "power_w": default_power_w,
+                "target_soc": safe_min_soc,
+                "grid_charge": False,
+                "label": "Szczyt Poranny (Autokonsumpcja)",
+            },
+            {
+                "slot": 3,
+                "time": to_time_str(times[2]),
+                "power_w": default_power_w,
+                "target_soc": safe_max_soc,
+                "grid_charge": True,
+                "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Najtańsze Ładowanie ({to_time_str(times[2])}-{to_time_str(times[3])})",
+            },
+            {
+                "slot": 4,
+                "time": to_time_str(times[3]),
+                "power_w": default_power_w,
+                "target_soc": safe_max_soc,
+                "grid_charge": False,
+                "label": "Czuwanie Przed Szczytem (Hold)",
+            },
+            {
+                "slot": 5,
+                "time": to_time_str(times[4]),
+                "power_w": default_power_w,
+                "target_soc": safe_min_soc,
+                "grid_charge": False,
+                "label": f"Szczyt Wieczorny 100% ({to_time_str(times[4])}-{to_time_str(times[5])})",
+            },
+            {
+                "slot": 6,
+                "time": to_time_str(times[5]),
+                "power_w": default_power_w,
+                "target_soc": safe_min_soc,
+                "grid_charge": False,
+                "label": "Autokonsumpcja Nocna",
+            },
+        ]
+    else:
+        t1 = pb_start_m
+        t2 = max(t1 + 60, pb_end_m)
+        t3 = max(t2 + 60, 360)
+        t4 = max(t3 + 60, 720)
+        t5 = max(t4 + 60, sell_start_m)
+        t6 = max(t5 + 60, sell_end_m)
+        times = [t1, t2, t3, t4, t5, t6]
+        # Guarantee strict monotonicity
+        for idx in range(1, len(times)):
+            if times[idx] <= times[idx - 1]:
+                times[idx] = min(1410, times[idx - 1] + 30)
+
+        slots = [
+            {
+                "slot": 1,
+                "time": to_time_str(times[0]),
+                "power_w": default_power_w,
+                "target_soc": safe_max_soc,
+                "grid_charge": True,
+                "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Najtańsze Ładowanie ({to_time_str(times[0])}-{to_time_str(times[1])})",
+            },
+            {
+                "slot": 2,
+                "time": to_time_str(times[1]),
+                "power_w": default_power_w,
+                "target_soc": safe_max_soc,
+                "grid_charge": False,
+                "label": "Czuwanie Poranne (Hold)",
+            },
+            {
+                "slot": 3,
+                "time": to_time_str(times[2]),
+                "power_w": default_power_w,
+                "target_soc": max(safe_min_soc + 20, 50),
+                "grid_charge": False,
+                "label": "Szczyt Poranny (Autokonsumpcja)",
+            },
+            {
+                "slot": 4,
+                "time": to_time_str(times[3]),
+                "power_w": default_power_w,
+                "target_soc": max(safe_min_soc + 20, 50),
+                "grid_charge": False,
+                "label": "Autokonsumpcja PV",
+            },
+            {
+                "slot": 5,
+                "time": to_time_str(times[4]),
+                "power_w": default_power_w,
+                "target_soc": safe_min_soc,
+                "grid_charge": False,
+                "label": f"Szczyt Wieczorny 100% ({to_time_str(times[4])}-{to_time_str(times[5])})",
+            },
+            {
+                "slot": 6,
+                "time": to_time_str(times[5]),
+                "power_w": default_power_w,
+                "target_soc": safe_min_soc,
+                "grid_charge": False,
+                "label": "Czuwanie Nocne",
+            },
+        ]
+
     return slots
 
 
@@ -1105,13 +1228,21 @@ def aggregate_frames(data: Dict[str, Any]) -> Dict[str, float]:
     }
 
 
-def format_hhmm(iso_str: Optional[str]) -> str:
-    """Extracts 'HH:MM' time string from an ISO timestamp."""
+def format_hhmm(iso_str: Optional[str], tz: Optional[zoneinfo.ZoneInfo] = None) -> str:
+    """Extracts 'HH:MM' time string in Europe/Warsaw timezone from an ISO timestamp."""
     if not iso_str or not isinstance(iso_str, str):
         return "--:--"
+    target_tz = tz or WARSAW_TZ
+    try:
+        if "Z" in iso_str or "+" in iso_str:
+            dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00")).astimezone(target_tz)
+            return dt.strftime("%H:%M")
+        elif "T" in iso_str:
+            return iso_str.split("T")[1][:5]
+    except Exception:
+        pass
     if "T" in iso_str:
-        time_part = iso_str.split("T")[1]
-        return time_part[:5]
+        return iso_str.split("T")[1][:5]
     return iso_str[:5]
 
 
@@ -1678,7 +1809,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             installation=args.installation,
         )
         print(json.dumps(sync_res, indent=2))
-        return 0
+        return 0 if sync_res.get("success") else 1
 
     debug_info = {}
     if not resolved_key:

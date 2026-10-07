@@ -446,12 +446,23 @@ def read_inverter_telemetry(
                 time_str = f"{t_raw[:2]}:{t_raw[2:]}"
             else:
                 time_str = t_raw
+            charge = bool(itm.get("enableGridCharge", False))
+            soc = itm.get("soc", 20)
+            if charge:
+                label = "Najtańsze Ładowanie"
+            elif soc >= 80:
+                label = "Czuwanie Przed Szczytem (Hold)"
+            elif soc <= 30:
+                label = "Szczyt Cenowy (Autokonsumpcja)"
+            else:
+                label = "Autokonsumpcja PV"
             active_tou["slots"].append({
                 "slot": i + 1,
                 "time": time_str,
                 "power_w": itm.get("power", 5000),
-                "target_soc": itm.get("soc", 20),
-                "grid_charge": bool(itm.get("enableGridCharge", False)),
+                "target_soc": soc,
+                "grid_charge": charge,
+                "label": label,
             })
 
     # 4. System Mode Query via POST /v1.0/config/system

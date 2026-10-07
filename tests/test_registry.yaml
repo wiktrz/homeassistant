@@ -66,7 +66,7 @@ tests:
   - safety
   - regression
   status: active
-  last_verified: '2026-10-07T17:26:19.485197'
+  last_verified: '2026-10-07T21:38:09.970526'
 - id: test_pstryk_price_meter_dol_state
   area: pstryk
   file: scenarios/pstryk/test_energy_price_sensor.yaml
