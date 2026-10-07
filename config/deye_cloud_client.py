@@ -523,12 +523,11 @@ def sync_tou_schedule(
             "enableGridCharge": bool(s.get("grid_charge", False)),
             "enableGeneration": True,
             "enableSell": False,
-            "voltage": 49,
+            "voltage": int(s.get("voltage", 49)),
         })
 
     payload = {
         "deviceSn": target_sn,
-        "touAction": "on",
         "timeUseSettingItems": formatted_items,
     }
 
@@ -536,8 +535,8 @@ def sync_tou_schedule(
     app_success = False
     if ok and isinstance(res, dict):
         code = str(res.get("code", ""))
-        app_success = (code == "1000000" or res.get("success") is True)
-        if not app_success and "msg" in res:
+        app_success = (code in ("1000000", "1106000") or res.get("success") is True)
+        if "msg" in res:
             msg = res.get("msg")
     elif ok:
         app_success = True

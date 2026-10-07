@@ -243,18 +243,21 @@ def test_sync_tou_schedule_cloud_payload():
     ]
 
     with mock.patch("deye_cloud_client.call_deye_api") as mock_api:
-        mock_api.return_value = (True, {"code": "1000000", "msg": "success"}, "OK")
+        mock_api.return_value = (True, {"code": "1106000", "msg": "order sent successfully", "success": True}, "OK")
         cfg = {"inverter_sn": "2603160727", "api_key": "test_key"}
         res = deye_cloud_client.sync_tou_schedule(sample_slots, cfg=cfg)
 
         assert res["success"] is True
         assert res["slots_count"] == 6
+        assert res["message"] == "order sent successfully"
         assert mock_api.called
         endpoint, kwargs = mock_api.call_args[0][0], mock_api.call_args[1]
         assert "/v1.0/order/sys/tou/update" in endpoint
         assert kwargs["method"] == "POST"
+        assert "touAction" not in kwargs["data"]
         assert len(kwargs["data"]["timeUseSettingItems"]) == 6
         assert kwargs["data"]["timeUseSettingItems"][0]["time"] == "01:00"
+        assert isinstance(kwargs["data"]["timeUseSettingItems"][0]["voltage"], int)
 
 
 def test_solarman_cloud_fallback_when_local_refused():
