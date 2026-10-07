@@ -663,7 +663,7 @@ flowchart TD
   - **EV Window:** Weekdays 2h continuous / Weekends 4h or 6h continuous (`sensor.pstryk_ev_best_window_dol`, e.g. `01:00 - 03:00 (śr. 0.88 zł/kWh)`).
   - **Power Bank Window:** 2h capacity, allows continuous (`02:00 - 04:00 (śr. 0.86 zł/kWh)`) or disjoint slots with full interval notation (`03:00 - 04:00 oraz 14:00 - 15:00 (śr. 0.79 zł/kWh)`).
   - **Sell Window:** Best 3h–5h peak window + 1h absolute spike (`sensor.pstryk_best_sell_window_dol`, e.g. `17:00 - 21:00 (śr. 1.34 zł/kWh, pik 19:00: 1.48 zł)`).
-  - **Dynamic 6-Slot TOU Table:** Slot 1 (Night Charge 5000W Grid ON), Slot 2 (Morning Hold Max SOC), Slot 3 (Midday PV Dip / Hold 80%), Slot 4 (Pre-Peak Hold), Slot 5 (Peak Sell / Discharge Min SOC), Slot 6 (Night Standby Min SOC).
+  - **Dynamic 6-Slot TOU Table:** Dynamic placement of 2h charge slot (Midday 13:00–15:00 Grid ON or Night Grid ON) and 100% household peak self-consumption discharge (Min SOC 20%). Backup generator charging (`enableGeneration: false`) and grid export sell (`enableSell: false`) are strictly disabled across all 6 slots since no generator is installed and the system operates in zero-export self-consumption mode.
 - **Battery Health & 100% BMS Calibration Scheduling:**
   - Periodic 100% saturation for BMS top cell balancing and state-of-charge drift correction.
   - Managed by `input_select.deye_battery_calibration_frequency` (default: 30 days) and `sensor.deye_battery_days_since_calibration`.

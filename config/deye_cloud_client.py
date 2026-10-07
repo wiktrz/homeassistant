@@ -532,7 +532,7 @@ def sync_tou_schedule(
             "power": int(s.get("power_w", s.get("power", 5000))),
             "soc": int(s.get("target_soc", s.get("soc", 20))),
             "enableGridCharge": bool(s.get("grid_charge", False)),
-            "enableGeneration": True,
+            "enableGeneration": False,
             "enableSell": False,
             "voltage": int(s.get("voltage", 49)),
         })
