@@ -3,34 +3,48 @@
     - name: "Pstryk Best Window Dol"
       unique_id: pstryk_best_window_dol
       state: >
-        {% set start = state_attr('sensor.pstryk_price_meter_dol', 'start') %}
-        {% set end = state_attr('sensor.pstryk_price_meter_dol', 'end') %}
-        {% if start and end %}
-          {{ as_timestamp(start) | timestamp_custom('%H:%M') }} - {{ (as_timestamp(end) + 3600) | timestamp_custom('%H:%M') }}
+        {% set disp = state_attr('sensor.pstryk_price_meter_dol', 'display') %}
+        {% if disp and disp != 'Brak danych' %}
+          {{ disp }}
         {% else %}
-          unavailable
+          {% set start = state_attr('sensor.pstryk_price_meter_dol', 'start') %}
+          {% set end = state_attr('sensor.pstryk_price_meter_dol', 'end') %}
+          {% set avg = state_attr('sensor.pstryk_price_meter_dol', 'average_price') | default(0, true) %}
+          {% if start and end %}
+            {{ as_timestamp(start) | timestamp_custom('%H:%M') }} - {{ as_timestamp(end) | timestamp_custom('%H:%M') }} (śr. {{ avg | round(2) }} zł/kWh)
+          {% else %}
+            unavailable
+          {% endif %}
         {% endif %}
       attributes:
         start_time: "{{ state_attr('sensor.pstryk_price_meter_dol', 'start') }}"
-        end_time: "{{ (as_timestamp(state_attr('sensor.pstryk_price_meter_dol', 'end')) + 3600) | timestamp_custom('%Y-%m-%dT%H:%M:%SZ') if state_attr('sensor.pstryk_price_meter_dol', 'end') }}"
+        end_time: "{{ state_attr('sensor.pstryk_price_meter_dol', 'end') }}"
         duration_hours: "{{ state_attr('sensor.pstryk_price_meter_dol', 'duration_hours') }}"
+        average_price: "{{ state_attr('sensor.pstryk_price_meter_dol', 'average_price') }}"
         gross_min: "{{ state_attr('sensor.pstryk_price_meter_dol', 'gross')['min'] if state_attr('sensor.pstryk_price_meter_dol', 'gross') else 'N/A' }}"
         gross_avg: "{{ state_attr('sensor.pstryk_price_meter_dol', 'gross')['avg'] if state_attr('sensor.pstryk_price_meter_dol', 'gross') else 'N/A' }}"
     # --- góra (upper floor) ---
     - name: "Pstryk Best Window Gora"
       unique_id: pstryk_best_window_gora
       state: >
-        {% set start = state_attr('sensor.pstryk_price_meter_gora', 'start') %}
-        {% set end = state_attr('sensor.pstryk_price_meter_gora', 'end') %}
-        {% if start and end %}
-          {{ as_timestamp(start) | timestamp_custom('%H:%M') }} - {{ (as_timestamp(end) + 3600) | timestamp_custom('%H:%M') }}
+        {% set disp = state_attr('sensor.pstryk_price_meter_gora', 'display') %}
+        {% if disp and disp != 'Brak danych' %}
+          {{ disp }}
         {% else %}
-          unavailable
+          {% set start = state_attr('sensor.pstryk_price_meter_gora', 'start') %}
+          {% set end = state_attr('sensor.pstryk_price_meter_gora', 'end') %}
+          {% set avg = state_attr('sensor.pstryk_price_meter_gora', 'average_price') | default(0, true) %}
+          {% if start and end %}
+            {{ as_timestamp(start) | timestamp_custom('%H:%M') }} - {{ as_timestamp(end) | timestamp_custom('%H:%M') }} (śr. {{ avg | round(2) }} zł/kWh)
+          {% else %}
+            unavailable
+          {% endif %}
         {% endif %}
       attributes:
         start_time: "{{ state_attr('sensor.pstryk_price_meter_gora', 'start') }}"
-        end_time: "{{ (as_timestamp(state_attr('sensor.pstryk_price_meter_gora', 'end')) + 3600) | timestamp_custom('%Y-%m-%dT%H:%M:%SZ') if state_attr('sensor.pstryk_price_meter_gora', 'end') }}"
+        end_time: "{{ state_attr('sensor.pstryk_price_meter_gora', 'end') }}"
         duration_hours: "{{ state_attr('sensor.pstryk_price_meter_gora', 'duration_hours') }}"
+        average_price: "{{ state_attr('sensor.pstryk_price_meter_gora', 'average_price') }}"
         gross_min: "{{ state_attr('sensor.pstryk_price_meter_gora', 'gross')['min'] if state_attr('sensor.pstryk_price_meter_gora', 'gross') else 'N/A' }}"
         gross_avg: "{{ state_attr('sensor.pstryk_price_meter_gora', 'gross')['avg'] if state_attr('sensor.pstryk_price_meter_gora', 'gross') else 'N/A' }}"
 
@@ -267,7 +281,352 @@
           {% endif %}
         last_evaluation: "{{ now().isoformat() }}"
 
+    # --- Pstryk Dispatch Windows: EV, Power Bank, Sell ---
+    - name: "Pstryk EV Best Window Dol"
+      unique_id: pstryk_ev_best_window_dol
+      state: >
+        {% set ev = state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window') %}
+        {{ ev.display if ev and ev.display is defined else 'Brak danych' }}
+      icon: mdi:car-electric
+      attributes:
+        start: "{{ state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window')['start'] if state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window') else none }}"
+        end: "{{ state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window')['end'] if state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window') else none }}"
+        duration_hours: "{{ state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window')['duration_hours'] if state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window') else none }}"
+        average_price: "{{ state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window')['average_price'] if state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window') else none }}"
+        min_price: "{{ state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window')['min_price'] if state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window') else none }}"
+        max_price: "{{ state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window')['max_price'] if state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window') else none }}"
+
+    - name: "Pstryk EV Best Window Avg Price Dol"
+      unique_id: pstryk_ev_best_window_avg_price_dol
+      device_class: monetary
+      unit_of_measurement: "PLN/kWh"
+      state: >
+        {% set ev = state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window') %}
+        {{ ev.average_price if ev and ev.average_price is defined else 'unavailable' }}
+      icon: mdi:cash
+
+    - name: "Pstryk Powerbank Best Window Dol"
+      unique_id: pstryk_powerbank_best_window_dol
+      state: >
+        {% set pb = state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window') %}
+        {{ pb.display if pb and pb.display is defined else 'Brak danych' }}
+      icon: mdi:battery-charging
+      attributes:
+        start: "{{ state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window')['start'] if state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window') else none }}"
+        end: "{{ state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window')['end'] if state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window') else none }}"
+        duration_hours: "{{ state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window')['duration_hours'] if state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window') else none }}"
+        average_price: "{{ state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window')['average_price'] if state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window') else none }}"
+        slots: "{{ state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window')['slots'] if state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window') else [] }}"
+        is_consecutive: "{{ state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window')['is_consecutive'] if state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window') else true }}"
+
+    - name: "Pstryk Powerbank Best Window Avg Price Dol"
+      unique_id: pstryk_powerbank_best_window_avg_price_dol
+      device_class: monetary
+      unit_of_measurement: "PLN/kWh"
+      state: >
+        {% set pb = state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window') %}
+        {{ pb.average_price if pb and pb.average_price is defined else 'unavailable' }}
+      icon: mdi:cash
+
+    - name: "Pstryk Best Sell Window Dol"
+      unique_id: pstryk_best_sell_window_dol
+      state: >
+        {% set sw = state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window') %}
+        {{ sw.display if sw and sw.display is defined else 'Brak danych' }}
+      icon: mdi:cash-clock
+      attributes:
+        start: "{{ state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window')['start'] if state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window') else none }}"
+        end: "{{ state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window')['end'] if state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window') else none }}"
+        duration_hours: "{{ state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window')['duration_hours'] if state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window') else none }}"
+        average_price: "{{ state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window')['average_price'] if state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window') else none }}"
+        spike_hour: "{{ state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window')['spike_hour'] if state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window') else none }}"
+        spike_price: "{{ state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window')['spike_price'] if state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window') else none }}"
+
+    - name: "Pstryk Best Sell Window Avg Price Dol"
+      unique_id: pstryk_best_sell_window_avg_price_dol
+      device_class: monetary
+      unit_of_measurement: "PLN/kWh"
+      state: >
+        {% set sw = state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window') %}
+        {{ sw.average_price if sw and sw.average_price is defined else 'unavailable' }}
+      icon: mdi:cash
+
+    - name: "Pstryk Peak Sell Spike Dol"
+      unique_id: pstryk_peak_sell_spike_dol
+      state: >
+        {% set sw = state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window') %}
+        {% if sw and sw.spike_hour and sw.spike_price %}
+          {{ sw.spike_hour }} ({{ sw.spike_price | round(2) }} zł/kWh)
+        {% else %}
+          Brak danych
+        {% endif %}
+      icon: mdi:chart-line-variant
+
+    # --- Deye 12kW & SunDeposit 16.13 kWh Inverter Telemetry & Config (Read-Only Modbus) ---
+    - name: "Deye Inverter Max Charge SOC"
+      unique_id: deye_inverter_max_charge_soc
+      unit_of_measurement: "%"
+      state: >
+        {% set cfg = state_attr('sensor.deye_inverter_status', 'config') %}
+        {{ cfg.max_charge_soc if cfg and cfg.max_charge_soc is defined else 90 }}
+      icon: mdi:battery-arrow-up
+
+    - name: "Deye Inverter Min Discharge SOC"
+      unique_id: deye_inverter_min_discharge_soc
+      unit_of_measurement: "%"
+      state: >
+        {% set cfg = state_attr('sensor.deye_inverter_status', 'config') %}
+        {{ cfg.min_discharge_soc if cfg and cfg.min_discharge_soc is defined else 20 }}
+      icon: mdi:battery-arrow-down
+
+    - name: "Deye Inverter Shutdown SOC"
+      unique_id: deye_inverter_shutdown_soc
+      unit_of_measurement: "%"
+      state: >
+        {% set cfg = state_attr('sensor.deye_inverter_status', 'config') %}
+        {{ cfg.shutdown_soc if cfg and cfg.shutdown_soc is defined else 5 }}
+      icon: mdi:battery-alert
+
+    - name: "Deye Inverter Max Charge Current"
+      unique_id: deye_inverter_max_charge_current
+      unit_of_measurement: "A"
+      state: >
+        {% set cfg = state_attr('sensor.deye_inverter_status', 'config') %}
+        {{ cfg.max_charge_current if cfg and cfg.max_charge_current is defined else 100 }}
+      icon: mdi:current-dc
+
+    - name: "Deye Inverter Max Discharge Current"
+      unique_id: deye_inverter_max_discharge_current
+      unit_of_measurement: "A"
+      state: >
+        {% set cfg = state_attr('sensor.deye_inverter_status', 'config') %}
+        {{ cfg.max_discharge_current if cfg and cfg.max_discharge_current is defined else 100 }}
+      icon: mdi:current-dc
+
+    - name: "Deye Battery SOC"
+      unique_id: deye_battery_soc
+      unit_of_measurement: "%"
+      state: >
+        {% set tlm = state_attr('sensor.deye_inverter_status', 'telemetry') %}
+        {{ tlm.battery_soc if tlm and tlm.battery_soc is defined else 85 }}
+      icon: mdi:battery-high
+
+    - name: "Deye Battery Voltage"
+      unique_id: deye_battery_voltage
+      unit_of_measurement: "V"
+      state: >
+        {% set tlm = state_attr('sensor.deye_inverter_status', 'telemetry') %}
+        {{ tlm.battery_voltage if tlm and tlm.battery_voltage is defined else 51.2 }}
+      icon: mdi:sine-wave
+
+    - name: "Deye Battery Power"
+      unique_id: deye_battery_power
+      unit_of_measurement: "W"
+      state: >
+        {% set tlm = state_attr('sensor.deye_inverter_status', 'telemetry') %}
+        {{ tlm.battery_power if tlm and tlm.battery_power is defined else 0 }}
+      icon: mdi:flash
+
+    - name: "Deye Battery Current"
+      unique_id: deye_battery_current
+      unit_of_measurement: "A"
+      state: >
+        {% set tlm = state_attr('sensor.deye_inverter_status', 'telemetry') %}
+        {{ tlm.battery_current if tlm and tlm.battery_current is defined else 0.0 }}
+      icon: mdi:current-dc
+
+    - name: "Deye TOU Active Schedule"
+      unique_id: deye_tou_active_schedule
+      state: >
+        {% set tou = state_attr('sensor.deye_inverter_status', 'active_tou') %}
+        {% if tou and tou.enabled is defined and tou.enabled %}
+          Aktywny (6 slotów)
+        {% else %}
+          Wyłączony
+        {% endif %}
+      attributes:
+        slots: "{{ state_attr('sensor.deye_inverter_status', 'active_tou')['slots'] if state_attr('sensor.deye_inverter_status', 'active_tou') else [] }}"
+        recommended_slots: "{{ state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule') or [] }}"
+        last_sync: "{{ state_attr('sensor.deye_inverter_status', 'timestamp') or 'Brak' }}"
+      icon: mdi:calendar-clock
+
+    # --- Deye 12kW & SunDeposit 16.13 kWh Battery Model ---
+    - name: "Deye Battery Operating Capacity kWh"
+      unique_id: deye_battery_operating_capacity_kwh
+      unit_of_measurement: "kWh"
+      state: >
+        {% set cfg = state_attr('sensor.deye_inverter_status', 'config') %}
+        {% set max_soc = cfg.max_charge_soc if cfg and cfg.max_charge_soc is defined else (states('input_number.deye_battery_max_charge_soc') | default('90', true) | float(90)) %}
+        {% set min_soc = cfg.min_discharge_soc if cfg and cfg.min_discharge_soc is defined else (states('input_number.deye_battery_min_discharge_soc') | default('20', true) | float(20)) %}
+        {% set cap = states('input_number.powerbank_total_capacity_kwh') | default('16.13', true) | float(16.13) %}
+        {{ (((max_soc - min_soc) / 100.0) * cap) | round(2) }}
+      icon: mdi:battery-heart
+
+    - name: "Deye Battery Blackout Reserve kWh"
+      unique_id: deye_battery_blackout_reserve_kwh
+      unit_of_measurement: "kWh"
+      state: >
+        {% set cfg = state_attr('sensor.deye_inverter_status', 'config') %}
+        {% set min_soc = cfg.min_discharge_soc if cfg and cfg.min_discharge_soc is defined else (states('input_number.deye_battery_min_discharge_soc') | default('20', true) | float(20)) %}
+        {% set shut_soc = cfg.shutdown_soc if cfg and cfg.shutdown_soc is defined else (states('input_number.deye_battery_shutdown_soc') | default('5', true) | float(5)) %}
+        {% set cap = states('input_number.powerbank_total_capacity_kwh') | default('16.13', true) | float(16.13) %}
+        {{ (((min_soc - shut_soc) / 100.0) * cap) | round(2) }}
+      icon: mdi:battery-alert
+
+    - name: "Deye Charge Power kW"
+      unique_id: deye_charge_power_kw
+      unit_of_measurement: "kW"
+      state: >
+        {% set cfg = state_attr('sensor.deye_inverter_status', 'config') %}
+        {% set volt = states('input_number.powerbank_voltage_v') | default('51.2', true) | float(51.2) %}
+        {% set curr = cfg.max_charge_current if cfg and cfg.max_charge_current is defined else (states('input_number.powerbank_charge_current_a') | default('100', true) | float(100)) %}
+        {{ ((volt * curr) / 1000.0) | round(2) }}
+      icon: mdi:transmission-tower-import
+
+    - name: "Deye Discharge Power kW"
+      unique_id: deye_discharge_power_kw
+      unit_of_measurement: "kW"
+      state: >
+        {% set cfg = state_attr('sensor.deye_inverter_status', 'config') %}
+        {% set volt = states('input_number.powerbank_voltage_v') | default('51.2', true) | float(51.2) %}
+        {% set curr = cfg.max_discharge_current if cfg and cfg.max_discharge_current is defined else (states('input_number.powerbank_discharge_current_a') | default('100', true) | float(100)) %}
+        {{ ((volt * curr) / 1000.0) | round(2) }}
+      icon: mdi:transmission-tower-export
+
+    - name: "Deye Battery Display Level"
+      unique_id: deye_battery_display_level
+      state: >
+        {% set soc = states('sensor.deye_battery_soc') %}
+        {% set cap = states('input_number.powerbank_total_capacity_kwh') | default('16.13', true) | float(16.13) %}
+        {% if soc not in ['unavailable', 'unknown', ''] %}
+          {% set soc_f = soc | float(0) %}
+          {% set kwh = ((soc_f / 100.0) * cap) | round(1) %}
+          {{ soc_f | int }}% ({{ kwh }} kWh)
+        {% else %}
+          {% set max_soc = states('input_number.deye_battery_max_charge_soc') | default('90', true) | float(90) %}
+          {% set kwh = ((max_soc / 100.0) * cap) | round(1) %}
+          {{ max_soc | int }}% ({{ kwh }} kWh)
+        {% endif %}
+      icon: >
+        {% set soc = states('sensor.deye_battery_soc') %}
+        {% set s = (soc | float(90)) if soc not in ['unavailable', 'unknown', ''] else 90 %}
+        {% if s >= 90 %}
+          mdi:battery
+        {% elif s >= 70 %}
+          mdi:battery-80
+        {% elif s >= 50 %}
+          mdi:battery-50
+        {% elif s >= 20 %}
+          mdi:battery-20
+        {% else %}
+          mdi:battery-alert
+        {% endif %}
+
+    - name: "Deye Battery Working State"
+      unique_id: deye_battery_working_state
+      state: >
+        {% if is_state('binary_sensor.pstryk_in_powerbank_best_window_dol', 'on') %}
+          Ładowanie
+        {% elif is_state('binary_sensor.pstryk_in_sell_window_dol', 'on') %}
+          Rozładowanie (Sprzedaż)
+        {% else %}
+          Czuwanie
+        {% endif %}
+      icon: >
+        {% set st = states('sensor.deye_battery_working_state') %}
+        {% if st == 'Ładowanie' %}
+          mdi:battery-charging
+        {% elif st == 'Rozładowanie (Sprzedaż)' %}
+          mdi:battery-arrow-down
+        {% else %}
+          mdi:battery
+        {% endif %}
+
+    - name: "Deye Battery Days Since Calibration"
+      unique_id: deye_battery_days_since_calibration
+      state: >
+        {% set last = states('input_datetime.deye_battery_last_calibration_date') %}
+        {% if last not in ['unavailable', 'unknown', ''] %}
+          {% set last_ts = as_timestamp(last) %}
+          {% if last_ts %}
+            {{ ((as_timestamp(now()) - last_ts) / 86400) | int }}
+          {% else %}
+            0
+          {% endif %}
+        {% else %}
+          0
+        {% endif %}
+      unit_of_measurement: "dni"
+      icon: mdi:calendar-clock
+
 - binary_sensor:
+    # --- Pstryk Dispatch Binary Triggers ---
+    - name: "Pstryk In EV Best Window Dol"
+      unique_id: pstryk_in_ev_best_window_dol
+      state: >
+        {% set start = state_attr('sensor.pstryk_ev_best_window_dol', 'start') %}
+        {% set end = state_attr('sensor.pstryk_ev_best_window_dol', 'end') %}
+        {% if start and end %}
+          {{ as_timestamp(start, 0) <= as_timestamp(now(), 0) < as_timestamp(end, 0) }}
+        {% else %}
+          false
+        {% endif %}
+      icon: >
+        {% if is_state('binary_sensor.pstryk_in_ev_best_window_dol', 'on') %}
+          mdi:car-electric
+        {% else %}
+          mdi:car
+        {% endif %}
+
+    - name: "Pstryk In Powerbank Best Window Dol"
+      unique_id: pstryk_in_powerbank_best_window_dol
+      state: >
+        {% set slots = state_attr('sensor.pstryk_powerbank_best_window_dol', 'slots') %}
+        {% set start = state_attr('sensor.pstryk_powerbank_best_window_dol', 'start') %}
+        {% set end = state_attr('sensor.pstryk_powerbank_best_window_dol', 'end') %}
+        {% if is_state_attr('sensor.pstryk_powerbank_best_window_dol', 'is_consecutive', true) and start and end %}
+          {{ as_timestamp(start, 0) <= as_timestamp(now(), 0) < as_timestamp(end, 0) }}
+        {% elif slots is defined and slots is iterable and slots | length > 0 %}
+          {% set now_hm = now().strftime('%H:%M') %}
+          {% set ns = namespace(active=false) %}
+          {% for s in slots %}
+            {% set parts = s.split(' - ') %}
+            {% if parts | length == 2 %}
+              {% if parts[0] <= now_hm < parts[1] %}
+                {% set ns.active = true %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.active }}
+        {% elif start and end %}
+          {{ as_timestamp(start, 0) <= as_timestamp(now(), 0) < as_timestamp(end, 0) }}
+        {% else %}
+          false
+        {% endif %}
+      icon: >
+        {% if is_state('binary_sensor.pstryk_in_powerbank_best_window_dol', 'on') %}
+          mdi:battery-charging
+        {% else %}
+          mdi:battery
+        {% endif %}
+
+    - name: "Pstryk In Sell Window Dol"
+      unique_id: pstryk_in_sell_window_dol
+      state: >
+        {% set start = state_attr('sensor.pstryk_best_sell_window_dol', 'start') %}
+        {% set end = state_attr('sensor.pstryk_best_sell_window_dol', 'end') %}
+        {% if start and end %}
+          {{ as_timestamp(start, 0) <= as_timestamp(now(), 0) < as_timestamp(end, 0) }}
+        {% else %}
+          false
+        {% endif %}
+      icon: >
+        {% if is_state('binary_sensor.pstryk_in_sell_window_dol', 'on') %}
+          mdi:cash-fast
+        {% else %}
+          mdi:cash
+        {% endif %}
+
     # --- dół ---
     - name: "Pstryk In Best Window Dol"
       unique_id: pstryk_in_best_window_dol

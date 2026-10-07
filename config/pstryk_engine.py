@@ -22,6 +22,44 @@ CACHE_TTL_SECONDS = 900  # 15 minutes
 DEFAULT_CACHE_DIR = "/tmp"
 
 
+def load_dotenv(paths: Optional[List[str]] = None) -> None:
+    """Zero-dependency .env file loader for environment configuration."""
+    if paths is None:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        repo_root = os.path.abspath(os.path.join(script_dir, ".."))
+        paths = [
+            "/config/.env",
+            os.path.join(repo_root, ".env"),
+            os.path.join(script_dir, ".env"),
+            os.path.join(os.getcwd(), ".env"),
+        ]
+    for p in paths:
+        if os.path.exists(p) and os.path.isfile(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'\"")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+                break
+            except Exception:
+                pass
+
+
+load_dotenv()
+
+try:
+    import solarman_v5_client
+except ImportError:
+    solarman_v5_client = None
+
+
+
 def get_cache_file_path(installation: str = "dol", cache_dir: str = DEFAULT_CACHE_DIR) -> str:
     """Returns absolute path to installation cache file in /tmp."""
     clean_inst = "dol" if installation not in ("dol", "gora") else installation
@@ -315,7 +353,10 @@ def find_cheapest_window(data: Dict[str, Any], max_increase_ratio: float = 0.10)
     while end_idx + 1 < len(valid_frames):
         curr_p = get_gross(valid_frames[end_idx])
         next_p = get_gross(valid_frames[end_idx + 1])
-        limit = max(curr_p * (1.0 + max_increase_ratio), curr_p + 0.01)
+        if curr_p > 0:
+            limit = max(curr_p * (1.0 + max_increase_ratio), curr_p + 0.01)
+        else:
+            limit = curr_p + 0.05
 
         if next_p <= limit:
             end_idx += 1
@@ -326,7 +367,10 @@ def find_cheapest_window(data: Dict[str, Any], max_increase_ratio: float = 0.10)
     while start_idx - 1 >= 0:
         curr_p = get_gross(valid_frames[start_idx])
         prev_p = get_gross(valid_frames[start_idx - 1])
-        limit = max(curr_p * (1.0 + max_increase_ratio), curr_p + 0.01)
+        if curr_p > 0:
+            limit = max(curr_p * (1.0 + max_increase_ratio), curr_p + 0.01)
+        else:
+            limit = curr_p + 0.05
 
         if prev_p <= limit:
             start_idx -= 1
@@ -336,6 +380,7 @@ def find_cheapest_window(data: Dict[str, Any], max_increase_ratio: float = 0.10)
     window_frames = valid_frames[start_idx: end_idx + 1]
     net_prices = [get_net(f) for f in window_frames]
     gross_prices = [get_gross(f) for f in window_frames]
+    avg_gross = round(sum(gross_prices) / len(gross_prices), 3)
 
     # Extract all prices for attributes
     all_prices = []
@@ -359,11 +404,19 @@ def find_cheapest_window(data: Dict[str, Any], max_increase_ratio: float = 0.10)
     if current_price is None and valid_frames:
         current_price = get_gross(valid_frames[0])
 
+    start_str = window_frames[0].get("start")
+    end_str = window_frames[-1].get("end")
+    start_fmt = format_hhmm(start_str)
+    end_fmt = format_hhmm(end_str)
+    display = f"{start_fmt} - {end_fmt} (śr. {avg_gross:.2f} zł/kWh)"
+
     return {
-        "start": window_frames[0].get("start"),
-        "end": window_frames[-1].get("end"),
+        "start": start_str,
+        "end": end_str,
         "duration_hours": len(window_frames),
         "current_price": current_price,
+        "average_price": avg_gross,
+        "display": display,
         "all_prices": all_prices,
         "net": {
             "min": round(min(net_prices), 5),
@@ -375,6 +428,563 @@ def find_cheapest_window(data: Dict[str, Any], max_increase_ratio: float = 0.10)
             "max": round(max(gross_prices), 5),
             "avg": round(sum(gross_prices) / len(gross_prices), 5),
         },
+    }
+
+
+class BatteryModel:
+    """Mathematical and physical model of battery pack with configurable SOC bounds."""
+    def __init__(
+        self,
+        capacity_kwh: float = 16.13,
+        max_soc: float = 90.0,
+        min_soc: float = 20.0,
+        shutdown_soc: float = 5.0,
+        charge_current_a: float = 100.0,
+        discharge_current_a: float = 100.0,
+        voltage_v: float = 51.2,
+    ):
+        self.capacity_kwh = float(capacity_kwh)
+        self.max_soc = max(50.0, min(100.0, float(max_soc)))
+        self.min_soc = max(10.0, min(50.0, float(min_soc)))
+        self.shutdown_soc = max(0.0, min(15.0, float(shutdown_soc)))
+        self.charge_current_a = float(charge_current_a)
+        self.discharge_current_a = float(discharge_current_a)
+        self.voltage_v = float(voltage_v)
+
+    @property
+    def operating_capacity_kwh(self) -> float:
+        return round((self.max_soc - self.min_soc) / 100.0 * self.capacity_kwh, 2)
+
+    @property
+    def blackout_reserve_kwh(self) -> float:
+        return round((self.min_soc - self.shutdown_soc) / 100.0 * self.capacity_kwh, 2)
+
+    @property
+    def top_buffer_kwh(self) -> float:
+        return round((100.0 - self.max_soc) / 100.0 * self.capacity_kwh, 2)
+
+    @property
+    def charge_power_kw(self) -> float:
+        return round((self.voltage_v * self.charge_current_a) / 1000.0, 2)
+
+    @property
+    def discharge_power_kw(self) -> float:
+        return round((self.voltage_v * self.discharge_current_a) / 1000.0, 2)
+
+    @property
+    def hours_to_full_charge(self) -> float:
+        if self.charge_power_kw <= 0:
+            return 0.0
+        return round(self.operating_capacity_kwh / self.charge_power_kw, 2)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "capacity_kwh": self.capacity_kwh,
+            "max_soc": self.max_soc,
+            "min_soc": self.min_soc,
+            "shutdown_soc": self.shutdown_soc,
+            "operating_capacity_kwh": self.operating_capacity_kwh,
+            "blackout_reserve_kwh": self.blackout_reserve_kwh,
+            "top_buffer_kwh": self.top_buffer_kwh,
+            "charge_power_kw": self.charge_power_kw,
+            "discharge_power_kw": self.discharge_power_kw,
+            "hours_to_full_charge": self.hours_to_full_charge,
+        }
+
+
+def find_ev_best_window(
+    data: Dict[str, Any],
+    target_hours: Any = "auto",
+    now_dt: Optional[datetime] = None
+) -> Dict[str, Any]:
+    """
+    Finds the optimal contiguous window for Electric Vehicle charging.
+    Defaults: Weekdays (Mon-Fri) = 2h, Weekends (Sat-Sun) = 4h (or configured).
+    """
+    if not data or not isinstance(data, dict) or "error" in data:
+        return {"error": data.get("error", "No data") if isinstance(data, dict) else "No data"}
+
+    frames = data.get("frames", [])
+    valid_frames = [
+        f for f in frames
+        if isinstance(f, dict)
+        and "pricing" in (f.get("metrics") or {})
+        and (
+            (f.get("metrics") or {}).get("pricing", {}).get("price_gross") is not None
+            or (f.get("metrics") or {}).get("pricing", {}).get("price_net") is not None
+        )
+    ]
+    if not valid_frames:
+        return {"error": "No valid pricing frames"}
+
+    ref_dt = now_dt or datetime.now(timezone.utc)
+    if target_hours == "auto" or target_hours is None:
+        first_start = valid_frames[0].get("start")
+        if first_start:
+            try:
+                frame_dt = datetime.fromisoformat(first_start.replace("Z", "+00:00"))
+                wday = frame_dt.weekday()
+            except Exception:
+                wday = ref_dt.weekday()
+        else:
+            wday = ref_dt.weekday()
+        n_hours = 4 if wday >= 5 else 2
+    else:
+        try:
+            n_hours = int(str(target_hours).replace("h", "").strip())
+        except ValueError:
+            n_hours = 2
+
+    n_hours = max(1, min(len(valid_frames), n_hours))
+    search_frames = valid_frames[:24] if len(valid_frames) >= 24 else valid_frames
+    if len(search_frames) < n_hours:
+        search_frames = valid_frames
+
+    def get_gross(f):
+        p = f["metrics"]["pricing"]
+        if p.get("price_gross") is not None:
+            return float(p["price_gross"])
+        if p.get("full_price") is not None:
+            return float(p["full_price"])
+        if p.get("price_net") is not None:
+            return round(float(p["price_net"]) * 1.23, 4)
+        return 999.0
+
+    best_idx = 0
+    best_avg = float("inf")
+    for i in range(len(search_frames) - n_hours + 1):
+        window = search_frames[i : i + n_hours]
+        avg = sum(get_gross(f) for f in window) / n_hours
+        if avg < best_avg:
+            best_avg = avg
+            best_idx = i
+
+    chosen = search_frames[best_idx : best_idx + n_hours]
+    gross_prices = [get_gross(f) for f in chosen]
+    avg_price = round(sum(gross_prices) / len(gross_prices), 3)
+    start_str = chosen[0].get("start")
+    end_str = chosen[-1].get("end")
+    start_fmt = format_hhmm(start_str)
+    end_fmt = format_hhmm(end_str)
+
+    return {
+        "start": start_str,
+        "end": end_str,
+        "duration_hours": n_hours,
+        "average_price": avg_price,
+        "min_price": round(min(gross_prices), 3),
+        "max_price": round(max(gross_prices), 3),
+        "display": f"{start_fmt} - {end_fmt} (śr. {avg_price:.2f} zł/kWh)",
+    }
+
+
+def find_powerbank_best_window(
+    data: Dict[str, Any],
+    target_hours: int = 2,
+    allow_disjoint: bool = True
+) -> Dict[str, Any]:
+    """
+    Finds the optimal window for home battery (Power Bank) charging.
+    Can be contiguous or disjoint (e.g., 1h at night + 1h during midday solar dip).
+    """
+    if not data or not isinstance(data, dict) or "error" in data:
+        return {"error": data.get("error", "No data") if isinstance(data, dict) else "No data"}
+
+    frames = data.get("frames", [])
+    valid_frames = [
+        f for f in frames
+        if isinstance(f, dict)
+        and "pricing" in (f.get("metrics") or {})
+        and (
+            (f.get("metrics") or {}).get("pricing", {}).get("price_gross") is not None
+            or (f.get("metrics") or {}).get("pricing", {}).get("price_net") is not None
+        )
+    ]
+    if not valid_frames:
+        return {"error": "No valid pricing frames"}
+
+    search_frames = valid_frames[:24] if len(valid_frames) >= 24 else valid_frames
+    n_hours = max(1, min(len(search_frames), target_hours))
+
+    def get_gross(f):
+        p = f["metrics"]["pricing"]
+        if p.get("price_gross") is not None:
+            return float(p["price_gross"])
+        if p.get("full_price") is not None:
+            return float(p["full_price"])
+        if p.get("price_net") is not None:
+            return round(float(p["price_net"]) * 1.23, 4)
+        return 999.0
+
+    if allow_disjoint:
+        indexed_frames = list(enumerate(search_frames))
+        indexed_frames.sort(key=lambda item: get_gross(item[1]))
+        chosen_indexed = indexed_frames[:n_hours]
+        chosen_indexed.sort(key=lambda item: item[0])
+        chosen_frames = [item[1] for item in chosen_indexed]
+        chosen_indices = [item[0] for item in chosen_indexed]
+
+        is_consecutive = all(
+            chosen_indices[i + 1] == chosen_indices[i] + 1
+            for i in range(len(chosen_indices) - 1)
+        )
+    else:
+        best_idx = 0
+        best_avg = float("inf")
+        for i in range(len(search_frames) - n_hours + 1):
+            window = search_frames[i : i + n_hours]
+            avg = sum(get_gross(f) for f in window) / n_hours
+            if avg < best_avg:
+                best_avg = avg
+                best_idx = i
+        chosen_frames = search_frames[best_idx : best_idx + n_hours]
+        is_consecutive = True
+
+    gross_prices = [get_gross(f) for f in chosen_frames]
+    avg_price = round(sum(gross_prices) / len(gross_prices), 3)
+
+    slots = [f"{format_hhmm(f.get('start'))} - {format_hhmm(f.get('end'))}" for f in chosen_frames]
+    start_str = chosen_frames[0].get("start")
+    end_str = chosen_frames[-1].get("end")
+
+    if is_consecutive:
+        display = f"{format_hhmm(start_str)} - {format_hhmm(end_str)} (śr. {avg_price:.2f} zł/kWh)"
+    else:
+        slots_str = " oraz ".join(slots)
+        display = f"{slots_str} (śr. {avg_price:.2f} zł/kWh)"
+
+    return {
+        "start": start_str,
+        "end": end_str,
+        "duration_hours": len(chosen_frames),
+        "average_price": avg_price,
+        "min_price": round(min(gross_prices), 3),
+        "max_price": round(max(gross_prices), 3),
+        "slots": slots,
+        "is_consecutive": is_consecutive,
+        "display": display,
+    }
+
+
+def find_best_sell_window(
+    data: Dict[str, Any],
+    target_hours: int = 3
+) -> Dict[str, Any]:
+    """
+    Finds the optimal contiguous peak window to sell energy or discharge home battery into grid,
+    plus identifies the highest 1-hour spike.
+    """
+    if not data or not isinstance(data, dict) or "error" in data:
+        return {"error": data.get("error", "No data") if isinstance(data, dict) else "No data"}
+
+    frames = data.get("frames", [])
+    valid_frames = [
+        f for f in frames
+        if isinstance(f, dict)
+        and "pricing" in (f.get("metrics") or {})
+        and (
+            (f.get("metrics") or {}).get("pricing", {}).get("price_gross") is not None
+            or (f.get("metrics") or {}).get("pricing", {}).get("price_net") is not None
+        )
+    ]
+    if not valid_frames:
+        return {"error": "No valid pricing frames"}
+
+    search_frames = valid_frames[:24] if len(valid_frames) >= 24 else valid_frames
+
+    def get_gross_sell(f):
+        p = f["metrics"]["pricing"]
+        if p.get("price_prosumer_gross") is not None:
+            return float(p["price_prosumer_gross"])
+        if p.get("sell_price_gross") is not None:
+            return float(p["sell_price_gross"])
+        if p.get("price_prosumer_net") is not None:
+            return round(float(p["price_prosumer_net"]) * 1.23, 4)
+        if p.get("sell_price_net") is not None:
+            return round(float(p["sell_price_net"]) * 1.23, 4)
+        if p.get("price_gross") is not None:
+            return float(p["price_gross"])
+        if p.get("price_net") is not None:
+            return round(float(p["price_net"]) * 1.23, 4)
+        return 0.0
+
+    n_hours = max(1, min(len(search_frames), target_hours))
+    best_idx = 0
+    best_avg = -1.0
+
+    for i in range(len(search_frames) - n_hours + 1):
+        window = search_frames[i : i + n_hours]
+        avg = sum(get_gross_sell(f) for f in window) / n_hours
+        if avg > best_avg:
+            best_avg = avg
+            best_idx = i
+
+    chosen = search_frames[best_idx : best_idx + n_hours]
+    sell_prices = [get_gross_sell(f) for f in chosen]
+    avg_price = round(sum(sell_prices) / len(sell_prices), 3)
+
+    spike_f = max(chosen, key=get_gross_sell)
+    spike_price = round(get_gross_sell(spike_f), 3)
+    spike_hour = f"{format_hhmm(spike_f.get('start'))} - {format_hhmm(spike_f.get('end'))}"
+
+    start_str = chosen[0].get("start")
+    end_str = chosen[-1].get("end")
+    start_fmt = format_hhmm(start_str)
+    end_fmt = format_hhmm(end_str)
+
+    display = f"{start_fmt} - {end_fmt} (śr. {avg_price:.2f} zł/kWh, pik {format_hhmm(spike_f.get('start'))}: {spike_price:.2f} zł)"
+
+    return {
+        "start": start_str,
+        "end": end_str,
+        "duration_hours": n_hours,
+        "average_price": avg_price,
+        "min_price": round(min(sell_prices), 3),
+        "max_price": round(max(sell_prices), 3),
+        "spike_hour": spike_hour,
+        "spike_price": spike_price,
+        "display": display,
+    }
+
+
+def generate_deye_tou_schedule(
+    current_soc: int = 85,
+    max_soc: int = 90,
+    min_soc: int = 20,
+    best_pb_window: Optional[Dict[str, Any]] = None,
+    best_sell_window: Optional[Dict[str, Any]] = None,
+    calibration_active: bool = False,
+    default_power_w: int = 5000,
+) -> List[Dict[str, Any]]:
+    """
+    Generates a 6-slot Time-of-Use (TOU) schedule for Deye Hybrid Inverter.
+    Slots are strictly ordered chronologically:
+      Slot 1: Night Charging (best_pb_window or 01:00) -> Max SOC (or 100% on calibration), Grid Charge ON
+      Slot 2: Morning Hold (pb_window end or 05:00) -> Current/Max SOC, Grid Charge OFF
+      Slot 3: Midday PV Solar Dip / Opportunistic (12:00) -> 80% SOC, Grid Charge ON/OFF
+      Slot 4: Pre-Peak Hold (15:00) -> Hold battery for high export rate
+      Slot 5: Peak Evening Discharge / Sell (best_sell_window or 18:00) -> Min SOC (20%), Grid Charge OFF
+      Slot 6: Night Base / Standby (sell_window end or 22:00) -> Min SOC (20%), Grid Charge OFF
+    """
+    def to_minutes(hhmm_str: Optional[str], default_m: int) -> int:
+        if not hhmm_str or hhmm_str == "--:--":
+            return default_m
+        try:
+            parts = hhmm_str.split(":")
+            return int(parts[0]) * 60 + int(parts[1])
+        except Exception:
+            return default_m
+
+    def to_time_str(m: int) -> str:
+        hh = (m // 60) % 24
+        mm = m % 60
+        return f"{hh:02d}:{mm:02d}"
+
+    # Default baseline minutes: 01:00, 05:00, 12:00, 15:00, 18:00, 22:00
+    t1 = 60
+    t2 = 300
+    t3 = 720
+    t4 = 900
+    t5 = 1080
+    t6 = 1320
+
+    has_midday_charge = False
+
+    if isinstance(best_pb_window, dict) and "error" not in best_pb_window:
+        pb_start_str = format_hhmm(best_pb_window.get("start"))
+        pb_end_str = format_hhmm(best_pb_window.get("end"))
+        pb_start_m = to_minutes(pb_start_str, 60)
+        pb_end_m = to_minutes(pb_end_str, 300)
+
+        # If PB starts in night window (before 06:00 / 360 min)
+        if pb_start_m < 360:
+            t1 = pb_start_m
+            if pb_end_m > t1 and pb_end_m < 600:
+                t2 = pb_end_m
+            else:
+                t2 = min(540, t1 + 180)
+
+        # Check for disjoint midday dip slot in PB window
+        if best_pb_window.get("is_consecutive") is False and best_pb_window.get("slots"):
+            for s in best_pb_window.get("slots", []):
+                parts = s.split(" - ")
+                if parts:
+                    sm = to_minutes(parts[0].strip(), -1)
+                    if 660 <= sm <= 900:  # 11:00 - 15:00
+                        t3 = sm
+                        has_midday_charge = True
+                        break
+
+    if isinstance(best_sell_window, dict) and "error" not in best_sell_window:
+        sell_start_str = format_hhmm(best_sell_window.get("start"))
+        sell_end_str = format_hhmm(best_sell_window.get("end"))
+        sell_start_m = to_minutes(sell_start_str, 1080)
+        sell_end_m = to_minutes(sell_end_str, 1320)
+
+        if sell_start_m > t3:
+            t5 = sell_start_m
+            if sell_end_m > t5 and sell_end_m < 1440:
+                t6 = sell_end_m
+            else:
+                t6 = min(1410, t5 + 180)
+            t4 = max(t3 + 60, min(t5 - 60, 900))
+
+    # Validate strictly monotonic progression
+    times = [t1, t2, t3, t4, t5, t6]
+    is_monotonic = all(times[i] < times[i + 1] for i in range(len(times) - 1)) and (times[-1] < 1440)
+    if not is_monotonic:
+        # Fallback to standard safe schedule
+        times = [60, 300, 720, 900, 1080, 1320]
+
+    safe_max_soc = 100 if calibration_active else max(50, min(100, int(max_soc)))
+    safe_min_soc = max(10, min(50, int(min_soc)))
+    safe_current_soc = max(safe_min_soc, min(safe_max_soc, int(current_soc)))
+
+    slots = [
+        {
+            "slot": 1,
+            "time": to_time_str(times[0]),
+            "power_w": default_power_w,
+            "target_soc": safe_max_soc,
+            "grid_charge": True,
+            "label": "Ładowanie Nocne (Kalibracja 100%)" if calibration_active else "Ładowanie Nocne",
+        },
+        {
+            "slot": 2,
+            "time": to_time_str(times[1]),
+            "power_w": default_power_w,
+            "target_soc": safe_max_soc,
+            "grid_charge": False,
+            "label": "Czuwanie Poranne",
+        },
+        {
+            "slot": 3,
+            "time": to_time_str(times[2]),
+            "power_w": default_power_w,
+            "target_soc": safe_max_soc if has_midday_charge else max(safe_min_soc, min(80, safe_max_soc)),
+            "grid_charge": has_midday_charge,
+            "label": "Tania Godzina Dzienna" if has_midday_charge else "Autokonsumpcja PV",
+        },
+        {
+            "slot": 4,
+            "time": to_time_str(times[3]),
+            "power_w": default_power_w,
+            "target_soc": max(safe_min_soc + 20, safe_current_soc),
+            "grid_charge": False,
+            "label": "Rezerwa Przed Szczytem",
+        },
+        {
+            "slot": 5,
+            "time": to_time_str(times[4]),
+            "power_w": default_power_w,
+            "target_soc": safe_min_soc,
+            "grid_charge": False,
+            "label": "Szczyt / Sprzedaż",
+        },
+        {
+            "slot": 6,
+            "time": to_time_str(times[5]),
+            "power_w": default_power_w,
+            "target_soc": safe_min_soc,
+            "grid_charge": False,
+            "label": "Czuwanie Nocne",
+        },
+    ]
+    return slots
+
+
+def sync_deye_inverter_tou_schedule(
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    current_soc: Optional[int] = None,
+    max_soc: Optional[int] = None,
+    min_soc: Optional[int] = None,
+    calibration_active: bool = False,
+    api_key: Optional[str] = None,
+    installation: str = "dol",
+    cache_dir: str = DEFAULT_CACHE_DIR,
+) -> Dict[str, Any]:
+    """
+    Recalculates and uploads the 6-slot TOU schedule to the Deye hybrid inverter via Solarman V5 client.
+    Reads live inverter telemetry and config when available, and derives optimal windows from Pstryk pricing data.
+    """
+    global solarman_v5_client
+    if solarman_v5_client is None:
+        try:
+            import solarman_v5_client
+        except ImportError:
+            pass
+
+    if solarman_v5_client is not None:
+        host = solarman_v5_client.get_configured_inverter_ip(host)
+        port = solarman_v5_client.get_configured_inverter_port(port)
+    else:
+        host = host or "10.20.2.6"
+        port = port or 8899
+
+    live_telem = {}
+    if solarman_v5_client is not None:
+        try:
+            live_telem = solarman_v5_client.read_inverter_telemetry(host=host, port=port)
+        except Exception as e:
+            live_telem = {"success": False, "error": str(e)}
+
+    # Resolve SOC parameters (prefer explicit arguments, fallback to live inverter read, fallback to standard defaults)
+    inv_cfg = live_telem.get("config", {}) if isinstance(live_telem, dict) else {}
+    inv_tlm = live_telem.get("telemetry", {}) if isinstance(live_telem, dict) else {}
+
+    eff_max_soc = max_soc if max_soc is not None else inv_cfg.get("max_charge_soc", 90)
+    eff_min_soc = min_soc if min_soc is not None else inv_cfg.get("min_discharge_soc", 20)
+    eff_current_soc = current_soc if current_soc is not None else inv_tlm.get("battery_soc", 85)
+
+    # Resolve pricing windows (from cache or API)
+    cache_file = get_cache_file_path(installation, cache_dir)
+    cached_data = read_cache(cache_file)
+    pb_window = None
+    sell_window = None
+
+    if cached_data and isinstance(cached_data, dict):
+        pb_window = cached_data.get("powerbank_best_window")
+        sell_window = cached_data.get("best_sell_window")
+
+    if (not pb_window or not sell_window) and api_key and api_key != DEFAULT_API_KEY:
+        try:
+            fresh_data = fetch_consolidated_data(api_key=api_key, installation=installation, cache_dir=cache_dir)
+            if isinstance(fresh_data, dict):
+                pb_window = fresh_data.get("powerbank_best_window")
+                sell_window = fresh_data.get("best_sell_window")
+        except Exception:
+            pass
+
+    slots = generate_deye_tou_schedule(
+        current_soc=eff_current_soc,
+        max_soc=eff_max_soc,
+        min_soc=eff_min_soc,
+        best_pb_window=pb_window,
+        best_sell_window=sell_window,
+        calibration_active=calibration_active,
+    )
+
+    sync_result = {"success": False, "message": "solarman_v5_client module not available"}
+    if solarman_v5_client is not None:
+        try:
+            sync_result = solarman_v5_client.sync_tou_schedule(slots=slots, host=host, port=port)
+        except Exception as e:
+            sync_result = {"success": False, "error": str(e)}
+
+    return {
+        "success": sync_result.get("success", False),
+        "timestamp": datetime.now().isoformat(),
+        "host": host,
+        "port": port,
+        "calibration_active": calibration_active,
+        "soc_limits": {
+            "current_soc": eff_current_soc,
+            "max_soc": eff_max_soc,
+            "min_soc": eff_min_soc,
+        },
+        "slots": slots,
+        "inverter_response": sync_result,
     }
 
 
@@ -855,10 +1465,29 @@ def fetch_consolidated_data(
                 "end": None,
                 "duration_hours": 0,
                 "current_price": 0.0,
+                "average_price": 0.0,
+                "display": "Brak danych",
                 "all_prices": [],
                 "net": {"min": 0.0, "max": 0.0, "avg": 0.0},
                 "gross": {"min": 0.0, "max": 0.0, "avg": 0.0},
             }
+
+    # Dispatch windows:
+    target_dispatch_data = forward_data if (isinstance(forward_data, dict) and forward_data.get("frames")) else today_data
+    ev_window = find_ev_best_window(target_dispatch_data, target_hours="auto")
+    pb_window = find_powerbank_best_window(target_dispatch_data, target_hours=2, allow_disjoint=True)
+    sell_window = find_best_sell_window(target_dispatch_data, target_hours=3)
+
+    # Battery model defaults for Deye 12kW + SunDeposit 16.13 kWh
+    battery_model = BatteryModel(
+        capacity_kwh=16.13,
+        max_soc=90.0,
+        min_soc=20.0,
+        shutdown_soc=5.0,
+        charge_current_a=100.0,
+        discharge_current_a=100.0,
+        voltage_v=51.2,
+    )
 
     # 5. Build rich structured sub-objects
     current_obj = build_current_subobject(latest_data)
@@ -893,9 +1522,23 @@ def fetch_consolidated_data(
         "start": window_result.get("start"),
         "end": window_result.get("end"),
         "duration_hours": window_result.get("duration_hours", 0),
+        "average_price": window_result.get("average_price", 0.0),
+        "display": window_result.get("display", "Brak danych"),
         "all_prices": window_result.get("all_prices", []),
         "net": window_result.get("net", {"min": 0.0, "max": 0.0, "avg": 0.0}),
         "gross": window_result.get("gross", {"min": 0.0, "max": 0.0, "avg": 0.0}),
+        "ev_best_window": ev_window,
+        "powerbank_best_window": pb_window,
+        "best_sell_window": sell_window,
+        "deye_tou_schedule": generate_deye_tou_schedule(
+            current_soc=85,
+            max_soc=90,
+            min_soc=20,
+            best_pb_window=pb_window,
+            best_sell_window=sell_window,
+            calibration_active=False,
+        ),
+        "battery_model": battery_model.to_dict(),
         "installation": installation,
         "current": current_obj,
         "today": today_obj,
@@ -920,9 +1563,30 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--json", action="store_true", help="Output result as JSON")
     parser.add_argument("--installation", choices=["dol", "gora"], default="dol", help="Target installation")
     parser.add_argument("--no-cache", action="store_true", help="Bypass file cache")
+    parser.add_argument("--sync-deye-tou", action="store_true", help="Recalculate and synchronize 6-slot TOU schedule to Deye inverter")
+    parser.add_argument("--inverter-host", default=None, help="Deye Inverter logger IP (defaults to configured IP)")
+    parser.add_argument("--inverter-port", type=int, default=None, help="Deye Inverter logger Port (defaults to configured port)")
+    parser.add_argument("--current-soc", type=int, default=None, help="Battery SOC override")
+    parser.add_argument("--max-soc", type=int, default=None, help="Max Charge SOC override")
+    parser.add_argument("--min-soc", type=int, default=None, help="Min Discharge SOC override")
+    parser.add_argument("--calibration", action="store_true", help="Flag to charge to 100% for BMS calibration")
 
     args = parser.parse_args(argv)
     api_key = args.key or os.getenv("PSTRYK_API_KEY") or DEFAULT_API_KEY
+
+    if args.sync_deye_tou:
+        sync_res = sync_deye_inverter_tou_schedule(
+            host=args.inverter_host,
+            port=args.inverter_port,
+            current_soc=args.current_soc,
+            max_soc=args.max_soc,
+            min_soc=args.min_soc,
+            calibration_active=args.calibration,
+            api_key=api_key if api_key != DEFAULT_API_KEY else None,
+            installation=args.installation,
+        )
+        print(json.dumps(sync_res, indent=2))
+        return 0
 
     debug_info = {}
     if not api_key or api_key == "sk-YOUR_TOKEN_HERE":

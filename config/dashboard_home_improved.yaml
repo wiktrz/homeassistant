@@ -700,6 +700,179 @@ views:
           navigation_path: /dashboard-home/energia-raport
 
       - type: heading
+        heading: Harmonogram Dyspozytorski Pstryk
+
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: tile
+            entity: sensor.pstryk_ev_best_window_dol
+            name: Okno Ładowania EV
+            icon: mdi:car-electric
+            color: green
+            tap_action:
+              action: more-info
+          - type: tile
+            entity: sensor.pstryk_powerbank_best_window_dol
+            name: Okno Magazynu Energii
+            icon: mdi:battery-charging
+            color: purple
+            tap_action:
+              action: more-info
+          - type: tile
+            entity: sensor.pstryk_best_sell_window_dol
+            name: Okno Szczytu Sprzedaży
+            icon: mdi:cash-clock
+            color: amber
+            tap_action:
+              action: more-info
+
+      - type: entities
+        title: Status Aktywnych Okien Dyspozytorskich
+        show_header_toggle: false
+        entities:
+          - entity: binary_sensor.pstryk_in_ev_best_window_dol
+            name: Trwa Okno Ładowania Samochodu (EV)
+            icon: mdi:car-electric
+          - entity: binary_sensor.pstryk_in_powerbank_best_window_dol
+            name: Trwa Okno Ładowania Magazynu Energii
+            icon: mdi:battery-charging
+          - entity: binary_sensor.pstryk_in_sell_window_dol
+            name: Trwa Szczyt Cenowy Sprzedaży / Oddawania
+            icon: mdi:cash-fast
+
+      - type: heading
+        heading: Magazyn Energii SunDeposit 16.13 kWh & Falownik Deye 12 kW
+
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: tile
+            entity: sensor.deye_battery_display_level
+            name: Poziom Baterii
+            icon: mdi:battery-high
+            color: green
+          - type: tile
+            entity: sensor.deye_battery_working_state
+            name: Tryb Pracy Magazynu
+            icon: mdi:battery-sync
+            color: blue
+          - type: tile
+            entity: sensor.deye_battery_operating_capacity_kwh
+            name: Pojemność Użyteczna
+            icon: mdi:battery-heart-variant
+            color: teal
+          - type: tile
+            entity: sensor.deye_battery_blackout_reserve_kwh
+            name: Rezerwa Blackout
+            icon: mdi:battery-alert
+            color: red
+          - type: tile
+            entity: sensor.deye_charge_power_kw
+            name: Max Moc Ładowania
+            icon: mdi:transmission-tower-import
+            color: purple
+          - type: tile
+            entity: sensor.deye_discharge_power_kw
+            name: Max Moc Oddawania
+            icon: mdi:transmission-tower-export
+            color: amber
+
+      - type: entities
+        title: Parametry Odczytane z Falownika Deye (Modbus Read-Only)
+        show_header_toggle: false
+        entities:
+          - entity: sensor.deye_inverter_status
+            name: Status Połączenia z Falownikiem
+            icon: mdi:lan-connect
+          - entity: input_text.deye_inverter_ip
+            name: Adres IP Falownika
+            icon: mdi:ip-network
+          - entity: input_number.deye_inverter_port
+            name: Port Falownika (Solarman V5)
+            icon: mdi:ethernet
+          - entity: input_button.scan_deye_inverter_ip
+            name: Skanuj Sieć LAN i Wykryj Falownik
+            icon: mdi:radar
+          - entity: sensor.deye_inverter_max_charge_soc
+            name: Górny Limit Ładowania (Max SOC - Reg 112)
+            icon: mdi:battery-arrow-up
+          - entity: sensor.deye_inverter_min_discharge_soc
+            name: Dolny Limit Rozładowania (Min SOC - Reg 110)
+            icon: mdi:battery-arrow-down
+          - entity: sensor.deye_inverter_shutdown_soc
+            name: Próg Wyłączenia (Shutdown SOC - Reg 111)
+            icon: mdi:battery-alert
+          - entity: sensor.deye_inverter_max_charge_current
+            name: Max Prąd Ładowania (Reg 108)
+            icon: mdi:current-dc
+          - entity: sensor.deye_inverter_max_discharge_current
+            name: Max Prąd Rozładowania (Reg 109)
+            icon: mdi:current-dc
+          - entity: sensor.deye_battery_voltage
+            name: Napięcie Magazynu (Reg 587)
+            icon: mdi:sine-wave
+          - entity: sensor.deye_battery_current
+            name: Prąd Pracy Magazynu (Reg 591)
+            icon: mdi:flash
+          - entity: script.refresh_deye_inverter_status
+            name: Wymuś Odczyt Telemetrii z Falownika
+            icon: mdi:refresh
+
+      - type: entities
+        title: Harmonogram Time-of-Use (TOU - Zapis do Falownika 4x/dobę)
+        show_header_toggle: false
+        entities:
+          - entity: sensor.deye_tou_active_schedule
+            name: Status Harmonogramu TOU (Reg 248)
+            icon: mdi:calendar-clock
+          - entity: input_select.ev_charging_target_hours
+            name: Długość Okna Ładowania EV
+            icon: mdi:car-electric
+          - entity: input_select.battery_discharge_target_hours
+            name: Długość Okna Sprzedaży / Rozładowania
+            icon: mdi:battery-arrow-up
+          - entity: input_button.sync_deye_inverter_soc
+            name: Wymuś Przeliczenie i Zapis TOU Teraz
+            icon: mdi:cloud-sync
+
+      - type: markdown
+        title: Aktywne Sloty Falownika Deye (Time-of-Use)
+        content: >-
+          {% set slots = state_attr('sensor.deye_inverter_status', 'active_tou')['slots'] if state_attr('sensor.deye_inverter_status', 'active_tou') else [] %}
+          {% if slots and slots | length == 6 %}
+          | Slot | Czas Start | Moc Limit | Docelowy SOC | Ładowanie z Sieci |
+          |:---:|:---:|:---:|:---:|:---:|
+          {% for s in slots %}
+          | **{{ s.slot }}** | {{ s.time }} | {{ s.power_w }} W | {{ s.target_soc }}% | {{ 'TAK' if s.grid_charge else 'NIE' }} |
+          {% endfor %}
+          {% else %}
+          *Oczekiwanie na synchronizację z falownikiem Deye...*
+          {% endif %}
+
+      - type: entities
+        title: Zdrowie Baterii i Kalibracja BMS 100% (LiFePO4)
+        show_header_toggle: false
+        entities:
+          - entity: sensor.deye_battery_days_since_calibration
+            name: Dni od Ostatniej Kalibracji BMS
+            icon: mdi:counter
+          - entity: input_datetime.deye_battery_last_calibration_date
+            name: Data Ostatniej Pełnej Kalibracji
+            icon: mdi:calendar-check
+          - entity: input_select.deye_battery_calibration_frequency
+            name: Harmonogram Kalibracji BMS
+            icon: mdi:calendar-sync
+          - entity: input_boolean.deye_battery_calibration_in_progress
+            name: Trwa Procedura Kalibracji 100%
+            icon: mdi:battery-sync
+          - entity: input_button.trigger_deye_battery_calibration
+            name: Uruchom Pełną Kalibrację 100% Teraz
+            icon: mdi:battery-charging-100
+
+      - type: heading
         heading: Pstryk Energy — Instalacja Dół
 
       - type: grid

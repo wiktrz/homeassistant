@@ -47,6 +47,16 @@ script: !include scripts.yaml
 template: !include templates.yaml
 rest: !include rest.yaml
 
+shell_command:
+  save_deye_inverter_config: >-
+    python3 /config/solarman_v5_client.py --set-config --host {{ states('input_text.deye_inverter_ip') }} --port {{ states('input_number.deye_inverter_port') | int(8899) }}
+  scan_deye_inverter_ip: >-
+    python3 /config/solarman_v5_client.py --scan --save-discovered
+  sync_deye_inverter_tou: >-
+    python3 /config/pstryk_engine.py --sync-deye-tou --inverter-host {{ states('input_text.deye_inverter_ip') | default('10.20.2.6') }} --inverter-port {{ states('input_number.deye_inverter_port') | int(8899) }} {% if calibration is defined and calibration %}--calibration{% endif %}
+  sync_deye_inverter: >-
+    python3 /config/pstryk_engine.py --sync-deye-tou --inverter-host {{ states('input_text.deye_inverter_ip') | default('10.20.2.6') }} --inverter-port {{ states('input_number.deye_inverter_port') | int(8899) }}
+
 light:
   - platform: group
     name: "Taras Lampy"
@@ -74,6 +84,8 @@ command_line:
         - start
         - end
         - duration_hours
+        - average_price
+        - display
         - net
         - gross
         - error
@@ -82,6 +94,11 @@ command_line:
         - month
         - year
         - installation
+        - ev_best_window
+        - powerbank_best_window
+        - best_sell_window
+        - deye_tou_schedule
+        - battery_model
   # Installation: góra (upper floor)
   - sensor:
       name: Pstryk Price Meter Gora
@@ -101,6 +118,8 @@ command_line:
         - start
         - end
         - duration_hours
+        - average_price
+        - display
         - net
         - gross
         - error
@@ -109,6 +128,50 @@ command_line:
         - month
         - year
         - installation
+        - ev_best_window
+        - powerbank_best_window
+        - best_sell_window
+        - deye_tou_schedule
+        - battery_model
+  # Deye Inverter & Battery Telemetry / Configuration Ingestion (Read-Only)
+  - sensor:
+      name: Deye Inverter Status
+      unique_id: deye_inverter_status_v1
+      command: "python3 /config/solarman_v5_client.py --read-all"
+      scan_interval: 300
+      value_template: >
+        {% if value_json.success is defined and value_json.success %}
+          online
+        {% else %}
+          offline
+        {% endif %}
+      json_attributes:
+        - config
+        - telemetry
+        - active_tou
+        - timestamp
+        - host
+        - port
+        - error
+  # Deye Inverter Auto-Discovery Scanner
+  - sensor:
+      name: Deye Inverter Discovered IP
+      unique_id: deye_inverter_discovered_ip_v1
+      command: "python3 /config/solarman_v5_client.py --scan"
+      scan_interval: 86400
+      value_template: >
+        {% if value_json.found is defined and value_json.found %}
+          {{ value_json.ip }}
+        {% else %}
+          unknown
+        {% endif %}
+      json_attributes:
+        - found
+        - ip
+        - port
+        - scanned_subnet
+        - devices
+        - duration_seconds
 
 api:
 
@@ -148,8 +211,45 @@ input_boolean:
     name: Kitchen Helper
   hall_entrance_input_manual:
     name: Hall Entrance Input Manual
+  deye_battery_calibration_in_progress:
+    name: Trwa Kalibracja Magazynu (Tryb 100%)
+    initial: off
+    icon: mdi:battery-sync
 
 input_select:
+  ev_charging_target_hours:
+    name: Czas Ładowania EV
+    options:
+      - "Auto (2h Pn-Pt / 4h Sb-Nd)"
+      - "Auto (2h Pn-Pt / 6h Sb-Nd)"
+      - "2h (Stałe 2 godziny)"
+      - "3h (Stałe 3 godziny)"
+      - "4h (Stałe 4 godziny)"
+      - "6h (Stałe 6 godzin)"
+    initial: "Auto (2h Pn-Pt / 4h Sb-Nd)"
+    icon: mdi:car-electric
+
+  battery_discharge_target_hours:
+    name: Czas Rozładowania / Sprzedaży
+    options:
+      - "3h (Optymalny szczyt 3h)"
+      - "4h (Rozszerzony szczyt 4h)"
+      - "5h (Pełne okno szczytowe 5h)"
+      - "2h (Kompaktowy szczyt 2h)"
+      - "1h (Tylko pik cenowy 1h)"
+    initial: "3h (Optymalny szczyt 3h)"
+    icon: mdi:battery-arrow-up
+
+  deye_battery_calibration_frequency:
+    name: Częstotliwość Kalibracji 100% (BMS Health)
+    options:
+      - "Co 14 dni (Częste cykle)"
+      - "Co 30 dni (Zalecane raz w miesiącu)"
+      - "Co 60 dni"
+      - "Wyłączone (Tylko ręcznie)"
+    initial: "Co 30 dni (Zalecane raz w miesiącu)"
+    icon: mdi:calendar-sync
+
   last_radio_station:
     name: Ostatnia Stacja Radiowa
     options:
@@ -459,6 +559,11 @@ input_datetime:
     has_time: true
     initial: "17:30:00"
     icon: mdi:weather-sunset-down
+  deye_battery_last_calibration_date:
+    name: Data Ostatniej Kalibracji 100%
+    has_date: true
+    has_time: true
+    icon: mdi:history
 
 input_number:
   shelly_brightness:
@@ -473,6 +578,70 @@ input_number:
     max: 255
     step: 5
     initial: 120
+  deye_battery_max_charge_soc:
+    name: "Deye: Max SOC (Ładowanie)"
+    min: 50
+    max: 100
+    step: 1
+    initial: 90
+    unit_of_measurement: "%"
+    icon: mdi:battery-arrow-up
+  deye_battery_min_discharge_soc:
+    name: "Deye: Min SOC (Praca w sieci)"
+    min: 10
+    max: 50
+    step: 1
+    initial: 20
+    unit_of_measurement: "%"
+    icon: mdi:battery-arrow-down
+  deye_battery_shutdown_soc:
+    name: "Deye: Shutdown SOC (Blackout)"
+    min: 0
+    max: 15
+    step: 1
+    initial: 5
+    unit_of_measurement: "%"
+    icon: mdi:battery-alert
+  powerbank_total_capacity_kwh:
+    name: "Całkowita Pojemność Magazynu (SunDeposit)"
+    min: 5.0
+    max: 100.0
+    step: 0.1
+    initial: 16.13
+    unit_of_measurement: "kWh"
+    icon: mdi:battery-high
+  powerbank_charge_current_a:
+    name: "Prąd Ładowania Magazynu"
+    min: 10
+    max: 240
+    step: 5
+    initial: 100
+    unit_of_measurement: "A"
+    icon: mdi:current-ac
+  powerbank_discharge_current_a:
+    name: "Prąd Rozładowania / Sprzedaży Magazynu"
+    min: 10
+    max: 240
+    step: 5
+    initial: 100
+    unit_of_measurement: "A"
+    icon: mdi:current-ac
+  powerbank_voltage_v:
+    name: "Napięcie Nominalne Magazynu"
+    min: 48.0
+    max: 60.0
+    step: 0.1
+    initial: 51.2
+    unit_of_measurement: "V"
+    icon: mdi:sine-wave
+  deye_inverter_port:
+    name: "Port Falownika Deye (Solarman V5)"
+    min: 1
+    max: 65535
+    step: 1
+    initial: 8899
+    unit_of_measurement: "TCP"
+    icon: mdi:ethernet
 
 input_button:
   btn_entrance_door:
@@ -484,6 +653,24 @@ input_button:
     name: Roleta Sypialnia Dół
   shelly_animation_toggle:
     name: Shelly Animation Toggle
+  sync_deye_inverter_soc:
+    name: Synchronizuj z Falownikiem Deye
+    icon: mdi:sync
+  trigger_deye_battery_calibration:
+    name: Rozpocznij Kalibrację 100% (Balansowanie Ogniw)
+    icon: mdi:battery-charging-100
+  scan_deye_inverter_ip:
+    name: Skanuj Sieć i Wykryj Falownik Deye
+    icon: mdi:radar
+
+input_text:
+  deye_inverter_ip:
+    name: "Adres IP Falownika Deye"
+    initial: "10.20.2.6"
+    min: 7
+    max: 15
+    icon: mdi:ip-network
+    mode: text
 
 
 

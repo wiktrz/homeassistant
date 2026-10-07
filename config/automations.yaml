@@ -2201,94 +2201,67 @@
   mode: restart
 - id: daily_energy_price_notification
   alias: 'Energy: Daily Price Forecast Notification'
-  description: Sends a notification at 22:00 with the cheapest energy price window
-    for the next available time. Uses dół installation (pricing is identical for both).
+  description: Sends a notification at 22:00 with multi-window dispatch forecast (EV, Magazyn, Sprzedaż) for the next day.
   trigger:
   - platform: time
     at: '22:00:00'
   action:
   - variables:
-      sensor_entity: sensor.pstryk_best_window_dol
-      start_attr: '{{ state_attr(sensor_entity, ''start_time'') }}'
-      end_attr: '{{ state_attr(sensor_entity, ''end_time'') }}'
-      gross_min: '{{ state_attr(sensor_entity, ''gross_min'') }}'
-      has_data: '{{ states(sensor_entity) not in [''unavailable'', ''none'', ''Error'']
-        and start_attr is not none and gross_min != ''N/A'' }}'
-      days:
-      - Pon
-      - Wt
-      - Śr
-      - Czw
-      - Pt
-      - Sob
-      - Ndz
-      day_name: '{{ days[as_timestamp(start_attr) | timestamp_custom(''%w'', true)
-        | int - 1] if has_data else '''' }}'
-      start_time: '{{ as_timestamp(start_attr) | timestamp_custom(''%d.%m ('' ~ day_name
-        ~ '') %H:%M'') if has_data else '''' }}'
-      end_time: '{{ as_timestamp(end_attr) | timestamp_custom(''%H:%M'') if has_data
-        else '''' }}'
+      has_data: "{{ states('sensor.pstryk_ev_best_window_dol') not in ['unavailable', 'none', 'Error', 'Brak danych'] }}"
+      ev_win: "{{ states('sensor.pstryk_ev_best_window_dol') }}"
+      pb_win: "{{ states('sensor.pstryk_powerbank_best_window_dol') }}"
+      sell_win: "{{ states('sensor.pstryk_best_sell_window_dol') }}"
   - if:
     - condition: template
       value_template: '{{ has_data }}'
     then:
-    - service: notify.notify
+    - action: notify.notify
       data:
-        title: ⚡ Najtańsza Energia
-        message: 'Nadchodzi okno z najniższą ceną: {{ gross_min }} PLN/kWh.  Planuj
-          zużycie: {{ start_time }} - {{ end_time }}.
-
-          '
-        data:
-          channel: energy
-          tag: energy_forecast
-          clickAction: /dashboard-home/energia
-  - if:
-    - condition: template
-      value_template: '{{ has_data and min_price != ''N/A'' }}'
-    then:
-    - service: notify.notify
-      data:
-        title: ⚡ Najtańsza Energia
-        message: 'Nadchodzi okno z najniższą ceną: {{ min_price }} PLN/kWh.  Planuj
-          zużycie w godzinach {{ start_time }} - {{ end_time }}.
-
-          '
+        title: ⚡ Harmonogram Energii Pstryk
+        message: >-
+          Prognoza dyspozytorska na najbliższy okres:
+          🚗 Okno EV: {{ ev_win }}
+          🔋 Magazyn: {{ pb_win }}
+          💰 Szczyt Sprzedaży: {{ sell_win }}
         data:
           channel: energy
           tag: energy_forecast
           clickAction: /dashboard-home/energia
     else:
-    - service: notify.notify
+    - action: notify.notify
       data:
         title: ⚠️ Brak Danych Pstryk
-        message: 'Status: {{ state }} Klucz: {{ debug_attr[''key_status''] if debug_attr
-          else ''Missing Debug'' }} Start: {{ start_attr if start_attr else ''None''
-          }} Net: {{ ''Ok'' if net_attr else ''None'' }} Błąd: {{ state_attr(sensor_entity,
-          ''error'') if state_attr(sensor_entity, ''error'') else ''Brak szczegółów''
-          }}
+        message: 'Nie udało się pobrać aktualnego harmonogramu cenowego Pstryk.'
 
-          '
 - id: '1772557345605'
   alias: Tesla Charging Best Window
-  description: ''
+  description: 'Włącza ładowanie Tesli w oknie EV (binary_sensor.pstryk_in_ev_best_window_dol) i wyłącza po jego zakończeniu.'
   triggers:
   - trigger: state
     entity_id:
-    - binary_sensor.pstryk_in_best_window_dol
-    to:
-    - 'on'
+    - binary_sensor.pstryk_in_ev_best_window_dol
   conditions:
   - condition: state
     entity_id: device_tracker.tesla_y_location
     state: home
   actions:
-  - action: switch.turn_on
-    metadata: {}
-    target:
-      entity_id: switch.tesla_y_charge
-    data: {}
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.to_state.state == 'on' }}"
+        sequence:
+          - action: switch.turn_on
+            target:
+              entity_id: switch.tesla_y_charge
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.to_state.state == 'off' }}"
+        sequence:
+          - action: switch.turn_off
+            target:
+              entity_id: switch.tesla_y_charge
   mode: single
+
 - id: '1772783265111'
   alias: 'Powiadomienie: Wywóz śmieci (Marki Sektor 1A)'
   description: Wysyła powiadomienie wieczorem przed planowanym odbiorem odpadów
@@ -2307,15 +2280,20 @@
       message: 'Jutro rano odbiór odpadów: {{ states(''sensor.nastepny_wywoz_odpadow'')
         }}'
   mode: single
+
 - id: pstryk_best_window_voice_announcement
   alias: 'Powiadomienie Głosowe: Rozpoczęcie Okna Cenowego Pstryk'
   description: >-
     Odtwarza komunikat głosowy na Home Assistant Voice PE w chwili rozpoczęcia
-    najtańszego okna cenowego energii.
+    najtańszego okna cenowego energii (z ograniczeniem do godzin 07:30 - 22:00).
   triggers:
   - trigger: state
     entity_id: binary_sensor.pstryk_in_best_window_dol
     to: 'on'
+  conditions:
+  - condition: time
+    after: '07:30:00'
+    before: '22:00:00'
   actions:
     - action: tts.speak
       target:
@@ -2323,10 +2301,84 @@
       data:
         media_player_entity_id: media_player.home_assistant_voice_0a9bfd_media_player
         message: >-
-          Zaczyna się {{ state_attr('sensor.pstryk_best_window_dol',
-          'duration_hours') | int(1) }} godzinne okno cenowe
+          Zaczyna się najtańsze okno cenowe energii.
+          Średnia cena wynosi {{ states('sensor.pstryk_powerbank_best_window_avg_price_dol') | default('0', true) }} zł za kilowatogodzinę.
         cache: true
   mode: single
+
+- id: deye_tou_schedule_4x_daily
+  alias: 'Deye: Dynamiczne Przeliczanie i Synchronizacja Harmonogramu TOU 4x/Dobę'
+  description: 'Przelicza i przesyła 6 slotów Time-of-Use (ładowanie nocne, czuwanie, PV dip, sprzedaż w szczycie) do falownika Deye 4 razy dziennie (00:05, 06:00, 14:15, 20:00) oraz na żądanie.'
+  triggers:
+    - trigger: time
+      at: '00:05:00'
+      id: slot_midnight
+    - trigger: time
+      at: '06:00:00'
+      id: slot_morning
+    - trigger: time
+      at: '14:15:00'
+      id: slot_afternoon
+    - trigger: time
+      at: '20:00:00'
+      id: slot_evening
+    - trigger: state
+      entity_id: input_button.sync_deye_inverter_soc
+      id: manual_trigger
+  conditions: []
+  actions:
+    - action: script.sync_deye_inverter_tou
+  mode: restart
+
+- id: deye_battery_calibration_periodic_scheduler
+  alias: 'Deye: Harmonogram Kalibracji Baterii 100% (BMS Health)'
+  description: 'Sprawdza raz na dobę o 00:05 czy minął zdefiniowany interwał kalibracji 100% (BMS balancing) lub reaguje na przycisk ręczny.'
+  triggers:
+  - trigger: time
+    at: '00:05:00'
+  - trigger: state
+    entity_id: input_button.trigger_deye_battery_calibration
+  conditions:
+  - condition: or
+    conditions:
+      - condition: template
+        value_template: "{{ trigger.entity_id == 'input_button.trigger_deye_battery_calibration' }}"
+      - condition: and
+        conditions:
+          - condition: template
+            value_template: "{{ states('input_select.deye_battery_calibration_frequency') != 'Wyłączone (Tylko ręcznie)' }}"
+          - condition: template
+            value_template: >-
+              {% set days = states('sensor.deye_battery_days_since_calibration') | int(0) %}
+              {% set freq = states('input_select.deye_battery_calibration_frequency') %}
+              {% if '14 dni' in freq and days >= 14 %}
+                true
+              {% elif '30 dni' in freq and days >= 30 %}
+                true
+              {% elif '60 dni' in freq and days >= 60 %}
+                true
+              {% else %}
+                false
+              {% endif %}
+  actions:
+  - action: script.start_deye_battery_calibration
+  mode: single
+
+- id: deye_battery_calibration_auto_finish
+  alias: 'Deye: Zakończenie Kalibracji po Osiągnięciu 100% SOC'
+  description: 'Gdy magazyn energii osiągnie 100% w trakcie procedury kalibracji, przywraca standardowy limit Max SOC i zapisuje datę kalibracji.'
+  triggers:
+  - trigger: numeric_state
+    entity_id: sensor.deye_battery_soc
+    above: 99.5
+  conditions:
+  - condition: state
+    entity_id: input_boolean.deye_battery_calibration_in_progress
+    state: 'on'
+  actions:
+  - action: script.finish_deye_battery_calibration
+  mode: single
+
 - id: 'morning_radio_schedule'
   alias: 'Poranne Radio: Radio ZET (Pn-Pt Pora Pobudka) i Antyradio (Sb-Nd Pora Weekend)'
   description: 'Poranna rutyna w dwóch krokach: 1. Losowa muzyka z dedykowanego folderu morning_music (głośność 40%, ~3 min), 2. Radio na żywo (głośność 10%, Radio ZET / Antyradio).'
@@ -2558,6 +2610,36 @@
       data:
         time: "{{ calc_outdoor_dusk }}"
   mode: single
+
+- id: deye_inverter_ip_change_sync
+  alias: "Deye: Synchronizacja Zmiany Adresu IP i Portu Falownika"
+  description: "Zapisuje nowy adres IP i port falownika Deye do konfiguracji i natychmiast odświeża status."
+  triggers:
+    - trigger: state
+      entity_id:
+        - input_text.deye_inverter_ip
+        - input_number.deye_inverter_port
+  conditions:
+    - condition: template
+      value_template: "{{ trigger.to_state.state not in ['unknown', 'unavailable', ''] }}"
+  actions:
+    - action: shell_command.save_deye_inverter_config
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.deye_inverter_status
+  mode: restart
+
+- id: scan_deye_inverter_button_trigger
+  alias: "Deye: Uruchomienie Skanera Sieci z Przycisku UI"
+  description: "Uruchamia skanowanie sieci LAN po naciśnięciu przycisku w dashboardzie."
+  triggers:
+    - trigger: state
+      entity_id: input_button.scan_deye_inverter_ip
+  conditions: []
+  actions:
+    - action: script.scan_and_set_deye_inverter_ip
+  mode: single
+
 
 
 

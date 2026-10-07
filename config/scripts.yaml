@@ -1181,4 +1181,88 @@ radio_volume_down:
   mode: single
   icon: mdi:volume-minus
 
+sync_deye_inverter_tou:
+  alias: Synchronizuj Harmonogram TOU z Falownikiem Deye
+  description: Przelicza dynamiczny 6-slotowy harmonogram Time-of-Use i przesyła go do falownika Deye (Solarman V5 Modbus).
+  sequence:
+    - action: shell_command.sync_deye_inverter_tou
+      data:
+        calibration: "{{ is_state('input_boolean.deye_battery_calibration_in_progress', 'on') }}"
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.deye_inverter_status
+  mode: single
+  icon: mdi:sync
+
+sync_deye_inverter_soc:
+  alias: Synchronizuj Harmonogram TOU z Falownikiem Deye (Alias)
+  description: Przelicza i przesyła 6 slotów Time-of-Use do falownika Deye.
+  sequence:
+    - action: script.sync_deye_inverter_tou
+  mode: single
+  icon: mdi:sync
+
+start_deye_battery_calibration:
+  alias: Rozpocznij Kalibrację Baterii do 100% (BMS Health)
+  description: Zezwala na pełne naładowanie magazynu SunDeposit do 100% w celu kalibracji BMS i zbalansowania cel LiFePO4 w oknie TOU.
+  sequence:
+    - action: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.deye_battery_calibration_in_progress
+    - action: script.sync_deye_inverter_tou
+  mode: single
+  icon: mdi:battery-charging-100
+
+finish_deye_battery_calibration:
+  alias: Zakończ Kalibrację Baterii Deye
+  description: Przywraca standardowy limit ładowania po osiągnięciu 100% i aktualizuje datę kalibracji.
+  sequence:
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.deye_battery_calibration_in_progress
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.deye_battery_last_calibration_date
+      data:
+        date: "{{ now().strftime('%Y-%m-%d') }}"
+    - action: script.sync_deye_inverter_tou
+  mode: single
+  icon: mdi:battery-check
+
+refresh_deye_inverter_status:
+  alias: Odśwież Status Falownika Deye
+  description: Wymusza natychmiastowy odczyt telemetrii i rejestrów konfiguracyjnych falownika Deye.
+  sequence:
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.deye_inverter_status
+  mode: single
+  icon: mdi:refresh
+
+scan_and_set_deye_inverter_ip:
+  alias: Skanuj Sieć i Ustaw IP Falownika Deye
+  description: Skanuje sieć LAN w poszukiwaniu falownika Deye na porcie 8899 i aktualizuje pomocnik input_text.deye_inverter_ip.
+  sequence:
+    - action: shell_command.scan_deye_inverter_ip
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.deye_inverter_discovered_ip
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ states('sensor.deye_inverter_discovered_ip') not in ['unknown', 'unavailable', 'None', ''] }}"
+          sequence:
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.deye_inverter_ip
+              data:
+                value: "{{ states('sensor.deye_inverter_discovered_ip') }}"
+            - action: shell_command.save_deye_inverter_config
+            - action: homeassistant.update_entity
+              target:
+                entity_id: sensor.deye_inverter_status
+  mode: single
+  icon: mdi:radar
+
+
 

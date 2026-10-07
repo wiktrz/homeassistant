@@ -544,6 +544,198 @@ def test_consolidated_smart_cache_lifecycle(tmp_path):
         assert res4.get("_cache_hit") is not True
 
 
+def test_battery_model_invariants_and_capacity_calculations():
+    """Verifies Deye 12kW + SunDeposit 16.13 kWh capacity calculations and slider bound clamps."""
+    bm = pstryk_engine.BatteryModel(
+        capacity_kwh=16.13,
+        max_soc=90.0,
+        min_soc=20.0,
+        shutdown_soc=5.0,
+        charge_current_a=100.0,
+        discharge_current_a=100.0,
+        voltage_v=51.2,
+    )
+    assert bm.operating_capacity_kwh == 11.29  # (90 - 20)% * 16.13 = 11.291
+    assert bm.blackout_reserve_kwh == 2.42    # (20 - 5)% * 16.13 = 2.4195
+    assert bm.top_buffer_kwh == 1.61          # (100 - 90)% * 16.13 = 1.613
+    assert bm.charge_power_kw == 5.12         # 51.2 * 100 / 1000 = 5.12 kW
+    assert bm.discharge_power_kw == 5.12
+    assert bm.hours_to_full_charge == 2.21    # 11.29 / 5.12 = 2.205 h
+
+    # Test bound clamping (User constraint: Max SOC >= 50%, Min SOC <= 50% and >= 10%, Shutdown <= 15%)
+    bm_clamped = pstryk_engine.BatteryModel(
+        capacity_kwh=16.13,
+        max_soc=40.0,     # Below 50 -> clamped to 50
+        min_soc=60.0,     # Above 50 -> clamped to 50
+        shutdown_soc=25.0 # Above 15 -> clamped to 15
+    )
+    assert bm_clamped.max_soc == 50.0
+    assert bm_clamped.min_soc == 50.0
+    assert bm_clamped.shutdown_soc == 15.0
+
+
+def test_ev_charging_window_weekday_and_weekend():
+    """Verifies that EV window selects 2h on weekdays and 4h on weekends by default."""
+    from datetime import datetime, timezone
+    hourly_payload = load_fixture("sample_hourly_today.json")
+
+    # 1. Weekday (e.g. 2026-09-24 was Thursday, weekday=3)
+    weekday_dt = datetime(2026, 9, 24, 8, 0, 0, tzinfo=timezone.utc)
+    ev_weekday = pstryk_engine.find_ev_best_window(hourly_payload, target_hours="auto", now_dt=weekday_dt)
+    assert ev_weekday["duration_hours"] == 2
+    assert ev_weekday["average_price"] == 0.305
+    assert "13:00 - 15:00" in ev_weekday["display"]
+    assert "śr. 0.30 zł/kWh" in ev_weekday["display"]
+
+    # 2. Weekend (e.g. Saturday 2026-09-26, weekday=5)
+    weekend_dt = datetime(2026, 9, 26, 8, 0, 0, tzinfo=timezone.utc)
+    ev_weekend = pstryk_engine.find_ev_best_window(hourly_payload, target_hours=4, now_dt=weekend_dt)
+    assert ev_weekend["duration_hours"] == 4
+    assert ev_weekend["min_price"] <= ev_weekend["average_price"] <= ev_weekend["max_price"]
+    assert "śr." in ev_weekend["display"]
+
+
+def test_powerbank_window_continuous_and_disjoint():
+    """Verifies Power Bank window calculates lowest hours and handles continuous vs disjoint slots."""
+    hourly_payload = load_fixture("sample_hourly_today.json")
+
+    # In sample_hourly_today, the two lowest hours are 13:00 (0.30) and 14:00 (0.31) -> contiguous!
+    pb_res = pstryk_engine.find_powerbank_best_window(hourly_payload, target_hours=2, allow_disjoint=True)
+    assert pb_res["duration_hours"] == 2
+    assert pb_res["is_consecutive"] is True
+    assert pb_res["display"] == "13:00 - 15:00 (śr. 0.30 zł/kWh)"
+
+    # Test synthetic disjoint frames (e.g. cheapest at 03:00 and 14:00)
+    synthetic_frames = [
+        {"start": "2026-10-06T03:00:00Z", "end": "2026-10-06T04:00:00Z", "metrics": {"pricing": {"price_gross": 0.20}}},
+        {"start": "2026-10-06T04:00:00Z", "end": "2026-10-06T05:00:00Z", "metrics": {"pricing": {"price_gross": 0.80}}},
+        {"start": "2026-10-06T14:00:00Z", "end": "2026-10-06T15:00:00Z", "metrics": {"pricing": {"price_gross": 0.25}}},
+        {"start": "2026-10-06T15:00:00Z", "end": "2026-10-06T16:00:00Z", "metrics": {"pricing": {"price_gross": 0.90}}},
+    ]
+    disjoint_res = pstryk_engine.find_powerbank_best_window({"frames": synthetic_frames}, target_hours=2, allow_disjoint=True)
+    assert disjoint_res["duration_hours"] == 2
+    assert disjoint_res["is_consecutive"] is False
+    assert disjoint_res["slots"] == ["03:00 - 04:00", "14:00 - 15:00"]
+    assert disjoint_res["display"] == "03:00 - 04:00 oraz 14:00 - 15:00 (śr. 0.23 zł/kWh)"
+
+
+def test_best_sell_window_and_spike_calculation():
+    """Verifies peak selling window and 1-hour absolute spike calculation."""
+    hourly_payload = load_fixture("sample_hourly_today.json")
+    sell_res = pstryk_engine.find_best_sell_window(hourly_payload, target_hours=3)
+
+    assert sell_res["duration_hours"] == 3
+    assert sell_res["start"] == "2026-09-24T18:00:00Z"
+    assert sell_res["end"] == "2026-09-24T21:00:00Z"
+    assert sell_res["spike_hour"] == "19:00 - 20:00"
+    assert sell_res["spike_price"] == 0.799
+    assert "18:00 - 21:00" in sell_res["display"]
+    assert "śr. 0.75 zł/kWh" in sell_res["display"]
+    assert "pik 19:00: 0.80 zł" in sell_res["display"]
+
+
+def test_generate_deye_tou_schedule_structure_and_monotonicity():
+    """Verifies that generate_deye_tou_schedule produces 6 monotonic slots with valid clamps."""
+    pb_win = {"start": "2026-10-06T02:00:00Z", "end": "2026-10-06T04:00:00Z", "is_consecutive": True}
+    sell_win = {"start": "2026-10-06T17:00:00Z", "end": "2026-10-06T21:00:00Z"}
+
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=85,
+        max_soc=90,
+        min_soc=20,
+        best_pb_window=pb_win,
+        best_sell_window=sell_win,
+        calibration_active=False,
+    )
+
+    assert len(slots) == 6
+    # Slot 1: Night charge (02:00)
+    assert slots[0]["slot"] == 1
+    assert slots[0]["time"] == "02:00"
+    assert slots[0]["grid_charge"] is True
+    assert slots[0]["target_soc"] == 90
+
+    # Slot 2: Morning hold (04:00)
+    assert slots[1]["slot"] == 2
+    assert slots[1]["time"] == "04:00"
+    assert slots[1]["grid_charge"] is False
+    assert slots[1]["target_soc"] == 90
+
+    # Slot 5: Sell window (17:00)
+    assert slots[4]["slot"] == 5
+    assert slots[4]["time"] == "17:00"
+    assert slots[4]["grid_charge"] is False
+    assert slots[4]["target_soc"] == 20
+
+    # Monotonicity check
+    def parse_m(t):
+        p = t.split(":")
+        return int(p[0]) * 60 + int(p[1])
+    minutes = [parse_m(s["time"]) for s in slots]
+    assert all(minutes[i] < minutes[i+1] for i in range(len(minutes)-1))
+
+
+def test_generate_deye_tou_schedule_calibration_mode():
+    """Verifies that calibration_active sets Slot 1 target SOC to 100%."""
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=50,
+        max_soc=90,
+        min_soc=20,
+        calibration_active=True,
+    )
+    assert slots[0]["target_soc"] == 100
+    assert "Kalibracja" in slots[0]["label"]
+
+
+def test_generate_deye_tou_schedule_midday_dip():
+    """Verifies disjoint midday dip triggers grid_charge=True on Slot 3."""
+    pb_win = {
+        "start": "2026-10-06T02:00:00Z",
+        "end": "2026-10-06T14:00:00Z",
+        "is_consecutive": False,
+        "slots": ["02:00 - 03:00", "13:00 - 14:00"],
+    }
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=80,
+        max_soc=90,
+        min_soc=20,
+        best_pb_window=pb_win,
+    )
+    assert slots[2]["time"] == "13:00"
+    assert slots[2]["grid_charge"] is True
+    assert "Tania Godzina" in slots[2]["label"]
+
+
+def test_sync_deye_inverter_tou_schedule_integration():
+    """Verifies sync_deye_inverter_tou_schedule calls solarman client with 6 slots."""
+    with mock.patch("solarman_v5_client.read_inverter_telemetry") as mock_read, \
+         mock.patch("solarman_v5_client.sync_tou_schedule") as mock_sync:
+        mock_read.return_value = {
+            "success": True,
+            "config": {"max_charge_soc": 90, "min_discharge_soc": 20},
+            "telemetry": {"battery_soc": 82},
+        }
+        mock_sync.return_value = {"success": True, "message": "OK"}
+
+        res = pstryk_engine.sync_deye_inverter_tou_schedule(host="10.20.2.6", port=8899)
+        assert res["success"] is True
+        assert len(res["slots"]) == 6
+        assert res["soc_limits"]["current_soc"] == 82
+        mock_sync.assert_called_once()
+
+
+def test_cli_sync_deye_tou_flag():
+    """Verifies CLI flag --sync-deye-tou executes cleanly."""
+    with mock.patch("solarman_v5_client.sync_tou_schedule") as mock_sync, \
+         mock.patch("solarman_v5_client.read_inverter_telemetry") as mock_read:
+        mock_read.return_value = {"success": True, "config": {}, "telemetry": {}}
+        mock_sync.return_value = {"success": True, "message": "OK"}
+
+        ret = pstryk_engine.main(["--sync-deye-tou", "--inverter-host", "127.0.0.1"])
+        assert ret == 0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
 

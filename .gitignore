@@ -48,3 +48,11 @@ Thumbs.db
 *.mov
 *.wmv
 
+# Environment credentials files
+.env
+config/.env
+*.env
+!.env.example
+!config/.env.example
+
+

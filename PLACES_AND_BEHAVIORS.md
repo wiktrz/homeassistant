@@ -633,30 +633,78 @@ flowchart TD
 
 ---
 
-### 3.3 Dynamic Energy & Multi-Period Aggregation Engine (Pstryk dual meters & Tesla charging)
-- **Engine Script:** `config/pstryk_engine.py` (multi-period backend aggregation engine) & `config/pstryk_pricing.py` running hourly via `command_line` with 15-min cache in `/tmp/pstryk_cache_{installation}.json`.
-- **5-Dataset Multi-Period Aggregations:** `temporal=latest` (live prices, tariffs, instant active registers, carbon), 48h forward prices (cheapest window with 10% rise limit), today's hourly breakdown, current month daily breakdown, and year monthly breakdown.
+### 3.3 Dynamic Energy, Multi-Window Dispatch & Battery Storage System (Pstryk, Deye & SunDeposit)
+- **Engine Scripts & Drivers:**
+  - `config/pstryk_engine.py`: Multi-period backend aggregation & multi-window dispatch engine.
+  - `config/solarman_v5_client.py`: Zero-dependency Deye Modbus-RTU over Solarman V5 TCP socket client with auto-discovery scanner.
+  - `config/deye_cloud_client.py`: Zero-dependency Deye Cloud OpenAPI client (`https://eu1-developer.deyecloud.com`) adhering to `POST /v1.0/account/token?appId={AppId}`, generating 60-day cached `accessToken` via Developer App credentials and Account login (`DEYE_CLOUD_EMAIL`, `DEYE_CLOUD_PASSWORD`) with SHA-256 password hashing. Serves as automatic fallback when local port 8899 is closed on Wi-Fi logger stick firmware `DYDA_WiBLE_1.6.2`. CLI support includes `--get-token`.
+  - `.env.example` & `config/.env.example`: Configuration templates defining inverter IP, logger SN (`D26213439330`), inverter SN (`2603160727`), Developer App credentials (`DEYE_CLOUD_APP_ID`, `DEYE_CLOUD_APP_SECRET`), and Account credentials (`DEYE_CLOUD_EMAIL`, `DEYE_CLOUD_PASSWORD`). Real `.env` files are git-ignored.
+- **Physical Hardware & Network Discovery:**
+  - Inverter: Deye 12 kW Hybrid (`SUN-12K-SG05LP3-EU-SM2`) at dynamic IP configured via `input_text.deye_inverter_ip` (default `10.20.2.6`), port `input_number.deye_inverter_port` (default `8899`).
+  - Battery: SunDeposit 16.13 kWh LiFePO4 pack (315 Ah, 51.2V nominal, Bluetooth BMS).
+  - LAN Discovery: Auto-discovery subnet scanner (`solarman_v5_client.py --scan`) probing port 8899 with Solarman V5 frame validation (`0xA5..0x15`). Triggerable via `input_button.scan_deye_inverter_ip` and `script.scan_and_set_deye_inverter_ip`.
+  - Config Persistence: Dynamic fallback hierarchy (CLI -> env var -> `/config/.deye_inverter_config.json` -> `core.restore_state` -> `10.20.2.6`).
+- **Hardware Control Policy & Invariants:**
+  - Direct writes to registers 108 (Max Charge Current), 109 (Max Discharge Current), 110 (Min Discharge SOC), 111 (Shutdown SOC), and 112 (Max Charge SOC) are **strictly BLOCKED** in software. Parameters are set manually on the inverter physical screen.
+  - Home Assistant polls and ingests all parameters in **Read-Only** mode via `sensor.deye_inverter_status` (`solarman_v5_client.py --read-all` or `deye_cloud_client.py --read-all`).
+  - **Time-of-Use (TOU) Programming:** The only write operation permitted is the 6-slot Time-of-Use schedule (registers `248..273`).
+- **Operating Capacity & Reserves:**
+  - Max Charge SOC: default 90% (read from Reg 112).
+  - Min Discharge SOC: default 20% (read from Reg 110).
+  - Shutdown SOC: default 5% (read from Reg 111).
+  - Operating usable capacity: $(90\% - 20\%) \times 16.13 = \mathbf{11.29\text{ kWh}}$.
+  - Emergency blackout reserve: $(20\% - 5\%) \times 16.13 = \mathbf{2.42\text{ kWh}}$.
+  - Top cell-protection buffer: $(100\% - 90\%) \times 16.13 = \mathbf{1.61\text{ kWh}}$.
+  - Transfer power: 100A @ 51.2V = **5.12 kW**.
+- **Dynamic Multi-Window Auto-Dispatch & TOU Generation:**
+  - **EV Window:** Weekdays 2h continuous / Weekends 4h or 6h continuous (`sensor.pstryk_ev_best_window_dol`, e.g. `01:00 - 03:00 (śr. 0.88 zł/kWh)`).
+  - **Power Bank Window:** 2h capacity, allows continuous (`02:00 - 04:00 (śr. 0.86 zł/kWh)`) or disjoint slots with full interval notation (`03:00 - 04:00 oraz 14:00 - 15:00 (śr. 0.79 zł/kWh)`).
+  - **Sell Window:** Best 3h–5h peak window + 1h absolute spike (`sensor.pstryk_best_sell_window_dol`, e.g. `17:00 - 21:00 (śr. 1.34 zł/kWh, pik 19:00: 1.48 zł)`).
+  - **Dynamic 6-Slot TOU Table:** Slot 1 (Night Charge 5000W Grid ON), Slot 2 (Morning Hold Max SOC), Slot 3 (Midday PV Dip / Hold 80%), Slot 4 (Pre-Peak Hold), Slot 5 (Peak Sell / Discharge Min SOC), Slot 6 (Night Standby Min SOC).
+- **Battery Health & 100% BMS Calibration Scheduling:**
+  - Periodic 100% saturation for BMS top cell balancing and state-of-charge drift correction.
+  - Managed by `input_select.deye_battery_calibration_frequency` (default: 30 days) and `sensor.deye_battery_days_since_calibration`.
+  - Automated via `deye_battery_calibration_periodic_scheduler` (starts calibration at 00:05 and syncs TOU schedule with Slot 1 Target SOC = 100%) and `deye_battery_calibration_auto_finish` (restores Max SOC to standard limit when SOC reaches 100%).
 - **Dual Meter Architecture & Template Sensor Layer:**
+  - `sensor.deye_inverter_status`: Modbus reader returning `config`, `telemetry`, `active_tou`
+  - `sensor.deye_inverter_max_charge_soc`, `min_discharge_soc`, `shutdown_soc`: Read-only hardware parameters
+  - `sensor.deye_inverter_max_charge_current`, `max_discharge_current`: Read-only current limits
+  - `sensor.deye_battery_soc`, `voltage`, `power`, `current`: Live battery telemetry (registers 587..591)
+  - `sensor.deye_tou_active_schedule`: Active 6-slot schedule state and attributes
   - `sensor.pstryk_price_meter_dol` & `sensor.pstryk_price_meter_gora`: Root command_line entities (15-min scan interval, caching in `/tmp`).
   - `sensor.pstryk_best_window_dol` & `sensor.pstryk_best_window_gora`: Contiguous cheapest charging window range and duration.
-  - `sensor.pstryk_cena_kupno_dol` & `sensor.pstryk_cena_kupno_gora`: Current gross buy rate (PLN/kWh) with full pricing breakdown attributes (net, tge, dist, service, vat, is_cheap, is_expensive).
+  - `sensor.pstryk_ev_best_window_dol` & `_avg_price_dol`: EV window hours and average buy price.
+  - `sensor.pstryk_powerbank_best_window_dol` & `_avg_price_dol`: Power Bank window hours and average buy price.
+  - `sensor.pstryk_best_sell_window_dol`, `_avg_price_dol`, & `sensor.pstryk_peak_sell_spike_dol`: Sell window, avg price, and 1h spike.
+  - `sensor.deye_battery_operating_capacity_kwh` & `sensor.deye_battery_blackout_reserve_kwh`: Usable capacity (11.29 kWh) & emergency reserve (2.42 kWh dynamic).
+  - `sensor.deye_charge_power_kw` & `sensor.deye_discharge_power_kw`: Transfer power limits (5.12 kW dynamic).
+  - `sensor.deye_battery_display_level`: Dual % and kWh readout (e.g. `85% (13.7 kWh)`).
+  - `sensor.deye_battery_working_state`: Tri-state operational mode (`Ładowanie`, `Rozładowanie (Sprzedaż)`, `Czuwanie`).
+  - `sensor.deye_battery_days_since_calibration`: Days counter since last 100% BMS calibration.
+  - `sensor.pstryk_cena_kupno_dol` & `sensor.pstryk_cena_kupno_gora`: Current gross buy rate (PLN/kWh) with full pricing components.
   - `sensor.pstryk_cena_sprzedaz_dol` & `sensor.pstryk_cena_sprzedaz_gora`: Prosumer gross sell rate (PLN/kWh) with net selling price.
   - `sensor.pstryk_zuzycie_dzis_dol` & `sensor.pstryk_zuzycie_dzis_gora`: Today's consumed energy (kWh) with hourly breakdown history.
-  - `sensor.pstryk_koszt_dzis_dol` & `sensor.pstryk_koszt_dzis_gora`: Today's gross electricity expense (PLN) with earnings and financial balance.
+  - `sensor.pstryk_koszt_dzis_dol` & `sensor.pstryk_koszt_dzis_gora`: Today's gross electricity expense (PLN) with balance.
   - `sensor.pstryk_zuzycie_miesiac_dol` & `sensor.pstryk_zuzycie_miesiac_gora`: Month-to-date energy consumption (kWh) with daily history.
   - `sensor.pstryk_koszt_miesiac_dol` & `sensor.pstryk_koszt_miesiac_gora`: Month-to-date electricity expense (PLN) with monthly history.
   - `sensor.pstryk_slad_weglowy_dol` & `sensor.pstryk_slad_weglowy_gora`: Live and today's carbon footprint (g CO₂).
 - **Binary Window & Tariff Flags:**
   - `binary_sensor.pstryk_in_best_window_dol` & `binary_sensor.pstryk_in_best_window_gora`: Active cheapest window indicator.
+  - `binary_sensor.pstryk_in_ev_best_window_dol`: Active EV charging window flag.
+  - `binary_sensor.pstryk_in_powerbank_best_window_dol`: Active Power Bank charging window flag.
+  - `binary_sensor.pstryk_in_sell_window_dol`: Active peak selling window flag.
   - `binary_sensor.pstryk_tania_godzina_dol` & `binary_sensor.pstryk_tania_godzina_gora`: Active cheap hour flag (`is_cheap`).
   - `binary_sensor.pstryk_droga_godzina_dol` & `binary_sensor.pstryk_droga_godzina_gora`: Active expensive hour flag (`is_expensive`).
-- **Lovelace UI Overview & Drill-Down Subview (`/dashboard-home/energia` & `/energia-raport`):**
-  - **Main Energy View (`/energia`):** Dual stacked sections ("Pstryk Energy — Instalacja Dół" and "Pstryk Energy — Instalacja Góra") with 8 dynamic tiles each (Kupno, Sprzedaż, Najlepsze Okno, Zużycie Dziś, Koszt Dziś, Zużycie Miesiąc, Koszt Miesiąc, Ślad Węglowy) with color thresholds and quick navigation button.
+- **Lovelace Dashboards:**
+  - **Overview View (`/dashboard-home/dom`):** `Energia i Info` box displays Koszt Dziś (Dół & Góra), Okno EV (aktywne + godziny i średnia cena), Magazyn SunDeposit poziom (`%` i `kWh`) oraz stan tri-state (`Ładowanie`, `Czuwanie`, `Rozładowanie (Sprzedaż)`), Najlepsze Okno Sprzedaży ze średnią ceną, oraz Odpady.
+  - **Energy View (`/dashboard-home/energia`):** 4 dedicated sections: 1. Harmonogram Dyspozytorski Pstryk (EV, Magazyn, Sprzedaż z cenami średnimi), 2. Magazyn Energii SunDeposit 16.13 kWh & Falownik Deye 12 kW (poziom, tryb, pojemność użyteczna, rezerwa blackout, moc), 3. Parametry Odczytane z Falownika Deye (Modbus Read-Only) oraz Harmonogram Time-of-Use (TOU 6 slotów, markdown tabela), 4. Zdrowie Baterii i Kalibracja BMS 100% (kalendarz, interwał, ręczny wyzwalacz), obok kafelków instalacji Dół/Góra.
   - **Interactive Reporting Subview (`/energia-raport`):** Subview with native back navigation, side-by-side Dół vs Góra consumption & cost comparison, Jinja2 markdown tables for hourly today breakdown, daily month history, 2026 year monthly table, and 48h live history graphs.
-- **Automations:**
-  - `daily_energy_price_notification`: 22:00 forecast notification with cheapest window times and gross min prices (clicking notification opens `/dashboard-home/energia`).
-  - `Tesla Charging Best Window`: Automatically closes charging contactor (`switch.tesla_y_charge`) when `binary_sensor.pstryk_in_best_window_dol == on` and vehicle (`device_tracker.tesla_y_location`) is home.
-  - `pstryk_best_window_voice_announcement`: Speaks aloud dynamically on Home Assistant Voice PE when the cheap window opens.
+- **Automations & Scripts:**
+  - `deye_tou_schedule_4x_daily`: Recalculates and uploads 6-slot TOU schedule 4 times daily (`00:05`, `06:00`, `14:15`, `20:00`) and on manual button press via `script.sync_deye_inverter_tou`.
+  - `daily_energy_price_notification`: 22:00 forecast notification with multi-window summary (EV, Magazyn, Sprzedaż) for next day (clicking notification opens `/dashboard-home/energia`).
+  - `Tesla Charging Best Window`: Automatically starts charging (`switch.tesla_y_charge`) when `binary_sensor.pstryk_in_ev_best_window_dol == on` and stops when window ends.
+  - `pstryk_best_window_voice_announcement`: Speaks aloud dynamically on Home Assistant Voice PE with quiet hours guard (07:30–22:00).
+  - `deye_battery_calibration_periodic_scheduler` & `deye_battery_calibration_auto_finish`: Automated 100% BMS balancing cycle.
 
 ---
 

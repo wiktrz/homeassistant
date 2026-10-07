@@ -13,7 +13,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-01T12:43:16.302192'
+  last_verified: '2026-10-06T21:41:09.721271'
 - id: test_salon_cinema_mode_on_night
   area: salon
   file: scenarios/salon/test_cinema_mode.yaml
@@ -27,7 +27,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-01T12:45:02.865105'
+  last_verified: '2026-10-06T21:24:44.199064'
 - id: test_kitchen_island_light_state
   area: kuchnia
   file: scenarios/kuchnia/test_kitchen_island_light.yaml
@@ -40,7 +40,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-01T12:43:19.454295'
+  last_verified: '2026-10-06T21:57:10.895089'
 - id: test_local01_heating_routine_selection
   area: termostaty
   file: scenarios/termostaty/test_local01_heating_routine.yaml
@@ -66,7 +66,7 @@ tests:
   - safety
   - regression
   status: active
-  last_verified: '2026-10-01T12:43:22.570876'
+  last_verified: '2026-10-06T21:27:07.856165'
 - id: test_pstryk_price_meter_dol_state
   area: pstryk
   file: scenarios/pstryk/test_energy_price_sensor.yaml
@@ -91,7 +91,7 @@ tests:
   - script
   - regression
   status: active
-  last_verified: '2026-10-01T12:43:25.124377'
+  last_verified: '2026-10-06T21:41:11.264246'
 - id: test_radio_station_switch_playing
   area: multimedia
   file: scenarios/multimedia/test_radio_station_switch_playing.yaml
@@ -105,7 +105,7 @@ tests:
   - alias
   - regression
   status: active
-  last_verified: '2026-10-01T12:43:26.668057'
+  last_verified: '2026-10-06T21:41:12.795872'
 - id: test_pstryk_engine_unit_suite
   area: pstryk
   file: unit/test_pstryk_engine.py
@@ -186,3 +186,35 @@ tests:
   - regression
   status: active
   last_verified: '2026-10-01T12:43:31.303070'
+- id: test_solarman_client_unit_suite
+  area: pstryk
+  file: unit/test_solarman_client.py
+  description: Comprehensive unit test suite for Solarman V5 Modbus client covering
+    frame building, CRC16, blocked SOC limits, online/offline telemetry decoding,
+    dynamic IP/port resolution, and LAN network discovery scanner.
+  tags:
+  - pstryk
+  - energy
+  - deye
+  - solarman
+  - network
+  - unit
+  - python
+  - regression
+  status: active
+- id: test_deye_cloud_client_unit_suite
+  area: pstryk
+  file: unit/test_deye_cloud_client.py
+  description: Unit test suite for Deye Cloud OpenAPI client covering .env parsing,
+    token acquisition, battery telemetry decoding, 6-slot TOU schedule payload, and
+    automatic fallback from local Solarman V5.
+  tags:
+  - pstryk
+  - energy
+  - deye
+  - cloud
+  - openapi
+  - unit
+  - python
+  - regression
+  status: active
