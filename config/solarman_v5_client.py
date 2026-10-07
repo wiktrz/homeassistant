@@ -626,10 +626,11 @@ def sync_tou_schedule(
             cloud_cfg = deye_cloud_client.get_deye_cloud_config()
             if cloud_cfg.get("api_key") or cloud_cfg.get("app_id") or cloud_cfg.get("email"):
                 cloud_res = deye_cloud_client.sync_tou_schedule(slots, cfg=cloud_cfg)
-                if cloud_res.get("success"):
+                if isinstance(cloud_res, dict):
+                    cloud_res["local_fallback_message"] = "Local Modbus port 8899 unreachable; fallback to Deye Cloud OpenAPI"
                     return cloud_res
-        except Exception:
-            pass
+        except Exception as e:
+            results["cloud_fallback_error"] = str(e)
 
     return {
         "success": overall_success,

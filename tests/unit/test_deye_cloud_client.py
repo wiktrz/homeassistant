@@ -306,3 +306,22 @@ def test_get_access_token_missing_account_credentials():
     assert token is None
     assert "Missing account credentials" in status
     assert "DEYE_CLOUD_EMAIL" in status
+
+
+def test_cli_sync_pstryk_tou_flag():
+    """Verifies CLI flag --sync-pstryk-tou computes schedule and triggers cloud upload."""
+    mock_pstryk = {
+        "powerbank_best_window": {"start": "2026-10-08T02:00:00Z", "end": "2026-10-08T04:00:00Z"},
+        "best_sell_window": {"start": "2026-10-08T17:00:00Z", "end": "2026-10-08T20:00:00Z"},
+    }
+    mock_telem = {
+        "success": True,
+        "config": {"max_charge_soc": 90, "min_discharge_soc": 20},
+        "telemetry": {"battery_soc": 85},
+    }
+    with mock.patch("pstryk_engine.fetch_consolidated_data", return_value=mock_pstryk), \
+         mock.patch("deye_cloud_client.read_inverter_telemetry", return_value=mock_telem), \
+         mock.patch("deye_cloud_client.sync_tou_schedule", return_value={"success": True, "slots_count": 6}):
+        ret = deye_cloud_client.main(["--sync-pstryk-tou"])
+        assert ret == 0
+

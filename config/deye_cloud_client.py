@@ -544,6 +544,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--test-auth", action="store_true", help="Test authentication and token acquisition")
     parser.add_argument("--get-token", action="store_true", help="Fetch and output raw access token (exchanging AppId/Secret/Email/Password)")
     parser.add_argument("--sync-tou", type=str, help="Synchronize 6 TOU slots (JSON string or file path)")
+    parser.add_argument("--sync-pstryk-tou", action="store_true", help="Calculate optimal TOU from Pstryk prices and upload via Cloud API")
     parser.add_argument("--device-sn", default=None, help="Inverter Serial Number (defaults to DEYE_INVERTER_SN)")
     parser.add_argument("--api-key", default=None, help="Direct Deye API key override")
 
@@ -553,6 +554,33 @@ def main(argv: Optional[List[str]] = None) -> int:
         cfg["inverter_sn"] = args.device_sn
     if args.api_key:
         cfg["api_key"] = args.api_key
+
+    if args.sync_pstryk_tou:
+        try:
+            import pstryk_engine
+            pstryk_data = pstryk_engine.fetch_consolidated_data(installation="dol")
+            pb_win = pstryk_data.get("powerbank_best_window")
+            sell_win = pstryk_data.get("best_sell_window")
+
+            inv_telem = read_inverter_telemetry(cfg=cfg)
+            cfg_data = inv_telem.get("config", {})
+            tlm_data = inv_telem.get("telemetry", {})
+
+            slots = pstryk_engine.generate_deye_tou_schedule(
+                current_soc=tlm_data.get("battery_soc", 85),
+                max_soc=cfg_data.get("max_charge_soc", 90),
+                min_soc=cfg_data.get("min_discharge_soc", 20),
+                best_pb_window=pb_win,
+                best_sell_window=sell_win,
+            )
+
+            res = sync_tou_schedule(slots, cfg=cfg)
+            res["generated_slots"] = slots
+            print(json.dumps(res, indent=2))
+            return 0 if res.get("success") else 1
+        except Exception as e:
+            print(json.dumps({"success": False, "error": f"Failed to sync Pstryk TOU via Cloud API: {e}"}, indent=2))
+            return 1
 
     if args.get_token:
         token, status = get_access_token(cfg)

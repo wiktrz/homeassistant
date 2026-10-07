@@ -1043,6 +1043,19 @@ def sync_deye_inverter_tou_schedule(
         except Exception as e:
             sync_result = {"success": False, "error": str(e)}
 
+    # Direct fallback to Deye Cloud OpenAPI if local Modbus was not successful
+    if not sync_result.get("success"):
+        try:
+            import deye_cloud_client
+            cloud_cfg = deye_cloud_client.get_deye_cloud_config()
+            if cloud_cfg.get("api_key") or cloud_cfg.get("app_id") or cloud_cfg.get("email"):
+                cloud_res = deye_cloud_client.sync_tou_schedule(slots=slots, cfg=cloud_cfg)
+                if isinstance(cloud_res, dict):
+                    cloud_res["local_fallback_reason"] = sync_result.get("error") or sync_result.get("message", "Local Modbus failed or port closed")
+                    sync_result = cloud_res
+        except Exception:
+            pass
+
     return {
         "success": sync_result.get("success", False),
         "timestamp": datetime.now().isoformat(),
