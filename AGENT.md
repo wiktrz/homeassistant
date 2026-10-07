@@ -59,7 +59,7 @@ The overall system automates and manages a primary residence (**`local00`**) and
 | **Heating Controller** | `home_automation/` (`esp32doit-devkit-v1`) | C++, PlatformIO, DallasTemperature | Multi-zone PID heating controller, OneWire DS18B20 sensors, GPIO relay actuators |
 | **Heating Station** | `home_automation/` (`esp32dev_ttgo_t4`) | C++, PlatformIO, TFT_eSPI, CircleViews | Room thermostats with ILI9341 display, target temperature setpoints, routine schedule display |
 | **Pstryk Engine** | `homeassistant/config/pstryk_engine.py` & `pstryk_pricing.py` | Python 3, `urllib.request` | Dynamic Polish hourly energy pricing & multi-period backend aggregation engine (`dol` & `gora`), 15-min smart caching in `/tmp/pstryk_cache_{installation}.json`, 5-dataset fetch (latest, forward 48h, today hourly, month daily, year monthly), prosumer selling tariffs, consolidated backward-compatible schema |
-| **Deye Inverter Clients** | `homeassistant/config/solarman_v5_client.py` & `deye_cloud_client.py` | Python 3, zero-dependency sockets & REST | Dual-tier Deye 12kW inverter communication: local Solarman V5 Modbus-RTU over TCP (port 8899) with seamless automatic fallback to Deye Cloud OpenAPI (`https://eu1-developer.deyecloud.com`), zero-dependency `.env` loading, and network subnet scanner |
+| **Deye Inverter Clients** | `homeassistant/config/solarman_v5_client.py` & `deye_cloud_client.py` | Python 3, zero-dependency sockets & REST | Dual-tier Deye 12kW inverter communication: local Solarman V5 Modbus-RTU over TCP (port 8899) with seamless automatic fallback to Deye Cloud OpenAPI (`https://eu1-developer.deyecloud.com`) via official POST endpoints (`device/latest`, `config/battery`, `config/tou`, `order/sys/tou/update`), zero-dependency `.env` loading, network subnet scanner, and robust support for pre-battery / no-PV operating states |
 | **Solar Engine** | `homeassistant/config/solar_engine.py` & `sync_dynamic_solar_times` | Python 3, Astral 2.2, Jinja2 | Dynamic solar calculation engine (dawn, sunrise, solar noon, sunset, dusk, outdoor dusk) with 3-tier fallback, Polish UI labels, English entity IDs (`input_datetime.dynamic_*`) |
 | **InPost REST Integration** | `homeassistant/config/rest.yaml` | YAML, REST API, Jinja2 | Local outdoor weather & air quality sensors from InPost Paczkomat MAR13M (`sensor.paczkomat_mar13m_*`: air index level, temperature, humidity, pressure, PM1, PM2.5, PM10) |
 
@@ -247,8 +247,12 @@ The installation uses industrial BoneIO DIN rail hardware:
   - `sensor.pstryk_best_sell_window_dol`, `_avg_price_dol`, & `sensor.pstryk_peak_sell_spike_dol` (Sell window, avg price, 1h spike)
   - `sensor.deye_battery_operating_capacity_kwh` & `sensor.deye_battery_blackout_reserve_kwh` (11.29 kWh & 2.42 kWh dynamic)
   - `sensor.deye_charge_power_kw` & `sensor.deye_discharge_power_kw` (5.12 kW transfer rates dynamic)
-  - `sensor.deye_battery_display_level` (% and kWh representation, e.g. `85% (13.7 kWh)`)
-  - `sensor.deye_battery_working_state` (tri-state: `Ładowanie`, `Rozładowanie (Sprzedaż)`, `Czuwanie`)
+  - `sensor.deye_battery_display_level` (% and kWh representation, e.g. `85% (13.7 kWh)` or `"Oczekuje na montaż (SunDeposit 16.13 kWh)"` when uninstalled)
+  - `sensor.deye_battery_working_state` (state readout: `Ładowanie`, `Rozładowanie (Sprzedaż)`, `Czuwanie`, or `"Brak baterii (czuwanie)"` in pre-battery phase)
+  - `sensor.deye_grid_power` & `sensor.deye_consumption_power` (live 3-phase grid import and total household load in Watts, e.g. `482 W`)
+  - `sensor.deye_daily_consumption` & `sensor.deye_daily_energy_purchased` (real-time daily energy counters from physical inverter CT clamps in kWh)
+  - `sensor.deye_inverter_temperature` (live inverter AC thermal sensor, e.g. `32.3 °C`)
+  - `input_boolean.deye_battery_installed` (hardware state flag, default `off`, auto-detected when DC bus voltage > 40V)
   - `sensor.deye_battery_days_since_calibration` (days counter since last 100% BMS calibration)
   - `sensor.pstryk_cena_kupno_dol` & `sensor.pstryk_cena_kupno_gora` (live gross buy rate with pricing components)
   - `sensor.pstryk_cena_sprzedaz_dol` & `sensor.pstryk_cena_sprzedaz_gora` (prosumer gross sell rate with net price)

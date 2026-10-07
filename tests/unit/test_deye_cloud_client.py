@@ -117,32 +117,108 @@ def test_get_access_token_via_oauth(tmp_path):
         assert status2 == "cached"
 
 
-def test_read_inverter_telemetry_success():
-    """Verifies telemetry reading from Deye Cloud API parses SOC, power, and voltage."""
-    mock_data = {
-        "soc": 88,
-        "batteryVoltage": 52.1,
-        "batteryPower": -2500,  # Charging 2.5 kW
-        "batteryCurrent": 48.0,
-        "activePower": 3200,
-        "dailyYield": 14.5,
+def test_read_inverter_telemetry_success_with_battery():
+    """Verifies telemetry reading from Deye Cloud API parses SOC, power, and voltage when battery installed."""
+    mock_dev_resp = {
+        "success": True,
+        "deviceDataList": [
+            {
+                "deviceSn": "2603160727",
+                "deviceState": 1,
+                "dataList": [
+                    {"key": "BatteryVoltage", "value": "52.1", "unit": "V"},
+                    {"key": "SOC", "value": "88", "unit": "%"},
+                    {"key": "BatteryPower", "value": "-2500", "unit": "W"},
+                    {"key": "BatteryTotalCurrent", "value": "48.0", "unit": "A"},
+                    {"key": "TotalSolarPower", "value": "3200", "unit": "W"},
+                    {"key": "DailyActiveProduction", "value": "14.5", "unit": "kWh"},
+                    {"key": "TotalGridPower", "value": "480", "unit": "W"},
+                    {"key": "AC Temperature", "value": "34.5", "unit": "℃"},
+                ]
+            }
+        ]
+    }
+    mock_bat_resp = {
+        "success": True,
         "maxChargeSoc": 95,
         "minDischargeSoc": 20,
+        "battLowCapacity": 20,
+        "battShutDownCapacity": 5,
+        "maxChargeCurrent": 100,
+        "maxDischargeCurrent": 100,
+    }
+    mock_tou_resp = {
+        "success": True,
+        "touAction": "on",
+        "timeUseSettingItems": [
+            {"time": "0100", "power": 5000, "soc": 90, "enableGridCharge": True}
+        ]
     }
 
-    with mock.patch("deye_cloud_client.call_deye_api") as mock_api:
-        mock_api.return_value = (True, {"data": mock_data}, "OK")
+    def fake_api(endpoint, method="POST", data=None, cfg=None):
+        if "device/latest" in endpoint:
+            return True, mock_dev_resp, "OK"
+        elif "config/battery" in endpoint:
+            return True, mock_bat_resp, "OK"
+        elif "config/tou" in endpoint:
+            return True, mock_tou_resp, "OK"
+        return True, {}, "OK"
+
+    with mock.patch("deye_cloud_client.call_deye_api", side_effect=fake_api):
         cfg = {"inverter_sn": "2603160727", "api_key": "test"}
         res = deye_cloud_client.read_inverter_telemetry(cfg=cfg)
 
         assert res["success"] is True
         assert res["source"] == "deye_cloud_openapi"
+        assert res["telemetry"]["battery_installed"] is True
         assert res["telemetry"]["battery_soc"] == 88
         assert res["telemetry"]["battery_voltage"] == 52.1
         assert res["telemetry"]["battery_power"] == -2500
         assert res["telemetry"]["pv_power"] == 3200
-        assert res["telemetry"]["daily_yield"] == 14.5
-        assert res["config"]["max_charge_soc"] == 95
+        assert res["telemetry"]["grid_power"] == 480
+        assert res["telemetry"]["temperature"] == 34.5
+        assert res["config"]["min_discharge_soc"] == 20
+        assert res["active_tou"]["enabled"] is True
+
+
+def test_read_inverter_telemetry_no_battery_installed():
+    """Verifies telemetry reading correctly detects pre-battery state (voltage < 40V, SOC 0%)."""
+    mock_dev_resp = {
+        "success": True,
+        "deviceDataList": [
+            {
+                "deviceSn": "2603160727",
+                "deviceState": 1,
+                "dataList": [
+                    {"key": "BatteryVoltage", "value": "8.89", "unit": "V"},
+                    {"key": "SOC", "value": "0", "unit": "%"},
+                    {"key": "BatteryPower", "value": "-1", "unit": "W"},
+                    {"key": "TotalGridPower", "value": "482", "unit": "W"},
+                    {"key": "TotalConsumptionPower", "value": "482", "unit": "W"},
+                    {"key": "DailyConsumption", "value": "5.60", "unit": "kWh"},
+                    {"key": "AC Temperature", "value": "32.30", "unit": "℃"},
+                ]
+            }
+        ]
+    }
+
+    def fake_api(endpoint, method="POST", data=None, cfg=None):
+        if "device/latest" in endpoint:
+            return True, mock_dev_resp, "OK"
+        return True, {}, "OK"
+
+    with mock.patch("deye_cloud_client.call_deye_api", side_effect=fake_api):
+        cfg = {"inverter_sn": "2603160727", "api_key": "test"}
+        res = deye_cloud_client.read_inverter_telemetry(cfg=cfg)
+
+        assert res["success"] is True
+        assert res["telemetry"]["battery_installed"] is False
+        assert res["telemetry"]["battery_soc"] == 0
+        assert res["telemetry"]["battery_power"] == 0
+        assert res["telemetry"]["grid_power"] == 482
+        assert res["telemetry"]["consumption_power"] == 482
+        assert res["telemetry"]["daily_consumption"] == 5.60
+        assert res["telemetry"]["temperature"] == 32.30
 
 
 def test_read_inverter_telemetry_missing_credentials_fallback():
@@ -150,13 +226,13 @@ def test_read_inverter_telemetry_missing_credentials_fallback():
     cfg = {"api_key": None, "app_id": None, "email": None}
     res = deye_cloud_client.read_inverter_telemetry(cfg=cfg)
     assert res["success"] is False
-    assert res["telemetry"]["battery_soc"] == 85
+    assert res["telemetry"]["battery_installed"] is False
     assert res["config"]["max_charge_soc"] == 90
     assert "Missing credentials" in res["error"] or "Authentication error" in res["error"]
 
 
 def test_sync_tou_schedule_cloud_payload():
-    """Verifies sync_tou_schedule packages 6 slots and POSTs to energyPattern endpoint."""
+    """Verifies sync_tou_schedule packages 6 slots and POSTs to /v1.0/order/sys/tou/update endpoint."""
     sample_slots = [
         {"time": "01:00", "power": 5000, "soc": 90, "grid_charge": True},
         {"time": "05:00", "power": 5000, "soc": 90, "grid_charge": False},
@@ -167,7 +243,7 @@ def test_sync_tou_schedule_cloud_payload():
     ]
 
     with mock.patch("deye_cloud_client.call_deye_api") as mock_api:
-        mock_api.return_value = (True, {"code": 0, "msg": "success"}, "OK")
+        mock_api.return_value = (True, {"code": "1000000", "msg": "success"}, "OK")
         cfg = {"inverter_sn": "2603160727", "api_key": "test_key"}
         res = deye_cloud_client.sync_tou_schedule(sample_slots, cfg=cfg)
 
@@ -175,9 +251,10 @@ def test_sync_tou_schedule_cloud_payload():
         assert res["slots_count"] == 6
         assert mock_api.called
         endpoint, kwargs = mock_api.call_args[0][0], mock_api.call_args[1]
-        assert "energyPattern" in endpoint
+        assert "/v1.0/order/sys/tou/update" in endpoint
         assert kwargs["method"] == "POST"
-        assert len(kwargs["data"]["slots"]) == 6
+        assert len(kwargs["data"]["timeUseSettingItems"]) == 6
+        assert kwargs["data"]["timeUseSettingItems"][0]["time"] == "0100"
 
 
 def test_solarman_cloud_fallback_when_local_refused():

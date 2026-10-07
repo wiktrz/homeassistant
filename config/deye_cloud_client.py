@@ -223,7 +223,8 @@ def read_inverter_telemetry(
 ) -> Dict[str, Any]:
     """
     Reads live inverter telemetry, configuration, and battery metrics via Deye Cloud OpenAPI.
-    Returns standard dictionary matching Solarman V5 format for seamless HA integration.
+    Uses official POST endpoints (/v1.0/device/latest, /v1.0/config/battery, /v1.0/config/tou).
+    Supports installations without PV or battery (e.g. pre-installation phase).
     """
     if cfg is None:
         cfg = get_deye_cloud_config()
@@ -237,67 +238,237 @@ def read_inverter_telemetry(
         "min_discharge_soc": 20,
         "shutdown_soc": 5,
         "max_charge_soc": 90,
+        "batt_capacity": 200,
     }
     telemetry_data = {
-        "battery_voltage": 51.2,
-        "battery_soc": 85,
+        "battery_voltage": 0.0,
+        "battery_soc": 0,
         "battery_power": 0,
         "battery_current": 0.0,
+        "battery_installed": False,
+        "bms_version": "0000",
         "pv_power": 0,
         "daily_yield": 0.0,
         "total_yield": 0.0,
+        "grid_power": 0,
+        "grid_voltage_l1": 240.0,
+        "grid_voltage_l2": 240.0,
+        "grid_voltage_l3": 240.0,
+        "grid_current_l1": 0.0,
+        "grid_current_l2": 0.0,
+        "grid_current_l3": 0.0,
+        "grid_frequency": 50.0,
+        "consumption_power": 0,
+        "daily_consumption": 0.0,
+        "daily_energy_purchased": 0.0,
+        "total_energy_buy": 0.0,
+        "total_energy_sell": 0.0,
+        "temperature": 25.0,
+        "device_state": 1,
     }
     active_tou = {
-        "enabled": True,
+        "enabled": False,
         "slots": [],
     }
-
-    # 1. Attempt telemetry query
-    query_endpoints = [
-        f"/v1.0/device/data?deviceSn={target_sn}",
-        f"/v1.0/device/latest?deviceSn={target_sn}",
-        f"/v1.0/config/battery?deviceSn={target_sn}",
-    ]
 
     cloud_ok = False
     last_err = "No endpoints answered"
 
-    for ep in query_endpoints:
-        ok, res, msg = call_deye_api(ep, method="GET", cfg=cfg)
-        if ok and isinstance(res, dict):
-            cloud_ok = True
-            payload = res.get("data", res)
+    # 1. Telemetry Query via POST /v1.0/device/latest
+    ok_dev, res_dev, msg_dev = call_deye_api(
+        "/v1.0/device/latest",
+        method="POST",
+        data={"deviceList": [target_sn]},
+        cfg=cfg,
+    )
+    if ok_dev and isinstance(res_dev, dict) and res_dev.get("success", True):
+        cloud_ok = True
+        dev_list = res_dev.get("deviceDataList", [])
+        if dev_list and isinstance(dev_list, list):
+            item = dev_list[0]
+            telemetry_data["device_state"] = item.get("deviceState", 1)
+            raw_data_list = item.get("dataList", [])
+            # Map key-value pairs
+            kv: Dict[str, Any] = {}
+            for entry in raw_data_list:
+                k = entry.get("key")
+                v = entry.get("value")
+                if k is not None:
+                    kv[k] = v
 
-            # Extract battery SOC
-            if "soc" in payload or "batterySoc" in payload:
-                telemetry_data["battery_soc"] = int(payload.get("soc", payload.get("batterySoc", 85)))
-            if "batteryVoltage" in payload or "vBat" in payload:
-                telemetry_data["battery_voltage"] = float(payload.get("batteryVoltage", payload.get("vBat", 51.2)))
-            if "batteryPower" in payload or "pBat" in payload:
-                telemetry_data["battery_power"] = int(payload.get("batteryPower", payload.get("pBat", 0)))
-            if "batteryCurrent" in payload or "iBat" in payload:
-                telemetry_data["battery_current"] = float(payload.get("batteryCurrent", payload.get("iBat", 0.0)))
-            if "activePower" in payload or "currentPower" in payload:
-                telemetry_data["pv_power"] = int(payload.get("activePower", payload.get("currentPower", 0)))
-            if "dailyYield" in payload or "yieldToday" in payload:
-                telemetry_data["daily_yield"] = float(payload.get("dailyYield", payload.get("yieldToday", 0.0)))
-            if "totalYield" in payload:
-                telemetry_data["total_yield"] = float(payload.get("totalYield", 0.0))
+            # Grid & Household loads
+            if "TotalGridPower" in kv:
+                try: telemetry_data["grid_power"] = int(float(kv["TotalGridPower"]))
+                except (ValueError, TypeError): pass
+            if "GridVoltageL1" in kv:
+                try: telemetry_data["grid_voltage_l1"] = float(kv["GridVoltageL1"])
+                except (ValueError, TypeError): pass
+            if "GridVoltageL2" in kv:
+                try: telemetry_data["grid_voltage_l2"] = float(kv["GridVoltageL2"])
+                except (ValueError, TypeError): pass
+            if "GridVoltageL3" in kv:
+                try: telemetry_data["grid_voltage_l3"] = float(kv["GridVoltageL3"])
+                except (ValueError, TypeError): pass
+            if "GridCurrentL1" in kv:
+                try: telemetry_data["grid_current_l1"] = float(kv["GridCurrentL1"])
+                except (ValueError, TypeError): pass
+            if "GridCurrentL2" in kv:
+                try: telemetry_data["grid_current_l2"] = float(kv["GridCurrentL2"])
+                except (ValueError, TypeError): pass
+            if "GridCurrentL3" in kv:
+                try: telemetry_data["grid_current_l3"] = float(kv["GridCurrentL3"])
+                except (ValueError, TypeError): pass
+            if "GridFrequency" in kv:
+                try: telemetry_data["grid_frequency"] = float(kv["GridFrequency"])
+                except (ValueError, TypeError): pass
 
-            # Extract config parameters if available
-            if "maxChargeSoc" in payload:
-                config_data["max_charge_soc"] = int(payload["maxChargeSoc"])
-            if "minDischargeSoc" in payload:
-                config_data["min_discharge_soc"] = int(payload["minDischargeSoc"])
-            if "shutdownSoc" in payload:
-                config_data["shutdown_soc"] = int(payload["shutdownSoc"])
-            if "maxChargeCurrent" in payload:
-                config_data["max_charge_current"] = int(payload["maxChargeCurrent"])
-            if "maxDischargeCurrent" in payload:
-                config_data["max_discharge_current"] = int(payload["maxDischargeCurrent"])
-            break
-        else:
-            last_err = msg
+            if "TotalConsumptionPower" in kv:
+                try: telemetry_data["consumption_power"] = int(float(kv["TotalConsumptionPower"]))
+                except (ValueError, TypeError): pass
+            if "DailyConsumption" in kv:
+                try: telemetry_data["daily_consumption"] = float(kv["DailyConsumption"])
+                except (ValueError, TypeError): pass
+            if "DailyEnergyPurchased" in kv:
+                try: telemetry_data["daily_energy_purchased"] = float(kv["DailyEnergyPurchased"])
+                except (ValueError, TypeError): pass
+            if "TotalEnergyBuy" in kv:
+                try: telemetry_data["total_energy_buy"] = float(kv["TotalEnergyBuy"])
+                except (ValueError, TypeError): pass
+            if "TotalEnergySell" in kv:
+                try: telemetry_data["total_energy_sell"] = float(kv["TotalEnergySell"])
+                except (ValueError, TypeError): pass
+
+            # Solar PV
+            for k_pv in ("TotalSolarPower", "activePower", "currentPower", "pvPower"):
+                if k_pv in kv:
+                    try:
+                        telemetry_data["pv_power"] = int(float(kv[k_pv]))
+                        break
+                    except (ValueError, TypeError): pass
+            for k_dy in ("DailyActiveProduction", "PVDailyPowerGenerationActive", "dailyYield", "yieldToday"):
+                if k_dy in kv:
+                    try:
+                        telemetry_data["daily_yield"] = float(kv[k_dy])
+                        break
+                    except (ValueError, TypeError): pass
+            for k_ty in ("TotalActiveProduction", "totalYield"):
+                if k_ty in kv:
+                    try:
+                        telemetry_data["total_yield"] = float(kv[k_ty])
+                        break
+                    except (ValueError, TypeError): pass
+
+            # Inverter Health & Thermal
+            for k_tmp in ("AC Temperature", "Temperature- Inverter", "temperature"):
+                if k_tmp in kv:
+                    try:
+                        telemetry_data["temperature"] = float(kv[k_tmp])
+                        break
+                    except (ValueError, TypeError): pass
+
+            # Battery & BMS
+            if "BatteryVoltage" in kv or "batteryVoltage" in kv or "vBat" in kv:
+                raw_v = kv.get("BatteryVoltage", kv.get("batteryVoltage", kv.get("vBat")))
+                try: telemetry_data["battery_voltage"] = float(raw_v)
+                except (ValueError, TypeError): pass
+            if "SOC" in kv or "soc" in kv or "batterySoc" in kv:
+                raw_s = kv.get("SOC", kv.get("soc", kv.get("batterySoc")))
+                try: telemetry_data["battery_soc"] = int(float(raw_s))
+                except (ValueError, TypeError): pass
+            if "BatteryPower" in kv or "batteryPower" in kv or "pBat" in kv:
+                raw_p = kv.get("BatteryPower", kv.get("batteryPower", kv.get("pBat")))
+                try: telemetry_data["battery_power"] = int(float(raw_p))
+                except (ValueError, TypeError): pass
+            if "BatteryTotalCurrent" in kv or "BatteryCurrent1" in kv or "batteryCurrent" in kv or "iBat" in kv:
+                raw_c = kv.get("BatteryTotalCurrent", kv.get("BatteryCurrent1", kv.get("batteryCurrent", kv.get("iBat"))))
+                try: telemetry_data["battery_current"] = float(raw_c)
+                except (ValueError, TypeError): pass
+            if "LithiumBatteryVersionNumber" in kv:
+                telemetry_data["bms_version"] = str(kv["LithiumBatteryVersionNumber"])
+
+            # Detect whether physical battery is actually installed
+            # A real 48V/51.2V LiFePO4 battery pack exhibits voltage > 40V and non-zero SOC or communicating BMS
+            v_bat = telemetry_data["battery_voltage"]
+            soc_bat = telemetry_data["battery_soc"]
+            bms_ver = telemetry_data["bms_version"]
+            battery_installed = bool(v_bat > 40.0 and (soc_bat > 0 or (bms_ver and bms_ver != "0000")))
+            telemetry_data["battery_installed"] = battery_installed
+
+            if not battery_installed:
+                telemetry_data["battery_soc"] = 0
+                telemetry_data["battery_power"] = 0
+                telemetry_data["battery_current"] = 0.0
+    else:
+        last_err = msg_dev
+
+    # 2. Battery Config Query via POST /v1.0/config/battery
+    ok_bat, res_bat, _ = call_deye_api(
+        "/v1.0/config/battery",
+        method="POST",
+        data={"deviceSn": target_sn},
+        cfg=cfg,
+    )
+    if ok_bat and isinstance(res_bat, dict) and res_bat.get("success", True):
+        cloud_ok = True
+        payload_bat = res_bat.get("data", res_bat)
+        if "maxChargeCurrent" in payload_bat:
+            try: config_data["max_charge_current"] = int(payload_bat["maxChargeCurrent"])
+            except (ValueError, TypeError): pass
+        if "maxDischargeCurrent" in payload_bat:
+            try: config_data["max_discharge_current"] = int(payload_bat["maxDischargeCurrent"])
+            except (ValueError, TypeError): pass
+        if "battLowCapacity" in payload_bat:
+            try: config_data["min_discharge_soc"] = int(payload_bat["battLowCapacity"])
+            except (ValueError, TypeError): pass
+        if "battShutDownCapacity" in payload_bat:
+            try: config_data["shutdown_soc"] = int(payload_bat["battShutDownCapacity"])
+            except (ValueError, TypeError): pass
+        if "battCapacity" in payload_bat:
+            try: config_data["batt_capacity"] = int(payload_bat["battCapacity"])
+            except (ValueError, TypeError): pass
+
+    # 3. TOU Schedule Query via POST /v1.0/config/tou
+    ok_tou, res_tou, _ = call_deye_api(
+        "/v1.0/config/tou",
+        method="POST",
+        data={"deviceSn": target_sn},
+        cfg=cfg,
+    )
+    if ok_tou and isinstance(res_tou, dict) and res_tou.get("success", True):
+        cloud_ok = True
+        payload_tou = res_tou.get("data", res_tou)
+        active_tou["enabled"] = (str(payload_tou.get("touAction", "on")).lower() in ("on", "true", "1"))
+        raw_items = payload_tou.get("timeUseSettingItems", [])
+        active_tou["slots"] = []
+        for i, itm in enumerate(raw_items):
+            t_raw = str(itm.get("time", "00:00"))
+            if len(t_raw) == 4 and ":" not in t_raw:
+                time_str = f"{t_raw[:2]}:{t_raw[2:]}"
+            else:
+                time_str = t_raw
+            active_tou["slots"].append({
+                "slot": i + 1,
+                "time": time_str,
+                "power_w": itm.get("power", 5000),
+                "target_soc": itm.get("soc", 20),
+                "grid_charge": bool(itm.get("enableGridCharge", False)),
+            })
+
+    # 4. System Mode Query via POST /v1.0/config/system
+    ok_sys, res_sys, _ = call_deye_api(
+        "/v1.0/config/system",
+        method="POST",
+        data={"deviceSn": target_sn},
+        cfg=cfg,
+    )
+    if ok_sys and isinstance(res_sys, dict) and res_sys.get("success", True):
+        payload_sys = res_sys.get("data", res_sys)
+        config_data["energy_pattern"] = payload_sys.get("energyPattern", "BATTERY_FIRST")
+        config_data["system_work_mode"] = payload_sys.get("systemWorkMode", "ZERO_EXPORT_TO_CT")
+        if "maxSolarPower" in payload_sys:
+            config_data["max_solar_power"] = payload_sys.get("maxSolarPower")
+        if "zeroExportPower" in payload_sys:
+            config_data["zero_export_power"] = payload_sys.get("zeroExportPower")
 
     return {
         "success": cloud_ok,
@@ -320,7 +491,7 @@ def sync_tou_schedule(
 ) -> Dict[str, Any]:
     """
     Transmits Time-of-Use schedule to Deye inverter via Deye Cloud OpenAPI.
-    Endpoint: /v1.0/order/sys/energyPattern/update or /v1.0/order/battery/parameter/update
+    Endpoint: POST /v1.0/order/sys/tou/update
     """
     if cfg is None:
         cfg = get_deye_cloud_config()
@@ -332,23 +503,30 @@ def sync_tou_schedule(
             "error": f"TOU schedule requires exactly 6 slots, got {len(slots)}",
         }
 
-    formatted_slots = []
-    for i, s in enumerate(slots):
-        formatted_slots.append({
-            "slot": i + 1,
-            "time": s.get("time", "00:00"),
-            "power": s.get("power_w", s.get("power", 5000)),
-            "soc": s.get("target_soc", s.get("soc", 20)),
-            "charge": bool(s.get("grid_charge", False)),
+    formatted_items = []
+    for s in slots:
+        raw_t = str(s.get("time", "00:00")).replace(":", "")
+        if len(raw_t) == 3:
+            raw_t = "0" + raw_t
+        elif len(raw_t) < 4:
+            raw_t = raw_t.zfill(4)
+
+        formatted_items.append({
+            "time": raw_t,
+            "power": int(s.get("power_w", s.get("power", 5000))),
+            "soc": int(s.get("target_soc", s.get("soc", 20))),
+            "enableGridCharge": bool(s.get("grid_charge", False)),
+            "enableGeneration": True,
+            "enableSell": False,
+            "voltage": 49,
         })
 
     payload = {
         "deviceSn": target_sn,
-        "energyPattern": "TOU",
-        "slots": formatted_slots,
+        "timeUseSettingItems": formatted_items,
     }
 
-    ok, res, msg = call_deye_api("/v1.0/order/sys/energyPattern/update", method="POST", data=payload, cfg=cfg)
+    ok, res, msg = call_deye_api("/v1.0/order/sys/tou/update", method="POST", data=payload, cfg=cfg)
     return {
         "success": ok,
         "source": "deye_cloud_openapi",

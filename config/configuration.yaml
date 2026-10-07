@@ -215,6 +215,10 @@ input_boolean:
     name: Trwa Kalibracja Magazynu (Tryb 100%)
     initial: off
     icon: mdi:battery-sync
+  deye_battery_installed:
+    name: Magazyn Energii Zainstalowany
+    initial: off
+    icon: mdi:battery-plus-variant
 
 input_select:
   ev_charging_target_hours:

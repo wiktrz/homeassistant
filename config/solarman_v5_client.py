@@ -698,7 +698,24 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.read_soc:
         res = read_holding_registers(resolved_host, resolved_port, REG_BATTERY_SOC, 1)
-        soc_val = res["registers"][0] if res["success"] and res["registers"] else 85
+        if not res["success"]:
+            try:
+                import deye_cloud_client
+                cloud_cfg = deye_cloud_client.get_deye_cloud_config()
+                if cloud_cfg.get("api_key") or cloud_cfg.get("app_id") or cloud_cfg.get("email"):
+                    cloud_res = deye_cloud_client.read_inverter_telemetry(cfg=cloud_cfg)
+                    if cloud_res.get("success"):
+                        soc_val = cloud_res["telemetry"].get("battery_soc", 0)
+                        print(json.dumps({
+                            "success": True,
+                            "battery_soc": soc_val,
+                            "battery_installed": cloud_res["telemetry"].get("battery_installed", False),
+                            "source": "deye_cloud_fallback"
+                        }, indent=2))
+                        return 0
+            except Exception:
+                pass
+        soc_val = res["registers"][0] if res["success"] and res["registers"] else 0
         print(json.dumps({"success": res["success"], "battery_soc": soc_val}, indent=2))
         return 0 if res["success"] else 1
 
