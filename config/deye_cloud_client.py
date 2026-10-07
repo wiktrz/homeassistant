@@ -505,14 +505,19 @@ def sync_tou_schedule(
 
     formatted_items = []
     for s in slots:
-        raw_t = str(s.get("time", "00:00")).replace(":", "")
-        if len(raw_t) == 3:
-            raw_t = "0" + raw_t
-        elif len(raw_t) < 4:
-            raw_t = raw_t.zfill(4)
+        raw_t = str(s.get("time", "00:00")).strip()
+        if ":" in raw_t:
+            parts = raw_t.split(":")
+            formatted_time = f"{int(parts[0]):02d}:{int(parts[1]):02d}"
+        elif len(raw_t) == 4 and raw_t.isdigit():
+            formatted_time = f"{raw_t[:2]}:{raw_t[2:]}"
+        elif len(raw_t) == 3 and raw_t.isdigit():
+            formatted_time = f"0{raw_t[0]}:{raw_t[1:]}"
+        else:
+            formatted_time = "00:00"
 
         formatted_items.append({
-            "time": raw_t,
+            "time": formatted_time,
             "power": int(s.get("power_w", s.get("power", 5000))),
             "soc": int(s.get("target_soc", s.get("soc", 20))),
             "enableGridCharge": bool(s.get("grid_charge", False)),
@@ -523,12 +528,22 @@ def sync_tou_schedule(
 
     payload = {
         "deviceSn": target_sn,
+        "touAction": "on",
         "timeUseSettingItems": formatted_items,
     }
 
     ok, res, msg = call_deye_api("/v1.0/order/sys/tou/update", method="POST", data=payload, cfg=cfg)
+    app_success = False
+    if ok and isinstance(res, dict):
+        code = str(res.get("code", ""))
+        app_success = (code == "1000000" or res.get("success") is True)
+        if not app_success and "msg" in res:
+            msg = res.get("msg")
+    elif ok:
+        app_success = True
+
     return {
-        "success": ok,
+        "success": app_success,
         "source": "deye_cloud_openapi",
         "device_sn": target_sn,
         "slots_count": len(slots),

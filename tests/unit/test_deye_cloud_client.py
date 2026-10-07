@@ -254,7 +254,7 @@ def test_sync_tou_schedule_cloud_payload():
         assert "/v1.0/order/sys/tou/update" in endpoint
         assert kwargs["method"] == "POST"
         assert len(kwargs["data"]["timeUseSettingItems"]) == 6
-        assert kwargs["data"]["timeUseSettingItems"][0]["time"] == "0100"
+        assert kwargs["data"]["timeUseSettingItems"][0]["time"] == "01:00"
 
 
 def test_solarman_cloud_fallback_when_local_refused():
