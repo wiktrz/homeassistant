@@ -71,6 +71,7 @@ command_line:
       unique_id: pstryk_price_meter_dol_v1
       command: !secret pstryk_command_dol
       scan_interval: 900
+      command_timeout: 45
       unit_of_measurement: "PLN/kWh"
       value_template: >
         {% if value_json.current_price is defined and value_json.current_price is not none %}
@@ -105,6 +106,7 @@ command_line:
       unique_id: pstryk_price_meter_gora_v1
       command: !secret pstryk_command_gora
       scan_interval: 900
+      command_timeout: 45
       unit_of_measurement: "PLN/kWh"
       value_template: >
         {% if value_json.current_price is defined and value_json.current_price is not none %}
