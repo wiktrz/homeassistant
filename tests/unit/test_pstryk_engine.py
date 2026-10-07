@@ -735,6 +735,43 @@ def test_cli_sync_deye_tou_flag():
         assert ret == 0
 
 
+def test_resolve_api_key_from_env_installation_specific():
+    """Verifies resolve_api_key reads installation-specific variable from .env."""
+    with mock.patch.dict(os.environ, {"PSTRYK_API_KEY_DOL": "sk-dol-test-123"}, clear=False):
+        key, source = pstryk_engine.resolve_api_key("dol")
+        assert key == "sk-dol-test-123"
+        assert source == "env"
+
+
+def test_resolve_api_key_from_env_generic():
+    """Verifies resolve_api_key falls back to generic PSTRYK_API_KEY if specific is unset."""
+    clean_env = {k: v for k, v in os.environ.items() if not k.startswith("PSTRYK_API_KEY")}
+    clean_env["PSTRYK_API_KEY"] = "sk-generic-test-456"
+    with mock.patch.dict(os.environ, clean_env, clear=True):
+        key, source = pstryk_engine.resolve_api_key("gora")
+        assert key == "sk-generic-test-456"
+        assert source == "env"
+
+
+def test_resolve_api_key_explicit_arg_precedence():
+    """Verifies explicit CLI argument takes precedence over environment variables."""
+    with mock.patch.dict(os.environ, {"PSTRYK_API_KEY_DOL": "sk-env-key"}, clear=False):
+        key, source = pstryk_engine.resolve_api_key("dol", explicit_key="sk-arg-key")
+        assert key == "sk-arg-key"
+        assert source == "arg"
+
+
+def test_cli_execution_using_env_without_key_argument():
+    """Verifies CLI executes fetch_consolidated_data cleanly when key is in .env without passing --key."""
+    with mock.patch.dict(os.environ, {"PSTRYK_API_KEY_DOL": "sk-env-test"}, clear=False), \
+         mock.patch("pstryk_engine.fetch_consolidated_data") as mock_fetch:
+        mock_fetch.return_value = {"current_price": 1.23, "start": "12:00", "end": "13:00"}
+        ret = pstryk_engine.main(["--json", "--installation", "dol"])
+        assert ret == 0
+        mock_fetch.assert_called_once()
+        assert mock_fetch.call_args[1]["api_key"] == "sk-env-test"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 

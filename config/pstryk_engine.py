@@ -46,9 +46,78 @@ def load_dotenv(paths: Optional[List[str]] = None) -> None:
                         v = v.strip().strip("'\"")
                         if k and k not in os.environ:
                             os.environ[k] = v
-                break
             except Exception:
                 pass
+
+
+def load_secrets_yaml_key(installation: str = "dol") -> Optional[str]:
+    """Fallback reader for secrets.yaml when .env or CLI arguments are not provided."""
+    clean_inst = "dol" if installation not in ("dol", "gora") else installation
+    target_key = f"pstryk_api_key_{clean_inst}"
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.abspath(os.path.join(script_dir, ".."))
+    paths = [
+        "/config/secrets.yaml",
+        os.path.join(script_dir, "secrets.yaml"),
+        os.path.join(repo_root, "config", "secrets.yaml"),
+        os.path.join(repo_root, "secrets.yaml"),
+    ]
+    for p in paths:
+        if os.path.exists(p) and os.path.isfile(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith(target_key):
+                            parts = line.split(":", 1)
+                            if len(parts) == 2:
+                                val = parts[1].strip().strip("'\"")
+                                if val and not val.startswith("!") and not val.startswith("sk-YOUR_"):
+                                    return val
+            except Exception:
+                pass
+    return None
+
+
+def resolve_api_key(
+    installation: str = "dol",
+    explicit_key: Optional[str] = None,
+) -> Tuple[Optional[str], str]:
+    """
+    Resolves the Pstryk API key for the given installation.
+    Priority:
+    1. explicit_key if provided via CLI, not empty, and not placeholder/unsubstituted secret
+    2. Environment variable from .env: PSTRYK_API_KEY_{DOL/GORA}
+    3. Generic environment variable from .env: PSTRYK_API_KEY
+    4. Fallback to secrets.yaml if present: pstryk_api_key_{dol/gora}
+    
+    Returns: (resolved_key, source_status)
+    where source_status can be: "env", "arg", "secrets_yaml", "missing"
+    """
+    clean_inst = "dol" if str(installation).lower() not in ("dol", "gora") else str(installation).lower()
+
+    # 1. Explicit key argument
+    if explicit_key and explicit_key not in (DEFAULT_API_KEY, "None", ""):
+        if not explicit_key.startswith("!secret") and not explicit_key.startswith("sk-YOUR_"):
+            return explicit_key, "arg"
+
+    # 2. Installation-specific env var from .env
+    inst_env_var = f"PSTRYK_API_KEY_{clean_inst.upper()}"
+    env_inst_key = os.getenv(inst_env_var)
+    if env_inst_key and env_inst_key not in (DEFAULT_API_KEY, "None", "") and not env_inst_key.startswith("sk-YOUR_"):
+        return env_inst_key, "env"
+
+    # 3. Generic env var from .env
+    generic_env = os.getenv("PSTRYK_API_KEY")
+    if generic_env and generic_env not in (DEFAULT_API_KEY, "None", "") and not generic_env.startswith("sk-YOUR_"):
+        return generic_env, "env"
+
+    # 4. Fallback: secrets.yaml
+    sec_key = load_secrets_yaml_key(clean_inst)
+    if sec_key:
+        return sec_key, "secrets_yaml"
+
+    return None, "missing"
 
 
 load_dotenv()
@@ -947,14 +1016,16 @@ def sync_deye_inverter_tou_schedule(
         pb_window = cached_data.get("powerbank_best_window")
         sell_window = cached_data.get("best_sell_window")
 
-    if (not pb_window or not sell_window) and api_key and api_key != DEFAULT_API_KEY:
-        try:
-            fresh_data = fetch_consolidated_data(api_key=api_key, installation=installation, cache_dir=cache_dir)
-            if isinstance(fresh_data, dict):
-                pb_window = fresh_data.get("powerbank_best_window")
-                sell_window = fresh_data.get("best_sell_window")
-        except Exception:
-            pass
+    if not pb_window or not sell_window:
+        resolved_key, _ = resolve_api_key(installation=installation, explicit_key=api_key)
+        if resolved_key:
+            try:
+                fresh_data = fetch_consolidated_data(api_key=resolved_key, installation=installation, cache_dir=cache_dir)
+                if isinstance(fresh_data, dict):
+                    pb_window = fresh_data.get("powerbank_best_window")
+                    sell_window = fresh_data.get("best_sell_window")
+            except Exception:
+                pass
 
     slots = generate_deye_tou_schedule(
         current_soc=eff_current_soc,
@@ -1343,7 +1414,7 @@ def build_year_subobject(year_data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def fetch_consolidated_data(
-    api_key: str,
+    api_key: Optional[str] = None,
     installation: str = "dol",
     hours_ahead: int = 48,
     use_cache: bool = True,
@@ -1356,6 +1427,13 @@ def fetch_consolidated_data(
     computes cheapest window, and returns full consolidated payload backward-compatible
     with existing Home Assistant sensors.
     """
+    if not api_key or api_key == DEFAULT_API_KEY:
+        resolved_k, _ = resolve_api_key(installation=installation)
+        if resolved_k:
+            api_key = resolved_k
+        else:
+            api_key = DEFAULT_API_KEY
+
     cache_file = get_cache_file_path(installation, cache_dir=cache_dir)
 
     # 1. Smart cache lookup
@@ -1572,7 +1650,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--calibration", action="store_true", help="Flag to charge to 100% for BMS calibration")
 
     args = parser.parse_args(argv)
-    api_key = args.key or os.getenv("PSTRYK_API_KEY") or DEFAULT_API_KEY
+    resolved_key, key_source = resolve_api_key(args.installation, args.key)
+    api_key = resolved_key or DEFAULT_API_KEY
 
     if args.sync_deye_tou:
         sync_res = sync_deye_inverter_tou_schedule(
@@ -1582,21 +1661,23 @@ def main(argv: Optional[List[str]] = None) -> int:
             max_soc=args.max_soc,
             min_soc=args.min_soc,
             calibration_active=args.calibration,
-            api_key=api_key if api_key != DEFAULT_API_KEY else None,
+            api_key=resolved_key,
             installation=args.installation,
         )
         print(json.dumps(sync_res, indent=2))
         return 0
 
     debug_info = {}
-    if not api_key or api_key == "sk-YOUR_TOKEN_HERE":
-        debug_info["key_status"] = "Missing"
-    elif api_key.startswith("!secret"):
-        debug_info["key_status"] = "Not Substituted"
+    if not resolved_key:
+        if args.key and args.key.startswith("!secret"):
+            debug_info["key_status"] = "Not Substituted"
+        else:
+            debug_info["key_status"] = "Missing"
     else:
         debug_info["key_status"] = "Present"
+    debug_info["key_source"] = key_source
 
-    if debug_info["key_status"] != "Present":
+    if not resolved_key:
         err_res = {"error": f"API Key Issue: {debug_info['key_status']}", "debug": debug_info}
         print(json.dumps(err_res, indent=2))
         return 1
