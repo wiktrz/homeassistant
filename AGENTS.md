@@ -162,6 +162,8 @@ homeassistant:
   - `light.boneio_dr_8ch_03_2c7fbc_chr_04`: **Korytarz Lustro** (Lustro w korytarzu wejściowym)
 - **Taras Dual Lamps (`light.taras_lampy`):**
   - Combines `light.bulb_1` (*Taras Lampa Lewa*) and `light.bulb_2` (*Taras Lampa Prawa*) into a unified light group toggled together from dashboard and voice.
+- **Salon Ceiling Lighting Helpers:**
+  - `input_number.kolor_bialy_salon` (White channel level 0–255) and `input_number.kolor_czerwony_salon` (Red channel level 0–255) for MQTT ceiling light and accent control.
 
 ### Security/Alarm Automations
 - Alarm trigger on door/windows breach

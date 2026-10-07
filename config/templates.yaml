@@ -798,7 +798,7 @@
         {% endif %}
 
     # --- Deye Battery Calibration Status (Read-Only) ---
-    - name: "Deye Kalibracja Magazynu Aktywna"
+    - name: "Deye Battery Calibration Active"
       unique_id: deye_battery_calibration_active
       state: "{{ is_state('input_boolean.deye_battery_calibration_in_progress', 'on') }}"
       icon: >

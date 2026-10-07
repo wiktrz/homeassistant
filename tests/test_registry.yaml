@@ -79,7 +79,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-07T17:26:20.506912'
+  last_verified: '2026-10-07T19:43:25.790989'
 - id: test_radio_volume_up_execution
   area: multimedia
   file: scenarios/multimedia/test_radio_volume_up.yaml
@@ -132,7 +132,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-07T17:26:25.092849'
+  last_verified: '2026-10-07T19:43:27.331260'
 - id: test_solar_engine_unit_suite
   area: solar
   file: unit/test_solar_engine.py

@@ -115,6 +115,7 @@ Before reviewing individual places, the following hardware platforms and safety 
 | Scene: Cinema 1 | `scene.salon_kino_1` | HA Scene | Pre-configured cinema illumination scene |
 | Color Selector | `input_select.salon_kolor_wybor` | HA Helper | Cycle script selector for living room colors |
 | White Brightness | `input_number.kolor_bialy_salon` | HA Helper | White level (0–255) for MQTT ceiling light |
+| Red Brightness | `input_number.kolor_czerwony_salon` | HA Helper | Red level (0–255) for MQTT ceiling light / accent |
 | Animation Mode | `input_select.shelly_mode` | HA Helper | Off / ON / Animation |
 | Animation Type | `input_select.shelly_animation_type` | HA Helper | `script_1` to `script_6` (Cycle, Dim, Wave, Chase, Pulse, Rock) |
 | Animation Brightness | `input_number.shelly_brightness` | HA Helper | Overall brightness (1–100%) for animation scripts |

@@ -584,6 +584,12 @@ input_number:
     max: 255
     step: 5
     initial: 120
+  kolor_czerwony_salon:
+    name: Kolor Czerwony Salon
+    min: 0
+    max: 255
+    step: 5
+    initial: 120
   deye_battery_max_charge_soc:
     name: "Deye: Max SOC (Ładowanie)"
     min: 50

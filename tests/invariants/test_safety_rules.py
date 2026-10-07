@@ -129,5 +129,64 @@ def test_automations_syntax_and_no_invalid_enabled_keys():
                     )
 
 
+
+def test_modern_dashboards_referenced_helpers_and_templates_exist():
+    """
+    INVARIANT 5: All input_* helpers and template sensors referenced in modern dashboards
+    (dashboard_modern_reference.yaml and dashboard_home_improved.yaml) must be defined
+    in configuration.yaml or templates.yaml. Prevents 'Entity not found' Lovelace errors.
+    """
+    class SafeLoaderIgnore(yaml.SafeLoader):
+        pass
+
+    SafeLoaderIgnore.add_constructor(None, lambda loader, node: None)
+
+    cfg_path = os.path.join(CONFIG_DIR, "configuration.yaml")
+    with open(cfg_path, "r", encoding="utf-8") as f:
+        cfg = yaml.load(f, Loader=SafeLoaderIgnore) or {}
+
+    helpers = set()
+    for domain in ["input_boolean", "input_number", "input_select", "input_datetime", "input_button", "input_text"]:
+        if domain in cfg and isinstance(cfg[domain], dict):
+            for k in cfg[domain].keys():
+                helpers.add(f"{domain}.{k}")
+
+    def slugify(text):
+        text = text.lower()
+        mapping = {
+            'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+            ' ': '_', '-': '_', '/': '_', '.': '_'
+        }
+        res = [mapping.get(ch, ch) for ch in text if ch in mapping or ch.isalnum() or ch == '_']
+        return re.sub(r'_+', '_', "".join(res)).strip('_')
+
+    tpl_path = os.path.join(CONFIG_DIR, "templates.yaml")
+    tpl_entities = set()
+    with open(tpl_path, "r", encoding="utf-8") as f:
+        tpl_list = yaml.load(f, Loader=SafeLoaderIgnore) or []
+        for block in tpl_list:
+            if isinstance(block, dict):
+                for d in ["sensor", "binary_sensor"]:
+                    for item in block.get(d, []):
+                        if isinstance(item, dict) and "name" in item:
+                            tpl_entities.add(f"{d}.{slugify(str(item['name']))}")
+
+    # Inspect modern dashboards
+    pattern = re.compile(r'\b(input_boolean|input_number|input_select|input_datetime|input_button|input_text|sensor|binary_sensor)\.[a-z0-9_]+\b')
+    for db_name in ["dashboard_modern_reference.yaml", "dashboard_home_improved.yaml"]:
+        db_path = os.path.join(CONFIG_DIR, db_name)
+        with open(db_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        for m in pattern.finditer(content):
+            eid = m.group(0)
+            if eid.startswith("input_"):
+                if eid == "input_button.press":
+                    continue
+                assert eid in helpers, f"Missing helper '{eid}' referenced in {db_name}!"
+            elif any(kw in eid for kw in ["pstryk_", "deye_battery_", "dynamic_"]):
+                assert eid in tpl_entities, f"Missing template sensor '{eid}' referenced in {db_name}!"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+

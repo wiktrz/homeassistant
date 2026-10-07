@@ -127,6 +127,8 @@ The installation uses industrial BoneIO DIN rail hardware:
   - `light.boneio_dr_8ch_03_2c7fbc_chr_04`: Korytarz Lustro
 - **Taras Dual Lamps Group (`light.taras_lampy`):**
   - Synchronizes `light.bulb_1` (*Taras Lampa Lewa*) and `light.bulb_2` (*Taras Lampa Prawa*) into a unified entity.
+- **Salon Ceiling Lighting Helpers:**
+  - `input_number.kolor_bialy_salon` (White channel level 0–255) and `input_number.kolor_czerwony_salon` (Red channel level 0–255) for MQTT overhead illumination and accent control.
 - **Electric Strike Lock Protection:**
   - Relay `light.boneio_32_l_07_73bbd8_door_23_relay` is wrapped in `lock.rygiel_drzwi_wejsciowych_lock` and triggered via `input_button.btn_entrance_door` with an automatic 2-minute safety turn-off timer.
 
