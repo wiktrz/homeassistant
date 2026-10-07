@@ -119,7 +119,7 @@ tests:
   - python
   - regression
   status: active
-  last_verified: '2026-10-07T20:01:35.000000'
+  last_verified: '2026-10-07T20:09:55.000000'
 - id: test_pstryk_dual_meter
   area: pstryk
   file: scenarios/pstryk/test_pstryk_dual_meter.yaml

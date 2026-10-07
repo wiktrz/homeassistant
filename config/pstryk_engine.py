@@ -1647,7 +1647,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--current-soc", type=int, default=None, help="Battery SOC override")
     parser.add_argument("--max-soc", type=int, default=None, help="Max Charge SOC override")
     parser.add_argument("--min-soc", type=int, default=None, help="Min Discharge SOC override")
-    parser.add_argument("--calibration", action="store_true", help="Flag to charge to 100% for BMS calibration")
+    parser.add_argument("--calibration", action="store_true", help="Flag to charge to 100 percent for BMS calibration")
 
     args = parser.parse_args(argv)
     resolved_key, key_source = resolve_api_key(args.installation, args.key)

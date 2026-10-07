@@ -772,6 +772,13 @@ def test_cli_execution_using_env_without_key_argument():
         assert mock_fetch.call_args[1]["api_key"] == "sk-env-test"
 
 
+def test_cli_help_string_formatting_validity():
+    """Verifies CLI --help formatting does not throw ValueError on Python 3.14 formatter._expand_help."""
+    with pytest.raises(SystemExit) as exc_info:
+        pstryk_engine.main(["--help"])
+    assert exc_info.value.code == 0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 

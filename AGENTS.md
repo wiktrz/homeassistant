@@ -230,11 +230,14 @@ homeassistant:
 docker-compose up -d
 docker-compose down
 
+# Restart Home Assistant
+sudo docker restart homeassistant
+
 # View logs
-docker logs -f homeassistant-homeassistant-1
+docker logs -f homeassistant
 
 # Shell access
-docker exec -it homeassistant-homeassistant-1 sh
+docker exec -it homeassistant sh
 
 # Start Zigbee2MQTT
 ./docker-zigbee2mqtt.sh
