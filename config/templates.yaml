@@ -355,6 +355,39 @@
         {% endif %}
       icon: mdi:chart-line-variant
 
+    - name: "Pstryk Powerbank Best Window Tomorrow Dol"
+      unique_id: pstryk_powerbank_best_window_tomorrow_dol
+      state: >
+        {% set pb = state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window_tomorrow') %}
+        {{ pb.display if pb and pb.display is defined else 'Oczekiwanie na publikację (ok. 12:00)' }}
+      icon: mdi:battery-clock
+      attributes:
+        start: "{{ state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window_tomorrow')['start'] if state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window_tomorrow') else none }}"
+        end: "{{ state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window_tomorrow')['end'] if state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window_tomorrow') else none }}"
+        average_price: "{{ state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window_tomorrow')['average_price'] if state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window_tomorrow') else none }}"
+
+    - name: "Pstryk Best Sell Window Tomorrow Dol"
+      unique_id: pstryk_best_sell_window_tomorrow_dol
+      state: >
+        {% set sw = state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window_tomorrow') %}
+        {{ sw.display if sw and sw.display is defined else 'Oczekiwanie na publikację (ok. 12:00)' }}
+      icon: mdi:cash-clock
+      attributes:
+        start: "{{ state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window_tomorrow')['start'] if state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window_tomorrow') else none }}"
+        end: "{{ state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window_tomorrow')['end'] if state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window_tomorrow') else none }}"
+        average_price: "{{ state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window_tomorrow')['average_price'] if state_attr('sensor.pstryk_price_meter_dol', 'best_sell_window_tomorrow') else none }}"
+
+    - name: "Pstryk EV Best Window Tomorrow Dol"
+      unique_id: pstryk_ev_best_window_tomorrow_dol
+      state: >
+        {% set ev = state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window_tomorrow') %}
+        {{ ev.display if ev and ev.display is defined else 'Oczekiwanie na publikację (ok. 12:00)' }}
+      icon: mdi:car-clock
+      attributes:
+        start: "{{ state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window_tomorrow')['start'] if state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window_tomorrow') else none }}"
+        end: "{{ state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window_tomorrow')['end'] if state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window_tomorrow') else none }}"
+        average_price: "{{ state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window_tomorrow')['average_price'] if state_attr('sensor.pstryk_price_meter_dol', 'ev_best_window_tomorrow') else none }}"
+
     # --- Deye 12kW & SunDeposit 16.13 kWh Inverter Telemetry & Config (Read-Only Modbus) ---
     - name: "Deye Inverter Max Charge SOC"
       unique_id: deye_inverter_max_charge_soc
@@ -705,6 +738,12 @@
         {% else %}
           mdi:cash
         {% endif %}
+
+    - name: "Pstryk Has Tomorrow Pricing Dol"
+      unique_id: pstryk_has_tomorrow_pricing_dol
+      state: >
+        {{ is_state_attr('sensor.pstryk_price_meter_dol', 'has_tomorrow_pricing', true) }}
+      icon: mdi:calendar-check
 
     # --- dół ---
     - name: "Pstryk In Best Window Dol"

@@ -13,7 +13,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-07T17:26:13.360260'
+  last_verified: '2026-10-08T12:47:49.297873'
 - id: test_salon_cinema_mode_on_night
   area: salon
   file: scenarios/salon/test_cinema_mode.yaml
@@ -79,7 +79,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-07T20:49:06.479807'
+  last_verified: '2026-10-08T12:10:23.095591'
 - id: test_radio_volume_up_execution
   area: multimedia
   file: scenarios/multimedia/test_radio_volume_up.yaml
@@ -91,7 +91,7 @@ tests:
   - script
   - regression
   status: active
-  last_verified: '2026-10-07T17:26:22.031448'
+  last_verified: '2026-10-08T12:47:50.826718'
 - id: test_radio_station_switch_playing
   area: multimedia
   file: scenarios/multimedia/test_radio_station_switch_playing.yaml
@@ -105,7 +105,7 @@ tests:
   - alias
   - regression
   status: active
-  last_verified: '2026-10-07T17:26:23.558525'
+  last_verified: '2026-10-08T12:47:52.354756'
 - id: test_pstryk_engine_unit_suite
   area: pstryk
   file: unit/test_pstryk_engine.py
@@ -133,7 +133,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-07T20:49:08.077772'
+  last_verified: '2026-10-08T12:10:24.645300'
 - id: test_solar_engine_unit_suite
   area: solar
   file: unit/test_solar_engine.py

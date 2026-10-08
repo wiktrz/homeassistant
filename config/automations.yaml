@@ -2206,23 +2206,30 @@
   - platform: time
     at: '22:00:00'
   action:
+  - action: homeassistant.update_entity
+    target:
+      entity_id: sensor.pstryk_price_meter_dol
+  - delay:
+      seconds: 3
   - variables:
-      has_data: "{{ states('sensor.pstryk_ev_best_window_dol') not in ['unavailable', 'none', 'Error', 'Brak danych'] }}"
-      ev_win: "{{ states('sensor.pstryk_ev_best_window_dol') }}"
-      pb_win: "{{ states('sensor.pstryk_powerbank_best_window_dol') }}"
-      sell_win: "{{ states('sensor.pstryk_best_sell_window_dol') }}"
+      tomorrow_date: "{{ (now() + timedelta(days=1)).strftime('%d.%m') }}"
+      polish_weekdays: ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"]
+      tomorrow_weekday: "{{ polish_weekdays[(now() + timedelta(days=1)).weekday()] }}"
+      ev_window: "{{ states('sensor.pstryk_ev_best_window_tomorrow_dol') }}"
+      powerbank_window: "{{ states('sensor.pstryk_powerbank_best_window_tomorrow_dol') }}"
+      sell_window: "{{ states('sensor.pstryk_best_sell_window_tomorrow_dol') }}"
+      has_data: "{{ states('sensor.pstryk_powerbank_best_window_tomorrow_dol') not in ['unavailable', 'none', 'Error', 'Brak danych', 'Oczekiwanie na publikację (ok. 12:00)'] }}"
   - if:
     - condition: template
       value_template: '{{ has_data }}'
     then:
     - action: notify.notify
       data:
-        title: ⚡ Harmonogram Energii Pstryk
+        title: "⚡ Pstryk: Prognoza na Jutro ({{ tomorrow_weekday }}, {{ tomorrow_date }})"
         message: >-
-          Prognoza dyspozytorska na najbliższy okres:
-          🚗 Okno EV: {{ ev_win }}
-          🔋 Magazyn: {{ pb_win }}
-          ⚡ Szczyt Cenowy (Bateria): {{ sell_win }}
+          🚗 Okno EV: {{ ev_window }}
+          🔋 Magazyn: {{ powerbank_window }}
+          ⚡ Szczyt Cenowy: {{ sell_window }}
         data:
           channel: energy
           tag: energy_forecast
@@ -2230,8 +2237,8 @@
     else:
     - action: notify.notify
       data:
-        title: ⚠️ Brak Danych Pstryk
-        message: 'Nie udało się pobrać aktualnego harmonogramu cenowego Pstryk.'
+        title: ⚠️ Brak Danych Pstryk na Jutro
+        message: 'Nie udało się pobrać aktualnego harmonogramu cenowego Pstryk na jutro.'
 
 - id: '1772557345605'
   alias: Tesla Charging Best Window
@@ -2308,7 +2315,7 @@
 
 - id: deye_tou_daily_sync_with_retry
   alias: 'Deye: Dynamiczna Synchronizacja Harmonogramu TOU Raz na Dobę (00:30 + Retry)'
-  description: 'Przelicza i przesyła optymalny 6-slotowy harmonogram TOU (najtańsze okno ładowania, czuwanie, 100% pokrycia szczytu) do falownika Deye raz na dobę o 00:30 z ponawianiem co 15 minut w razie błędu.'
+  description: 'Przelicza i przesyła optymalny 6-slotowy harmonogram TOU (najtańsze okno ładowania, czuwanie, 100% pokrycia szczytu) do falownika Deye raz na dobę o 00:30 z ponawianiem co 15 minut w razie błędu. W razie niepowodzenia do godz. 03:00 wysyła powiadomienie persistent_notification.'
   triggers:
     - trigger: time
       at: '00:30:00'
@@ -2316,23 +2323,44 @@
     - trigger: time_pattern
       minutes: '/15'
       id: retry_check
+    - trigger: time
+      at: '03:00:00'
+      id: failure_check_0300
     - trigger: state
       entity_id: input_button.sync_deye_inverter_soc
       id: manual_trigger
-  conditions:
-    - condition: or
-      conditions:
-        - condition: template
-          value_template: "{{ trigger.id == 'manual_trigger' }}"
-        - condition: template
-          value_template: "{{ states('input_datetime.deye_tou_last_synced_date') != now().strftime('%Y-%m-%d') }}"
+  conditions: []
   actions:
-    - action: script.sync_deye_inverter_tou
-    - action: input_datetime.set_datetime
-      target:
-        entity_id: input_datetime.deye_tou_last_synced_date
-      data:
-        date: "{{ now().strftime('%Y-%m-%d') }}"
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'failure_check_0300' }}"
+            - condition: template
+              value_template: "{{ states('input_datetime.deye_tou_last_synced_date') != now().strftime('%Y-%m-%d') }}"
+          sequence:
+            - action: persistent_notification.create
+              data:
+                title: "⚠️ Błąd synchronizacji TOU Deye"
+                message: "Harmonogram TOU nie został zsynchronizowany z falownikiem Deye do godz. 03:00. Sprawdź połączenie z falownikiem."
+                notification_id: deye_tou_sync_failure
+            - action: notify.notify
+              data:
+                title: "⚠️ Błąd synchronizacji TOU Deye"
+                message: "Harmonogram TOU nie został zsynchronizowany z falownikiem Deye do godz. 03:00. Sprawdź połączenie z falownikiem."
+        - conditions:
+            - condition: or
+              conditions:
+                - condition: template
+                  value_template: "{{ trigger.id == 'manual_trigger' }}"
+                - condition: template
+                  value_template: "{{ states('input_datetime.deye_tou_last_synced_date') != now().strftime('%Y-%m-%d') }}"
+          sequence:
+            - action: script.sync_deye_inverter_tou
+            - action: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.deye_tou_last_synced_date
+              data:
+                date: "{{ now().strftime('%Y-%m-%d') }}"
   mode: single
 
 - id: deye_battery_calibration_periodic_scheduler

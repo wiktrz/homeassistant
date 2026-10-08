@@ -680,9 +680,12 @@ flowchart TD
   - `input_boolean.deye_battery_installed`: Hardware presence toggle helper (auto-detected when $V_{bat} > 40\text{V}$)
   - `sensor.pstryk_price_meter_dol` & `sensor.pstryk_price_meter_gora`: Root command_line entities (15-min scan interval, caching in `/tmp`).
   - `sensor.pstryk_best_window_dol` & `sensor.pstryk_best_window_gora`: Contiguous cheapest charging window range and duration.
-  - `sensor.pstryk_ev_best_window_dol` & `_avg_price_dol`: EV window hours and average buy price.
-  - `sensor.pstryk_powerbank_best_window_dol` & `_avg_price_dol`: Power Bank window hours and average buy price.
-  - `sensor.pstryk_best_sell_window_dol`, `_avg_price_dol`, & `sensor.pstryk_peak_sell_spike_dol`: Sell window, avg price, and 1h spike.
+  - `sensor.pstryk_ev_best_window_dol` & `_avg_price_dol`: EV window hours and average buy price (Today).
+  - `sensor.pstryk_powerbank_best_window_dol` & `_avg_price_dol`: Power Bank window hours and average buy price (Today).
+  - `sensor.pstryk_best_sell_window_dol`, `_avg_price_dol`, & `sensor.pstryk_peak_sell_spike_dol`: Sell window, avg price, and 1h spike (Today).
+  - `sensor.pstryk_ev_best_window_tomorrow_dol`: EV window hours and average buy price for Tomorrow (published ~12:00 Warsaw time).
+  - `sensor.pstryk_powerbank_best_window_tomorrow_dol`: Battery charging window for Tomorrow (`Oczekiwanie na publikację (ok. 12:00)` before publishing).
+  - `sensor.pstryk_best_sell_window_tomorrow_dol`: Peak sell window and spike for Tomorrow.
   - `sensor.deye_battery_operating_capacity_kwh` & `sensor.deye_battery_blackout_reserve_kwh`: Usable capacity (11.29 kWh) & emergency reserve (2.42 kWh dynamic, 0.0 kWh when uninstalled).
   - `sensor.deye_charge_power_kw` & `sensor.deye_discharge_power_kw`: Transfer power limits (5.12 kW dynamic).
   - `sensor.deye_battery_display_level`: Dual % and kWh readout (e.g. `85% (13.7 kWh)` or `"Oczekuje na montaż (SunDeposit 16.13 kWh)"`).
@@ -700,15 +703,19 @@ flowchart TD
   - `binary_sensor.pstryk_in_ev_best_window_dol`: Active EV charging window flag.
   - `binary_sensor.pstryk_in_powerbank_best_window_dol`: Active Power Bank charging window flag.
   - `binary_sensor.pstryk_in_sell_window_dol`: Active peak selling window flag.
+  - `binary_sensor.pstryk_has_tomorrow_pricing_dol`: Flag indicating whether tomorrow's Day-Ahead prices are published (typically active from ~12:00 Warsaw time).
   - `binary_sensor.pstryk_tania_godzina_dol` & `binary_sensor.pstryk_tania_godzina_gora`: Active cheap hour flag (`is_cheap`).
   - `binary_sensor.pstryk_droga_godzina_dol` & `binary_sensor.pstryk_droga_godzina_gora`: Active expensive hour flag (`is_expensive`).
 - **Lovelace Dashboards:**
   - **Overview View (`/dashboard-home/dom`):** `Energia i Info` box displays Koszt Dziś (Dół & Góra), Okno EV (aktywne - `binary_sensor.pstryk_in_ev_best_window_dol`), kondycjonalnie Magazyn SunDeposit poziom (`%` i `kWh`) oraz stan tri-state (`Rozładowanie (Pokrycie Szczytu)`), Najtańsze Okno Magazynu (`sensor.pstryk_powerbank_best_window_dol`), Szczyt Cenowy (Zasilanie Bateryjne - `sensor.pstryk_best_sell_window_dol`), oraz Odpady.
-  - **Energy View (`/dashboard-home/energia`):** 4 dedicated sections: 1. Harmonogram Dyspozytorski Pstryk (EV, Magazyn, Szczyt Cenowy z zasilaniem z baterii), 2. Magazyn Energii SunDeposit 16.13 kWh & Falownik Deye 12 kW (poziom, tryb, pojemność użyteczna, rezerwa blackout, moc), 3. Parametry Odczytane z Falownika Deye (Modbus Read-Only) oraz Harmonogram Time-of-Use (TOU - Zapis o 00:30 + Retry z `input_datetime.deye_tou_last_synced_date`, markdown tabela ze slotami, przedziałami lokalnymi Europe/Warsaw, SOC, rolą i podsumowaniem), 4. Zdrowie Baterii i Kalibracja BMS 100% z polem tylko do odczytu `Trwa Procedura Kalibracji 100%` (`binary_sensor.deye_battery_calibration_active`, tap_action: none) sterowanym przyciskiem `input_button.trigger_deye_battery_calibration`, oraz 16 kafelkami metryk bieżących i miesięcznych dla instalacji Dół i Góra (zoptymalizowane kafelki `type: tile` z `command_timeout: 45`).
+  - **Energy View (`/dashboard-home/energia`):** 4 dedicated sections: 1. Harmonogram Dyspozytorski Pstryk (EV, Magazyn, Szczyt Cenowy z zasilaniem z baterii), 2. Magazyn Energii SunDeposit 16.13 kWh & Falownik Deye 12 kW (poziom, tryb, pojemność użyteczna, rezerwa blackout, moc), 3. Parametry Odczytane z Falownika Deye (Modbus Read-Only) oraz Harmonogram Time-of-Use — Dziś (TOU - Zapis o 00:30 + Retry z `input_datetime.deye_tou_last_synced_date`, markdown tabela ze stabilnymi slotami na cały dzień, oknem ładowania i szczytu Dziś, oraz dedykowaną sekcją *🔮 Prognoza na Jutro* widoczną po publikacji ok. 12:00), 4. Zdrowie Baterii i Kalibracja BMS 100% z polem tylko do odczytu `Trwa Procedura Kalibracji 100%` (`binary_sensor.deye_battery_calibration_active`, tap_action: none) sterowanym przyciskiem `input_button.trigger_deye_battery_calibration`, oraz 16 kafelkami metryk bieżących i miesięcznych dla instalacji Dół i Góra.
   - **Interactive Reporting Subview (`/energia-raport`):** Subview with native back navigation, side-by-side Dół vs Góra consumption & cost comparison, Jinja2 markdown tables for hourly today breakdown, daily month history, 2026 year monthly table, and 48h live history graphs.
 - **Automations & Scripts:**
-  - `deye_tou_daily_sync_with_retry`: Recalculates and uploads 6-slot TOU schedule once daily at `00:30:00`, with automatic 15-minute retry until success when `deye_tou_last_synced_date` does not match today, placing the 2h charge slot in the cheapest buy window (midday 13:00–15:00 or night) and configuring 100% household peak self-consumption discharge (zero export). Supports manual trigger via `input_button.sync_deye_inverter_soc` / `script.sync_deye_inverter_tou`.
-  - `daily_energy_price_notification`: 22:00 forecast notification with multi-window summary (EV, Magazyn, Szczyt Cenowy) for next day (clicking notification opens `/dashboard-home/energia`).
+  - `deye_tou_daily_sync_with_retry`: Recalculates and uploads 6-slot TOU schedule once daily at `00:30:00`, with automatic 15-minute retry until success when `deye_tou_last_synced_date` does not match today. Features automated failure detection trigger at `03:00:00` creating a `persistent_notification` and mobile alert if TOU sync has not succeeded by 03:00. Supports manual trigger via `input_button.sync_deye_inverter_soc` / `script.sync_deye_inverter_tou`.
+  - `daily_energy_price_notification`: 22:00 forecast notification pre-refreshing `sensor.pstryk_price_meter_dol` and delivering multi-window summary specifically for **Tomorrow** (e.g. *"⚡ Pstryk: Prognoza na Jutro (piątek, 09.10)"*) with EV, Magazyn, and Szczyt Cenowy.
+  - `Tesla Charging Best Window`: Automatically starts charging (`switch.tesla_y_charge`) when `binary_sensor.pstryk_in_ev_best_window_dol == on` and stops when window ends.
+  - `pstryk_best_window_voice_announcement`: Speaks aloud dynamically on Home Assistant Voice PE with quiet hours guard (07:30–22:00).
+  - `deye_battery_calibration_periodic_scheduler` & `deye_battery_calibration_auto_finish`: Automated 100% BMS balancing cycle.
   - `Tesla Charging Best Window`: Automatically starts charging (`switch.tesla_y_charge`) when `binary_sensor.pstryk_in_ev_best_window_dol == on` and stops when window ends.
   - `pstryk_best_window_voice_announcement`: Speaks aloud dynamically on Home Assistant Voice PE with quiet hours guard (07:30–22:00).
   - `deye_battery_calibration_periodic_scheduler` & `deye_battery_calibration_auto_finish`: Automated 100% BMS balancing cycle.

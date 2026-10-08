@@ -1095,6 +1095,7 @@ def sync_deye_inverter_tou_schedule(
     api_key: Optional[str] = None,
     installation: str = "dol",
     cache_dir: str = DEFAULT_CACHE_DIR,
+    for_tomorrow: bool = False,
 ) -> Dict[str, Any]:
     """
     Recalculates and uploads the 6-slot TOU schedule to the Deye hybrid inverter via Solarman V5 client.
@@ -1136,8 +1137,12 @@ def sync_deye_inverter_tou_schedule(
     sell_window = None
 
     if cached_data and isinstance(cached_data, dict):
-        pb_window = cached_data.get("powerbank_best_window")
-        sell_window = cached_data.get("best_sell_window")
+        if for_tomorrow and cached_data.get("has_tomorrow_pricing"):
+            pb_window = cached_data.get("powerbank_best_window_tomorrow")
+            sell_window = cached_data.get("best_sell_window_tomorrow")
+        else:
+            pb_window = cached_data.get("powerbank_best_window")
+            sell_window = cached_data.get("best_sell_window")
 
     if not pb_window or not sell_window:
         resolved_key, _ = resolve_api_key(installation=installation, explicit_key=api_key)
@@ -1145,8 +1150,12 @@ def sync_deye_inverter_tou_schedule(
             try:
                 fresh_data = fetch_consolidated_data(api_key=resolved_key, installation=installation, cache_dir=cache_dir)
                 if isinstance(fresh_data, dict):
-                    pb_window = fresh_data.get("powerbank_best_window")
-                    sell_window = fresh_data.get("best_sell_window")
+                    if for_tomorrow and fresh_data.get("has_tomorrow_pricing"):
+                        pb_window = fresh_data.get("powerbank_best_window_tomorrow")
+                        sell_window = fresh_data.get("best_sell_window_tomorrow")
+                    else:
+                        pb_window = fresh_data.get("powerbank_best_window")
+                        sell_window = fresh_data.get("best_sell_window")
             except Exception:
                 pass
 
@@ -1694,11 +1703,77 @@ def fetch_consolidated_data(
                 "gross": {"min": 0.0, "max": 0.0, "avg": 0.0},
             }
 
-    # Dispatch windows:
-    target_dispatch_data = forward_data if (isinstance(forward_data, dict) and forward_data.get("frames")) else today_data
-    ev_window = find_ev_best_window(target_dispatch_data, target_hours="auto")
-    pb_window = find_powerbank_best_window(target_dispatch_data, target_hours=2, allow_disjoint=True)
-    sell_window = find_best_sell_window(target_dispatch_data, target_hours=3)
+    # 5. Extract and partition pricing frames by Warsaw calendar day
+    today_frames = today_data.get("frames", []) if (isinstance(today_data, dict) and today_data.get("frames")) else []
+    forward_frames = forward_data.get("frames", []) if (isinstance(forward_data, dict) and forward_data.get("frames")) else []
+
+    all_frames_dict = {}
+    for f in (today_frames + forward_frames):
+        if isinstance(f, dict) and f.get("start"):
+            all_frames_dict[f["start"]] = f
+    all_frames = sorted(all_frames_dict.values(), key=lambda x: x.get("start", ""))
+
+    now_warsaw = datetime.now(WARSAW_TZ)
+    today_date = now_warsaw.date()
+    tomorrow_date = (now_warsaw + timedelta(days=1)).date()
+
+    def get_frame_warsaw_date(frame):
+        s = frame.get("start")
+        if not s:
+            return None
+        try:
+            return datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(WARSAW_TZ).date()
+        except Exception:
+            return None
+
+    frames_today = [f for f in all_frames if get_frame_warsaw_date(f) == today_date]
+    frames_tomorrow = [f for f in all_frames if get_frame_warsaw_date(f) == tomorrow_date]
+    has_tomorrow_pricing = len(frames_tomorrow) >= 12
+
+    # Dispatch windows for TODAY (stable across all 24h of the current day)
+    target_today_data = {"frames": frames_today} if frames_today else (forward_data if (isinstance(forward_data, dict) and forward_data.get("frames")) else today_data)
+    ev_window_today = find_ev_best_window(target_today_data, target_hours="auto", now_dt=now_warsaw)
+    pb_window_today = find_powerbank_best_window(target_today_data, target_hours=2, allow_disjoint=True)
+    sell_window_today = find_best_sell_window(target_today_data, target_hours=3)
+    tou_today = generate_deye_tou_schedule(
+        current_soc=85,
+        max_soc=90,
+        min_soc=20,
+        best_pb_window=pb_window_today,
+        best_sell_window=sell_window_today,
+        calibration_active=False,
+    )
+
+    # Dispatch windows for TOMORROW (published ~12:00 Warsaw time)
+    if has_tomorrow_pricing:
+        target_tomorrow_data = {"frames": frames_tomorrow}
+        tomorrow_ref_dt = now_warsaw + timedelta(days=1)
+        ev_window_tomorrow = find_ev_best_window(target_tomorrow_data, target_hours="auto", now_dt=tomorrow_ref_dt)
+        pb_window_tomorrow = find_powerbank_best_window(target_tomorrow_data, target_hours=2, allow_disjoint=True)
+        sell_window_tomorrow = find_best_sell_window(target_tomorrow_data, target_hours=3)
+        tou_tomorrow = generate_deye_tou_schedule(
+            current_soc=85,
+            max_soc=90,
+            min_soc=20,
+            best_pb_window=pb_window_tomorrow,
+            best_sell_window=sell_window_tomorrow,
+            calibration_active=False,
+        )
+    else:
+        pending_msg = "Oczekiwanie na publikację (ok. 12:00)"
+        ev_window_tomorrow = {
+            "start": None, "end": None, "duration_hours": 0, "average_price": 0.0,
+            "display": pending_msg, "all_prices": [],
+        }
+        pb_window_tomorrow = {
+            "start": None, "end": None, "duration_hours": 0, "average_price": 0.0,
+            "display": pending_msg, "slots": [], "is_consecutive": True,
+        }
+        sell_window_tomorrow = {
+            "start": None, "end": None, "duration_hours": 0, "average_price": 0.0,
+            "display": pending_msg, "spike_hour": None, "spike_price": None,
+        }
+        tou_tomorrow = []
 
     # Battery model defaults for Deye 12kW + SunDeposit 16.13 kWh
     battery_model = BatteryModel(
@@ -1711,7 +1786,7 @@ def fetch_consolidated_data(
         voltage_v=51.2,
     )
 
-    # 5. Build rich structured sub-objects
+    # 6. Build rich structured sub-objects
     current_obj = build_current_subobject(latest_data)
     today_obj = build_today_subobject(today_data)
 
@@ -1749,17 +1824,19 @@ def fetch_consolidated_data(
         "all_prices": window_result.get("all_prices", []),
         "net": window_result.get("net", {"min": 0.0, "max": 0.0, "avg": 0.0}),
         "gross": window_result.get("gross", {"min": 0.0, "max": 0.0, "avg": 0.0}),
-        "ev_best_window": ev_window,
-        "powerbank_best_window": pb_window,
-        "best_sell_window": sell_window,
-        "deye_tou_schedule": generate_deye_tou_schedule(
-            current_soc=85,
-            max_soc=90,
-            min_soc=20,
-            best_pb_window=pb_window,
-            best_sell_window=sell_window,
-            calibration_active=False,
-        ),
+        "ev_best_window": ev_window_today,
+        "powerbank_best_window": pb_window_today,
+        "best_sell_window": sell_window_today,
+        "deye_tou_schedule": tou_today,
+        "ev_best_window_today": ev_window_today,
+        "powerbank_best_window_today": pb_window_today,
+        "best_sell_window_today": sell_window_today,
+        "deye_tou_schedule_today": tou_today,
+        "ev_best_window_tomorrow": ev_window_tomorrow,
+        "powerbank_best_window_tomorrow": pb_window_tomorrow,
+        "best_sell_window_tomorrow": sell_window_tomorrow,
+        "deye_tou_schedule_tomorrow": tou_tomorrow,
+        "has_tomorrow_pricing": has_tomorrow_pricing,
         "battery_model": battery_model.to_dict(),
         "installation": installation,
         "current": current_obj,
@@ -1792,6 +1869,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--max-soc", type=int, default=None, help="Max Charge SOC override")
     parser.add_argument("--min-soc", type=int, default=None, help="Min Discharge SOC override")
     parser.add_argument("--calibration", action="store_true", help="Flag to charge to 100 percent for BMS calibration")
+    parser.add_argument("--tomorrow", action="store_true", help="Target tomorrow's schedule instead of today")
 
     args = parser.parse_args(argv)
     resolved_key, key_source = resolve_api_key(args.installation, args.key)
@@ -1807,6 +1885,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             calibration_active=args.calibration,
             api_key=resolved_key,
             installation=args.installation,
+            for_tomorrow=args.tomorrow,
         )
         print(json.dumps(sync_res, indent=2))
         return 0 if sync_res.get("success") else 1

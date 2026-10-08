@@ -842,7 +842,7 @@ views:
             icon: mdi:cloud-sync
 
       - type: markdown
-        title: Aktywne Sloty Falownika Deye (Time-of-Use)
+        title: Aktywne Sloty Falownika Deye (Time-of-Use) — Dziś
         content: >-
           {% set active = state_attr('sensor.deye_inverter_status', 'active_tou') %}
           {% set slots = active['slots'] if active and active['slots'] is defined else (state_attr('sensor.deye_tou_active_schedule', 'slots') if state_attr('sensor.deye_tou_active_schedule', 'slots') is defined else []) %}
@@ -854,9 +854,19 @@ views:
           {% endfor %}
 
           ---
-          - ⚡ **Okno Ładowania Magazynu:** `{{ states('sensor.pstryk_powerbank_best_window_dol') }}`
-          - 🔋 **Szczyt Cenowy (Pokrycie 100%):** `{{ states('sensor.pstryk_best_sell_window_dol') }}`
+          - ⚡ **Okno Ładowania Magazynu (Dziś):** `{{ states('sensor.pstryk_powerbank_best_window_dol') }}`
+          - 🔋 **Szczyt Cenowy (Dziś):** `{{ states('sensor.pstryk_best_sell_window_dol') }}`
           - 🕒 **Ostatnia Synchronizacja:** `{{ states('input_datetime.deye_tou_last_synced_date') }}`
+
+          ---
+          **🔮 Prognoza na Jutro (publikacja ok. 12:00):**
+          {% if is_state('binary_sensor.pstryk_has_tomorrow_pricing_dol', 'on') %}
+          - 🚗 **Okno EV:** `{{ states('sensor.pstryk_ev_best_window_tomorrow_dol') }}`
+          - 🔋 **Magazyn:** `{{ states('sensor.pstryk_powerbank_best_window_tomorrow_dol') }}`
+          - ⚡ **Szczyt Cenowy:** `{{ states('sensor.pstryk_best_sell_window_tomorrow_dol') }}`
+          {% else %}
+          - *Oczekiwanie na publikację cen na jutro (ok. 12:00)...*
+          {% endif %}
           {% else %}
           *Oczekiwanie na synchronizację z falownikiem Deye...*
           {% endif %}

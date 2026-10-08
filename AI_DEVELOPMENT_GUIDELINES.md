@@ -41,6 +41,24 @@
 - Any failed test or broken hardware invariant (Tier 0–Tier 3) blocks completion and must be resolved immediately.
 - When new features, scripts, or automations are introduced, the agent must ensure a declarative test scenario is created in `tests/scenarios/` and registered into `tests/test_registry.yaml` to lock in regression protection.
 
+### Rule 7: Mandatory End-of-Session Retrospective & Quality Re-Validation Protocol
+- At the conclusion of every substantive development session (or when requested by the user), the AI agent **MUST perform a structured retrospective** and re-validation covering:
+  1. **Semantic Domain Logic vs Communication Success:** Never declare completion solely because code executed without syntax errors or an API returned 200/OK. Explicitly verify that the domain logic, calculated values, and real-world conditions (e.g. `Europe/Warsaw` local timestamps vs UTC `Z`, dynamic midday spot tariffs vs hardcoded night assumptions) strictly match the user's intent.
+  2. **Hardware & Flags Principle of Least Privilege:** Verify that auxiliary hardware controls (e.g. backup generator charging `enableGeneration` / GEN, grid export `enableSell`, high-voltage relays) are strictly disabled unless explicitly required and physically present.
+  3. **Anti-Silence & Continuous Conversational Feedback:** Never end a turn silently after a background task or tool execution. Always provide clear, visible conversational answers to keep the user informed without requiring "try again" prompts.
+  4. **Documentation & Invariant Re-Check:** Re-verify that documentation files (`PLACES_AND_BEHAVIORS.md`, `AGENT.md`, `AGENTS.md`, `llms.txt`) and hardware safety invariants (Tier 1A) remain 100% aligned with the codebase.
+
+### Rule 8: Strict English Code & Identifiers Standard (Apart from User-Facing UI)
+- **Strict English Code Standard:** All code identifiers, variable names, functions, classes, arguments, YAML keys, Jinja template/namespace variables, Home Assistant `unique_id` attributes, entity IDs, CLI arguments, and schema fields **MUST be strictly in English**.
+- **No Mixed Language ("Ponglish" / Hybrid):** Never mix Polish and English within an identifier (e.g. `jutro_date`, `jutro_dni`, `pstryk_best_window_jutro_dol` are strictly prohibited). Use clean English names like `tomorrow_date`, `polish_weekdays`, `tomorrow_weekday`, `pstryk_best_window_tomorrow_dol`.
+- **Polish Strictly Reserved for User-Facing UI:** Polish language is permitted and expected **ONLY** in user-facing presentation layers:
+  - Dashboard titles, card labels, and column headers (e.g. `title: Aktywne Sloty Falownika Deye`)
+  - Friendly entity names when required for voice/UI (`friendly_name:`)
+  - Spoken TTS voice output (e.g. Nabu Casa / Voice PE announcements)
+  - User notifications (messages and titles sent via `notify.notify` or `persistent_notification`)
+  - User-facing status string values meant for display (e.g. `"Oczekiwanie na publikację (ok. 12:00)"`, `"Najtańsze Ładowanie"`)
+- Everything under the hood (logic, variables, templates, attributes, internal constants) must be 100% English.
+
 ---
 
 ## 2. Hardware Safety & Architectural Invariants

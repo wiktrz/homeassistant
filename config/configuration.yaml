@@ -99,6 +99,15 @@ command_line:
         - powerbank_best_window
         - best_sell_window
         - deye_tou_schedule
+        - ev_best_window_today
+        - powerbank_best_window_today
+        - best_sell_window_today
+        - deye_tou_schedule_today
+        - ev_best_window_tomorrow
+        - powerbank_best_window_tomorrow
+        - best_sell_window_tomorrow
+        - deye_tou_schedule_tomorrow
+        - has_tomorrow_pricing
         - battery_model
   # Installation: góra (upper floor)
   - sensor:
@@ -134,6 +143,15 @@ command_line:
         - powerbank_best_window
         - best_sell_window
         - deye_tou_schedule
+        - ev_best_window_today
+        - powerbank_best_window_today
+        - best_sell_window_today
+        - deye_tou_schedule_today
+        - ev_best_window_tomorrow
+        - powerbank_best_window_tomorrow
+        - best_sell_window_tomorrow
+        - deye_tou_schedule_tomorrow
+        - has_tomorrow_pricing
         - battery_model
   # Deye Inverter & Battery Telemetry / Configuration Ingestion (Read-Only)
   - sensor:

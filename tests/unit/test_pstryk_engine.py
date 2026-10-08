@@ -14,6 +14,7 @@ import json
 import pytest
 import unittest.mock as mock
 import urllib.error
+from datetime import datetime, timedelta, timezone
 
 # Ensure config/ directory is importable
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -846,6 +847,150 @@ def test_generate_deye_tou_schedule_midday_charge_13_15():
     assert slots[5]["time"] == "21:00"
     assert slots[5]["grid_charge"] is False
     assert slots[5]["target_soc"] == 20
+
+
+def test_today_and_tomorrow_frames_partitioning(tmp_path):
+    """
+    Verifies that fetch_consolidated_data cleanly isolates Today (00:00-24:00) from
+    Tomorrow (00:00-24:00) into dedicated dispatch windows and sets has_tomorrow_pricing=True.
+    """
+    cache_dir = str(tmp_path)
+    now_warsaw = datetime.now(pstryk_engine.WARSAW_TZ)
+    today_date = now_warsaw.date()
+    tomorrow_date = (now_warsaw + timedelta(days=1)).date()
+
+    # Generate 24 frames for today and 24 frames for tomorrow
+    frames = []
+    for d, base_price in [(today_date, 0.80), (tomorrow_date, 0.40)]:
+        for hour in range(24):
+            dt = datetime(d.year, d.month, d.day, hour, 0, tzinfo=pstryk_engine.WARSAW_TZ)
+            iso_start = dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            iso_end = (dt + timedelta(hours=1)).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            price = base_price + (0.10 if 17 <= hour <= 20 else (-0.20 if 13 <= hour <= 14 else 0.0))
+            frames.append({
+                "start": iso_start,
+                "end": iso_end,
+                "metrics": {
+                    "pricing": {
+                        "full_price": price,
+                        "price_gross": price,
+                        "price_net": price * 0.8,
+                        "price_prosumer_net": price * 0.8,
+                        "price_prosumer_gross": price,
+                    }
+                }
+            })
+
+    today_payload = {"frames": [f for f in frames if datetime.fromisoformat(f["start"].replace("Z", "+00:00")).astimezone(pstryk_engine.WARSAW_TZ).date() == today_date]}
+    forward_payload = {"frames": frames}
+
+    def mock_fetch(url, params, api_key, timeout=10):
+        if params.get("temporal") == "latest":
+            return {"frames": [frames[0]]}
+        if params.get("temporal") == "today":
+            return today_payload
+        if params.get("resolution") == "month":
+            return {"frames": []}
+        if params.get("resolution") == "day":
+            return {"frames": []}
+        return forward_payload
+
+    with mock.patch("pstryk_engine.fetch_api", side_effect=mock_fetch):
+        res = pstryk_engine.fetch_consolidated_data(
+            api_key="sk-TEST",
+            installation="dol",
+            use_cache=False,
+            cache_dir=cache_dir,
+        )
+
+    assert res["has_tomorrow_pricing"] is True
+    assert "ev_best_window_today" in res
+    assert "powerbank_best_window_today" in res
+    assert "best_sell_window_today" in res
+    assert "deye_tou_schedule_today" in res
+    assert len(res["deye_tou_schedule_today"]) == 6
+
+    assert "ev_best_window_tomorrow" in res
+    assert "powerbank_best_window_tomorrow" in res
+    assert "best_sell_window_tomorrow" in res
+    assert "deye_tou_schedule_tomorrow" in res
+    assert len(res["deye_tou_schedule_tomorrow"]) == 6
+    assert res["powerbank_best_window_tomorrow"]["display"] != "Oczekiwanie na publikację (ok. 12:00)"
+
+
+def test_tomorrow_pending_publication_before_12(tmp_path):
+    """
+    Verifies that when tomorrow's frames are not yet published, has_tomorrow_pricing is False
+    and display strings show 'Oczekiwanie na publikację (ok. 12:00)'.
+    """
+    cache_dir = str(tmp_path)
+    now_warsaw = datetime.now(pstryk_engine.WARSAW_TZ)
+    today_date = now_warsaw.date()
+
+    # Only 24 frames for today
+    frames = []
+    for hour in range(24):
+        dt = datetime(today_date.year, today_date.month, today_date.day, hour, 0, tzinfo=pstryk_engine.WARSAW_TZ)
+        iso_start = dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        iso_end = (dt + timedelta(hours=1)).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        frames.append({
+            "start": iso_start,
+            "end": iso_end,
+            "metrics": {
+                "pricing": {
+                    "full_price": 0.75,
+                    "price_gross": 0.75,
+                    "price_net": 0.60,
+                    "price_prosumer_net": 0.60,
+                    "price_prosumer_gross": 0.75,
+                }
+            }
+        })
+
+    today_payload = {"frames": frames}
+
+    def mock_fetch(url, params, api_key, timeout=10):
+        if params.get("temporal") == "latest":
+            return {"frames": [frames[0]]}
+        return today_payload
+
+    with mock.patch("pstryk_engine.fetch_api", side_effect=mock_fetch):
+        res = pstryk_engine.fetch_consolidated_data(
+            api_key="sk-TEST",
+            installation="dol",
+            use_cache=False,
+            cache_dir=cache_dir,
+        )
+
+    assert res["has_tomorrow_pricing"] is False
+    pending_msg = "Oczekiwanie na publikację (ok. 12:00)"
+    assert res["powerbank_best_window_tomorrow"]["display"] == pending_msg
+    assert res["best_sell_window_tomorrow"]["display"] == pending_msg
+    assert res["ev_best_window_tomorrow"]["display"] == pending_msg
+    assert res["deye_tou_schedule_tomorrow"] == []
+
+
+def test_sync_deye_inverter_tou_schedule_for_tomorrow(tmp_path):
+    """
+    Verifies that sync_deye_inverter_tou_schedule(..., for_tomorrow=True) uses tomorrow's windows
+    when tomorrow pricing is available.
+    """
+    cache_dir = str(tmp_path)
+    cached_payload = {
+        "has_tomorrow_pricing": True,
+        "powerbank_best_window": {"start": "2026-10-08T11:00:00Z", "end": "2026-10-08T13:00:00Z", "is_consecutive": True},
+        "best_sell_window": {"start": "2026-10-08T15:00:00Z", "end": "2026-10-08T19:00:00Z"},
+        "powerbank_best_window_tomorrow": {"start": "2026-10-09T11:00:00Z", "end": "2026-10-09T13:00:00Z", "is_consecutive": True},
+        "best_sell_window_tomorrow": {"start": "2026-10-09T16:00:00Z", "end": "2026-10-09T20:00:00Z"},
+    }
+    pstryk_engine.write_cache(pstryk_engine.get_cache_file_path("dol", cache_dir), cached_payload)
+
+    with mock.patch("pstryk_engine.solarman_v5_client", None):
+        result = pstryk_engine.sync_deye_inverter_tou_schedule(
+            cache_dir=cache_dir,
+            for_tomorrow=True,
+        )
+    assert len(result["slots"]) == 6
 
 
 if __name__ == "__main__":
