@@ -53,7 +53,7 @@ tests:
   - rental
   - regression
   status: active
-  last_verified: '2026-10-13T20:43:40.383868'
+  last_verified: '2026-10-13T21:07:28.412940'
 - id: test_local01_heating_routine_bidirectional_sync
   area: termostaty
   file: scenarios/termostaty/test_local01_heating_routine_bidirectional_sync.yaml
@@ -67,7 +67,7 @@ tests:
   - sync
   - regression
   status: active
-  last_verified: '2026-10-13T20:43:41.909803'
+  last_verified: '2026-10-13T21:07:30.009424'
 - id: test_protected_power_supplies_integrity
   area: bezpieczenstwo
   file: scenarios/bezpieczenstwo/test_power_supplies_untouched.yaml

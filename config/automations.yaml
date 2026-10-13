@@ -6,11 +6,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local01_glowny_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local01/thermostat/Glowny/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local01_main_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local01/thermostat/Glowny/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local01_main_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local01
   id: 635051fb823b49e0abf04f4c0fbcf8fe
 - alias: Set Thermostat Local01 Lazienka Routine
   trigger:
@@ -20,11 +23,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local01_lazienka_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local01/thermostat/Lazienka/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local01_bathroom_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local01/thermostat/Lazienka/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local01_bathroom_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local01
   id: 455d6bb91c1544a89fe26454cf61258c
 - alias: Set Thermostat Local01 Sypialnia Routine
   trigger:
@@ -34,11 +40,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local01_sypialnia_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local01/thermostat/Sypialnia/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local01_bedroom_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local01/thermostat/Sypialnia/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local01_bedroom_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local01
   id: dbf171de479a4cef88826f093c1bd51b
 - alias: Set Thermostat Local02 Glowny Routine
   trigger:
@@ -48,11 +57,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local02_glowny_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local02/thermostat/Glowny/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local02_main_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local02/thermostat/Glowny/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local02_main_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local02
   id: cbb571f6c40e46dc951ae66df19b1649
 - alias: Set Thermostat Local02 Lazienka Routine
   trigger:
@@ -62,11 +74,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local02_lazienka_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local02/thermostat/Lazienka/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local02_bathroom_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local02/thermostat/Lazienka/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local02_bathroom_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local02
   id: 2642f2def00d477fa5e1ea0faff29fa3
 - alias: Set Thermostat Local02 Sypialnia Routine
   trigger:
@@ -76,11 +91,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local02_sypialnia_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local02/thermostat/Sypialnia/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local02_bedroom_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local02/thermostat/Sypialnia/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local02_bedroom_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local02
   id: 6133ff4a56f4463ea368cbd55bdb089d
 - alias: Set Thermostat Local03 Glowny Routine
   trigger:
@@ -90,11 +108,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local03_glowny_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local03/thermostat/Glowny/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local03_main_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local03/thermostat/Glowny/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local03_main_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local03
   id: 4291ef9147fb478099cbc7f74a36d1a7
 - alias: Set Thermostat Local03 Lazienka Routine
   trigger:
@@ -104,11 +125,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local03_lazienka_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local03/thermostat/Lazienka/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local03_bathroom_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local03/thermostat/Lazienka/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local03_bathroom_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local03
   id: d2b9dce7cdea4a6eb7626899bb5d3177
 - alias: Set Thermostat Local03 Sypialnia Routine
   trigger:
@@ -118,11 +142,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local03_sypialnia_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local03/thermostat/Sypialnia/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local03_bedroom_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local03/thermostat/Sypialnia/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local03_bedroom_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local03
   id: a4b7f327cc2f45e6bc228d84d99ded7c
 - alias: Set Thermostat Local04 Glowny Routine
   trigger:
@@ -132,11 +159,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local04_glowny_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local04/thermostat/Glowny/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local04_main_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local04/thermostat/Glowny/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local04_main_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local04
   id: 2dfaf24296d648dfa160859e4ac01d08
 - alias: Set Thermostat Local04 Lazienka Routine
   trigger:
@@ -146,11 +176,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local04_lazienka_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local04/thermostat/Lazienka/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local04_bathroom_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local04/thermostat/Lazienka/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local04_bathroom_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local04
   id: 6f164a50010a40e8aed2a09a4fd398c2
 - alias: Set Thermostat Local04 Sypialnia Routine
   trigger:
@@ -160,11 +193,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local04_sypialnia_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local04/thermostat/Sypialnia/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local04_bedroom_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local04/thermostat/Sypialnia/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local04_bedroom_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local04
   id: f59bdeabd351499584c5ddc4d19ce37c
 - alias: Set Thermostat Local05 Glowny Routine
   trigger:
@@ -174,11 +210,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local05_glowny_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local05/thermostat/Glowny/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local05_main_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local05/thermostat/Glowny/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local05_main_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local05
   id: ec3eb7d860db4e62a3895ec264ded902
 - alias: Set Thermostat Local05 Lazienka Routine
   trigger:
@@ -188,11 +227,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local05_lazienka_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local05/thermostat/Lazienka/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local05_bathroom_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local05/thermostat/Lazienka/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local05_bathroom_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local05
   id: 08d4861de501426fb32de796475aa57a
 - alias: Set Thermostat Local05 Sypialnia Routine
   trigger:
@@ -202,11 +244,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local05_sypialnia_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local05/thermostat/Sypialnia/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local05_bedroom_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local05/thermostat/Sypialnia/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local05_bedroom_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local05
   id: dfe9ac4d8fc94fcba8e9eb18732221b5
 - alias: Set Thermostat Local06 Glowny Routine
   trigger:
@@ -216,11 +261,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local06_glowny_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local06/thermostat/Glowny/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local06_main_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local06/thermostat/Glowny/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local06_main_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local06
   id: d9717a6b08b44f468b91afe4a6b1ce51
 - alias: Set Thermostat Local06 Lazienka Routine
   trigger:
@@ -230,11 +278,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local06_lazienka_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local06/thermostat/Lazienka/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local06_bathroom_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local06/thermostat/Lazienka/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local06_bathroom_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local06
   id: ee57260b1ffa41d69faaff08a7677e4a
 - alias: Set Thermostat Local06 Sypialnia Routine
   trigger:
@@ -244,11 +295,14 @@
     - condition: template
       value_template: "{{ trigger.to_state.state != states('sensor.local06_sypialnia_routine') }}"
   action:
-    service: mqtt.publish
-    data:
-      topic: local06/thermostat/Sypialnia/routine/set
-      retain: true
-      payload: '{{ states(''input_select.local06_bedroom_heating_routine'') }}'
+    - service: mqtt.publish
+      data:
+        topic: local06/thermostat/Sypialnia/routine/set
+        retain: true
+        payload: '{{ states(''input_select.local06_bedroom_heating_routine'') }}'
+    - service: script.restart_heating_controller
+      data:
+        flat: local06
   id: 09517be5706d49fd887c6d1490bd38d6
 
 # Routine Sync Automations: Update input_select from live MQTT routine broadcasts (without echo publish)

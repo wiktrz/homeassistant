@@ -1264,5 +1264,36 @@ scan_and_set_deye_inverter_ip:
   mode: single
   icon: mdi:radar
 
-
-
+restart_heating_controller:
+  alias: "Restart Related Heating Controller"
+  description: "Debounced restart trigger for the physical ESP32 heating controller associated with a flat"
+  mode: restart
+  fields:
+    flat:
+      description: "Apartment identifier (e.g. local01, local02, ...)"
+      example: "local01"
+      required: true
+  variables:
+    flat_to_controller_map:
+      local01: heatingController02
+      local02: heatingController02
+      local03: heatingController02
+      local04: heatingController03
+      local05: heatingController03
+      local06: heatingController03
+      local00: heatingController01
+    target_controller: "{{ flat_to_controller_map.get(flat, '') }}"
+  sequence:
+    - condition: template
+      value_template: "{{ target_controller != '' }}"
+    - delay:
+        seconds: 3
+    - action: mqtt.publish
+      data:
+        topic: "heating_controller/{{ target_controller }}/restart"
+        payload: "restart"
+    - action: mqtt.publish
+      data:
+        topic: "{{ target_controller }}/restart"
+        payload: "restart"
+  icon: mdi:restart

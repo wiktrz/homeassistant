@@ -573,9 +573,15 @@ flowchart TD
   - Schedule Selector Helper: `input_select.local0X_bedroom_heating_routine`
 
 #### Behaviors & Automations
-1. **Automated Routine Synchronization (18 Automations):**
-   - Changing an `input_select.local0X_*_heating_routine` publishes the routine name directly to MQTT topic `{flat}/thermostat/{room}/routine/set`.
-   - `nodeApi` catches this change, saves it in `config/heatingRoutines/`, and updates the target TTGO wall thermostat display.
+1. **Automated Routine Synchronization & Hardware Restart (18 Automations):**
+   - Changing an `input_select.local0X_*_heating_routine` triggers a loop-guarded automation (`Set Thermostat Local0X {Room} Routine`). If the dropdown value differs from `sensor.local0X_{room}_routine`, it publishes the new routine to `{flat}/thermostat/{room}/routine/set` (retained).
+   - Simultaneously triggers `script.restart_heating_controller` with `data: flat: local0X`. The script debounces multiple room updates using `mode: restart` (3-second window) and looks up the physical controller via internal mapping:
+     - `local01`, `local02`, `local03` → `heatingController02` (`3C:71:BF:88:A0:2C`)
+     - `local04`, `local05`, `local06` → `heatingController03` (`3C:71:BF:88:CB:CC`)
+     - `local00` → `heatingController01` (`3C:71:BF:89:0A:40`)
+     It then broadcasts the restart payload `"restart"` to `heating_controller/{{ target_controller }}/restart` and `{{ target_controller }}/restart` to force the ESP32 to immediately adopt the updated heating schedule.
+   - Incoming routine broadcasts on `{flat}/thermostat/{Room}/routine` are ingested by `sensor.local0X_{room}_routine` and synchronized back into `input_select.local0X_*_heating_routine` by 18 `sync_thermostat_local0X_{room}_routine_dropdown` automations without triggering a feedback loop.
+   - `nodeApi` saves the schedule in `config/heatingRoutines/` and updates the target TTGO wall thermostat display.
 2. **Supported Routine Presets:**
    - `default`: Standard comfort schedule (21°C day / 19°C night).
    - `defaultBathroom`: Elevated bathroom schedule (23°C comfort).
