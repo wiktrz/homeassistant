@@ -1077,61 +1077,84 @@
       state_topic: "local06/Lazienka/details"
       value_template: "{{ value_json.routineName }}"
 
-  # Current routine (read-only): what the heating controller reports via MQTT.
-  # Use with dropdown (input_select) for "set" so UI shows both current and set.
+  # Current routine (read-only): what the heating controllers report via MQTT.
+  # Displayed as "Routine read" in dashboard_heating.yaml and "Obecny harmonogram" in dashboard_improved.yaml.
   - sensor:
-      name: "Local01 Main Routine (current)"
+      name: "local01 Glowny Routine"
+      unique_id: local01_glowny_routine
       state_topic: "local01/thermostat/Glowny/routine"
   - sensor:
-      name: "Local01 Bathroom Routine (current)"
+      name: "local01 Lazienka Routine"
+      unique_id: local01_lazienka_routine
       state_topic: "local01/thermostat/Lazienka/routine"
   - sensor:
-      name: "Local01 Bedroom Routine (current)"
+      name: "local01 Sypialnia Routine"
+      unique_id: local01_sypialnia_routine
       state_topic: "local01/thermostat/Sypialnia/routine"
+
   - sensor:
-      name: "Local02 Main Routine (current)"
+      name: "local02 Glowny Routine"
+      unique_id: local02_glowny_routine
       state_topic: "local02/thermostat/Glowny/routine"
   - sensor:
-      name: "Local02 Bathroom Routine (current)"
+      name: "local02 Lazienka Routine"
+      unique_id: local02_lazienka_routine
       state_topic: "local02/thermostat/Lazienka/routine"
   - sensor:
-      name: "Local02 Bedroom Routine (current)"
+      name: "local02 Sypialnia Routine"
+      unique_id: local02_sypialnia_routine
       state_topic: "local02/thermostat/Sypialnia/routine"
+
   - sensor:
-      name: "Local03 Main Routine (current)"
+      name: "local03 Glowny Routine"
+      unique_id: local03_glowny_routine
       state_topic: "local03/thermostat/Glowny/routine"
   - sensor:
-      name: "Local03 Bathroom Routine (current)"
+      name: "local03 Lazienka Routine"
+      unique_id: local03_lazienka_routine
       state_topic: "local03/thermostat/Lazienka/routine"
   - sensor:
-      name: "Local03 Bedroom Routine (current)"
+      name: "local03 Sypialnia Routine"
+      unique_id: local03_sypialnia_routine
       state_topic: "local03/thermostat/Sypialnia/routine"
+
   - sensor:
-      name: "Local04 Main Routine (current)"
+      name: "local04 Glowny Routine"
+      unique_id: local04_glowny_routine
       state_topic: "local04/thermostat/Glowny/routine"
   - sensor:
-      name: "Local04 Bathroom Routine (current)"
+      name: "local04 Lazienka Routine"
+      unique_id: local04_lazienka_routine
       state_topic: "local04/thermostat/Lazienka/routine"
   - sensor:
-      name: "Local04 Bedroom Routine (current)"
+      name: "local04 Sypialnia Routine"
+      unique_id: local04_sypialnia_routine
       state_topic: "local04/thermostat/Sypialnia/routine"
+
   - sensor:
-      name: "Local05 Main Routine (current)"
+      name: "local05 Glowny Routine"
+      unique_id: local05_glowny_routine
       state_topic: "local05/thermostat/Glowny/routine"
   - sensor:
-      name: "Local05 Bathroom Routine (current)"
+      name: "local05 Lazienka Routine"
+      unique_id: local05_lazienka_routine
       state_topic: "local05/thermostat/Lazienka/routine"
   - sensor:
-      name: "Local05 Bedroom Routine (current)"
+      name: "local05 Sypialnia Routine"
+      unique_id: local05_sypialnia_routine
       state_topic: "local05/thermostat/Sypialnia/routine"
+
   - sensor:
-      name: "Local06 Main Routine (current)"
+      name: "local06 Glowny Routine"
+      unique_id: local06_glowny_routine
       state_topic: "local06/thermostat/Glowny/routine"
   - sensor:
-      name: "Local06 Bathroom Routine (current)"
+      name: "local06 Lazienka Routine"
+      unique_id: local06_lazienka_routine
       state_topic: "local06/thermostat/Lazienka/routine"
   - sensor:
-      name: "Local06 Bedroom Routine (current)"
+      name: "local06 Sypialnia Routine"
+      unique_id: local06_sypialnia_routine
       state_topic: "local06/thermostat/Sypialnia/routine"
 
 #Thermostat LOCAL 1 BELOW

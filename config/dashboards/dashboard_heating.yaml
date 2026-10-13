@@ -951,7 +951,7 @@ views:
             show_header_toggle: true
             footer:
               type: graph
-              entity: sensor.local06_sypialnia_temperature
+              entity: sensor.local06_lazienka_temperature
               hours_to_show: 12
           - type: thermostat
             entity: climate.local06_lazienka_termostat
