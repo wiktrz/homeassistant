@@ -174,7 +174,9 @@ def test_modern_dashboards_referenced_helpers_and_templates_exist():
     # Inspect modern dashboards
     pattern = re.compile(r'\b(input_boolean|input_number|input_select|input_datetime|input_button|input_text|sensor|binary_sensor)\.[a-z0-9_]+\b')
     for db_name in ["dashboard_modern_reference.yaml", "dashboard_home_improved.yaml"]:
-        db_path = os.path.join(CONFIG_DIR, db_name)
+        db_path = os.path.join(CONFIG_DIR, "dashboards", db_name)
+        if not os.path.exists(db_path):
+            db_path = os.path.join(CONFIG_DIR, db_name)
         with open(db_path, "r", encoding="utf-8") as f:
             content = f.read()
         for m in pattern.finditer(content):

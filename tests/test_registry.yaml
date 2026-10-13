@@ -53,7 +53,21 @@ tests:
   - rental
   - regression
   status: active
-  last_verified: '2026-10-07T17:36:53.408781'
+  last_verified: '2026-10-13T20:43:40.383868'
+- id: test_local01_heating_routine_bidirectional_sync
+  area: termostaty
+  file: scenarios/termostaty/test_local01_heating_routine_bidirectional_sync.yaml
+  description: Verify that incoming MQTT routine broadcast syncs dropdown and blocks
+    echo publish
+  tags:
+  - termostaty
+  - heating
+  - local01
+  - rental
+  - sync
+  - regression
+  status: active
+  last_verified: '2026-10-13T20:43:41.909803'
 - id: test_protected_power_supplies_integrity
   area: bezpieczenstwo
   file: scenarios/bezpieczenstwo/test_power_supplies_untouched.yaml

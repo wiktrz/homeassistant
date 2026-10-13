@@ -2,6 +2,9 @@
   trigger:
     platform: state
     entity_id: input_select.local01_main_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local01_glowny_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -13,6 +16,9 @@
   trigger:
     platform: state
     entity_id: input_select.local01_bathroom_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local01_lazienka_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -24,6 +30,9 @@
   trigger:
     platform: state
     entity_id: input_select.local01_bedroom_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local01_sypialnia_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -35,6 +44,9 @@
   trigger:
     platform: state
     entity_id: input_select.local02_main_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local02_glowny_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -46,6 +58,9 @@
   trigger:
     platform: state
     entity_id: input_select.local02_bathroom_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local02_lazienka_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -57,6 +72,9 @@
   trigger:
     platform: state
     entity_id: input_select.local02_bedroom_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local02_sypialnia_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -68,6 +86,9 @@
   trigger:
     platform: state
     entity_id: input_select.local03_main_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local03_glowny_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -79,6 +100,9 @@
   trigger:
     platform: state
     entity_id: input_select.local03_bathroom_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local03_lazienka_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -90,6 +114,9 @@
   trigger:
     platform: state
     entity_id: input_select.local03_bedroom_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local03_sypialnia_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -101,6 +128,9 @@
   trigger:
     platform: state
     entity_id: input_select.local04_main_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local04_glowny_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -112,6 +142,9 @@
   trigger:
     platform: state
     entity_id: input_select.local04_bathroom_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local04_lazienka_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -123,6 +156,9 @@
   trigger:
     platform: state
     entity_id: input_select.local04_bedroom_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local04_sypialnia_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -134,6 +170,9 @@
   trigger:
     platform: state
     entity_id: input_select.local05_main_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local05_glowny_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -145,6 +184,9 @@
   trigger:
     platform: state
     entity_id: input_select.local05_bathroom_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local05_lazienka_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -156,6 +198,9 @@
   trigger:
     platform: state
     entity_id: input_select.local05_bedroom_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local05_sypialnia_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -167,6 +212,9 @@
   trigger:
     platform: state
     entity_id: input_select.local06_main_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local06_glowny_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -178,6 +226,9 @@
   trigger:
     platform: state
     entity_id: input_select.local06_bathroom_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local06_lazienka_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -189,6 +240,9 @@
   trigger:
     platform: state
     entity_id: input_select.local06_bedroom_heating_routine
+  condition:
+    - condition: template
+      value_template: "{{ trigger.to_state.state != states('sensor.local06_sypialnia_routine') }}"
   action:
     service: mqtt.publish
     data:
@@ -196,6 +250,331 @@
       retain: true
       payload: '{{ states(''input_select.local06_bedroom_heating_routine'') }}'
   id: 09517be5706d49fd887c6d1490bd38d6
+
+# Routine Sync Automations: Update input_select from live MQTT routine broadcasts (without echo publish)
+- alias: Sync Thermostat Local01 Glowny Routine Dropdown
+  id: sync_thermostat_local01_glowny_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local01_glowny_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local01_main_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local01_main_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local01_main_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local01 Lazienka Routine Dropdown
+  id: sync_thermostat_local01_lazienka_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local01_lazienka_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local01_bathroom_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local01_bathroom_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local01_bathroom_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local01 Sypialnia Routine Dropdown
+  id: sync_thermostat_local01_sypialnia_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local01_sypialnia_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local01_bedroom_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local01_bedroom_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local01_bedroom_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local02 Glowny Routine Dropdown
+  id: sync_thermostat_local02_glowny_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local02_glowny_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local02_main_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local02_main_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local02_main_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local02 Lazienka Routine Dropdown
+  id: sync_thermostat_local02_lazienka_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local02_lazienka_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local02_bathroom_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local02_bathroom_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local02_bathroom_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local02 Sypialnia Routine Dropdown
+  id: sync_thermostat_local02_sypialnia_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local02_sypialnia_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local02_bedroom_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local02_bedroom_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local02_bedroom_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local03 Glowny Routine Dropdown
+  id: sync_thermostat_local03_glowny_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local03_glowny_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local03_main_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local03_main_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local03_main_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local03 Lazienka Routine Dropdown
+  id: sync_thermostat_local03_lazienka_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local03_lazienka_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local03_bathroom_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local03_bathroom_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local03_bathroom_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local03 Sypialnia Routine Dropdown
+  id: sync_thermostat_local03_sypialnia_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local03_sypialnia_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local03_bedroom_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local03_bedroom_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local03_bedroom_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local04 Glowny Routine Dropdown
+  id: sync_thermostat_local04_glowny_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local04_glowny_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local04_main_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local04_main_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local04_main_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local04 Lazienka Routine Dropdown
+  id: sync_thermostat_local04_lazienka_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local04_lazienka_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local04_bathroom_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local04_bathroom_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local04_bathroom_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local04 Sypialnia Routine Dropdown
+  id: sync_thermostat_local04_sypialnia_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local04_sypialnia_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local04_bedroom_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local04_bedroom_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local04_bedroom_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local05 Glowny Routine Dropdown
+  id: sync_thermostat_local05_glowny_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local05_glowny_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local05_main_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local05_main_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local05_main_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local05 Lazienka Routine Dropdown
+  id: sync_thermostat_local05_lazienka_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local05_lazienka_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local05_bathroom_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local05_bathroom_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local05_bathroom_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local05 Sypialnia Routine Dropdown
+  id: sync_thermostat_local05_sypialnia_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local05_sypialnia_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local05_bedroom_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local05_bedroom_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local05_bedroom_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local06 Glowny Routine Dropdown
+  id: sync_thermostat_local06_glowny_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local06_glowny_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local06_main_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local06_main_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local06_main_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local06 Lazienka Routine Dropdown
+  id: sync_thermostat_local06_lazienka_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local06_lazienka_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local06_bathroom_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local06_bathroom_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local06_bathroom_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
+
+- alias: Sync Thermostat Local06 Sypialnia Routine Dropdown
+  id: sync_thermostat_local06_sypialnia_routine_dropdown
+  trigger:
+    platform: state
+    entity_id: sensor.local06_sypialnia_routine
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state not in ['unavailable', 'unknown', '']
+           and trigger.to_state.state in state_attr('input_select.local06_bedroom_heating_routine', 'options')
+           and trigger.to_state.state != states('input_select.local06_bedroom_heating_routine') }}
+  action:
+    service: input_select.select_option
+    target:
+      entity_id: input_select.local06_bedroom_heating_routine
+    data:
+      option: "{{ trigger.to_state.state }}"
 - alias: Dimming Lights Down when dark outside
   trigger:
   - platform: numeric_state

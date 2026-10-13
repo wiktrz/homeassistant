@@ -52,7 +52,9 @@ def extract_entities_from_card(card: Any) -> Set[str]:
 
 def validate_dashboard(filename: str) -> Tuple[bool, List[str], Set[str]]:
     """Validates the structure, views, and cards of a dashboard YAML file."""
-    path = os.path.join(CONFIG_DIR, filename)
+    path = os.path.join(CONFIG_DIR, "dashboards", filename)
+    if not os.path.exists(path):
+        path = os.path.join(CONFIG_DIR, filename)
     logs = [f"▶ Validating Dashboard: {filename}"]
     referenced_entities = set()
 

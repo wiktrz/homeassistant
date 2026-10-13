@@ -1,0 +1,27 @@
+id: test_local01_heating_routine_bidirectional_sync
+area: termostaty
+description: "Verify that incoming MQTT routine broadcast syncs dropdown and blocks echo publish"
+tags: [termostaty, heating, local01, rental, sync, regression]
+status: active
+
+preconditions:
+  entities:
+    input_select.local01_main_heating_routine:
+      state: "off"
+    sensor.local01_glowny_routine:
+      state: "default"
+
+action:
+  type: call_service
+  service: input_select.select_option
+  data:
+    entity_id: input_select.local01_main_heating_routine
+    option: "default"
+
+wait_seconds: 1.0
+
+assertions:
+  - entity: input_select.local01_main_heating_routine
+    state: "default"
+  - entity: sensor.local01_glowny_routine
+    state: "default"

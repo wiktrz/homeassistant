@@ -83,11 +83,11 @@ The overall system automates and manages a primary residence (**`local00`**) and
 |---|---|---|---|---|
 | `heating_controller/{name}/power` | `newHeatingController` | HA / Monitoring | `"on"` / `"off"` | Controller status |
 | `heating_controller/+/local0X/{Room}/state` | `newHeatingController` | HA (`mqtt.yaml`) | `"ON"` / `"OFF"` | Relay state for room heating |
-| `{flat}/thermostat/{Room}/routine` | `newHeatingController` | HA (`mqtt.yaml`) | String (e.g. `"defaultBedroom"`) | Active routine name. Bound to `sensor.{flat}_{room}_routine` (e.g. `sensor.local01_glowny_routine`) with explicit `unique_id`. |
+| `{flat}/thermostat/{Room}/routine` | `newHeatingController` | HA (`mqtt.yaml`) | String (e.g. `"defaultBedroom"`) | Active routine name. Bound to `sensor.{flat}_{room}_routine` (e.g. `sensor.local01_glowny_routine`) with explicit `unique_id`, synced to `input_select.local0X_*_heating_routine`. |
 | `room0X_{room}/sensor/temperature/state` | `newHeatingController` | `heatingStation`, HA | Float string (`"21.25"`) | Physical sensor reading |
 | `{flat}/{room}/details` | `heatingStation` | HA Climate entities | JSON Object (`temperature`, `setpoint`, `mode`, `routineName`) | Aggregated climate state |
 | `{flat}/thermostat/{room}/temperature/set` | HA Climate UI | `nodeApi`, `heatingStation` | Float string (`"21.5"`) | Target temperature change |
-| `{flat}/thermostat/{room}/routine/set` | HA Automations | `nodeApi` | String (routine name) | Changes schedule for apartment |
+| `{flat}/thermostat/{room}/routine/set` | HA Automations | `nodeApi` | String (routine name) | Changes schedule for apartment. Guarded: only publishes when dropdown differs from sensor (blocks sync echo). |
 | `{flat}/configuration/update` | `nodeApi` | `heatingStation` | Empty string `""` | Forces config re-fetch |
 | `update/{board}/{entry}` | OTA CLI (`updater.py`) | ESP32 devices | Binary filename | Triggers OTA HTTP flash |
 | `{room}/{mode}/power/update` | HA / External | `nodeApi` | `"1"` (ON) or `"0"` (OFF) | Serial light switch (`/dev/ttyUSB1`) |

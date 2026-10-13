@@ -299,7 +299,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local01_bathroom_heating_routine:
     name: Heating Routine Local01 Bathroom
     options:
@@ -312,7 +311,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local01_bedroom_heating_routine:
     name: Heating Routine Local01 Bedroom
     options:
@@ -325,7 +323,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local02_main_heating_routine:
     name: Heating Routine Local02 Main
     options:
@@ -338,7 +335,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local02_bathroom_heating_routine:
     name: Heating Routine Local02 Bathroom
     options:
@@ -351,7 +347,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local02_bedroom_heating_routine:
     name: Heating Routine Local02 Bedroom
     options:
@@ -364,7 +359,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
 
   local03_main_heating_routine:
     name: Heating Routine Local03 Main
@@ -378,7 +372,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local03_bathroom_heating_routine:
     name: Heating Routine Local03 Bathroom
     options:
@@ -391,7 +384,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local03_bedroom_heating_routine:
     name: Heating Routine Local03 Bedroom
     options:
@@ -404,7 +396,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local04_main_heating_routine:
     name: Heating Routine Local04 Main
     options:
@@ -417,7 +408,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local04_bathroom_heating_routine:
     name: Heating Routine Local04 Bathroom
     options:
@@ -430,7 +420,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local04_bedroom_heating_routine:
     name: Heating Routine Local04 Bedroom
     options:
@@ -443,14 +432,12 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local05_main_heating_routine:
     name: Heating Routine Local05 Main
     options:
       - default
       - 'off'
       - offWinter
-    initial: 'off'
   local05_bathroom_heating_routine:
     name: Heating Routine Local05 Bathroom
     options:
@@ -463,7 +450,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local05_bedroom_heating_routine:
     name: Heating Routine Local05 Bedroom
     options:
@@ -476,7 +462,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local06_main_heating_routine:
     name: Heating Routine Local06 Main
     options:
@@ -489,7 +474,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local06_bathroom_heating_routine:
     name: Heating Routine Local06 Bathroom
     options:
@@ -502,7 +486,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   local06_bedroom_heating_routine:
     name: Heating Routine Local06 Bedroom
     options:
@@ -515,7 +498,6 @@ input_select:
       - testMain
       - testBathroom
       - testBedroom
-    initial: 'off'
   shelly_mode:
     name: Shelly Mode
     options:
