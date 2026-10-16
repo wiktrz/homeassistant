@@ -810,13 +810,14 @@ def test_generate_deye_tou_schedule_midday_charge_13_15():
     )
 
     assert len(slots) == 6
-    # Slot 1: Night standby
+    # Slot 1: Night standby holding morning reserve (min_soc + 10% = 30%)
     assert slots[0]["slot"] == 1
     assert slots[0]["time"] == "00:00"
     assert slots[0]["grid_charge"] is False
-    assert slots[0]["target_soc"] == 20
+    assert slots[0]["target_soc"] == 30
+    assert "Rezerwa na Szczyt Poranny" in slots[0]["label"]
 
-    # Slot 2: Morning self-consumption
+    # Slot 2: Morning self-consumption down to min_soc (20%)
     assert slots[1]["slot"] == 2
     assert slots[1]["time"] == "06:00"
     assert slots[1]["grid_charge"] is False
@@ -829,11 +830,12 @@ def test_generate_deye_tou_schedule_midday_charge_13_15():
     assert slots[2]["target_soc"] == 90
     assert "Najtańsze Ładowanie" in slots[2]["label"]
 
-    # Slot 4: Hold 90% pre-peak
+    # Slot 4: Pre-peak daytime autokonsumpcja (70%)
     assert slots[3]["slot"] == 4
     assert slots[3]["time"] == "15:00"
     assert slots[3]["grid_charge"] is False
-    assert slots[3]["target_soc"] == 90
+    assert slots[3]["target_soc"] == 70
+    assert "Autokonsumpcja PV" in slots[3]["label"]
 
     # Slot 5: 100% peak coverage down to 20%
     assert slots[4]["slot"] == 5
@@ -842,11 +844,11 @@ def test_generate_deye_tou_schedule_midday_charge_13_15():
     assert slots[4]["target_soc"] == 20
     assert "Szczyt Wieczorny" in slots[4]["label"]
 
-    # Slot 6: Night autokonsumpcja
+    # Slot 6: Night autokonsumpcja / morning reserve standby (30%)
     assert slots[5]["slot"] == 6
     assert slots[5]["time"] == "21:00"
     assert slots[5]["grid_charge"] is False
-    assert slots[5]["target_soc"] == 20
+    assert slots[5]["target_soc"] == 30
 
 
 def test_today_and_tomorrow_frames_partitioning(tmp_path):
@@ -1027,13 +1029,46 @@ def test_powerbank_weekend_auto_duration_and_weekday_fixed():
 
 def test_proportional_charging_power_scaling_and_slot5_protection():
     """
-    Verifies that when charging duration is 4h, charging slot power is reduced by 50% (2500W),
-    while Slot 5 (Peak Evening Discharge) strictly retains full 5000W.
+    Verifies that charging slot power adapts to Delta-SOC and window duration,
+    while Slot 5 (Peak Evening Discharge) strictly retains full base power (5000W).
     """
     pb_4h = {"start": "2026-10-17T09:00:00Z", "end": "2026-10-17T13:00:00Z", "duration_hours": 4, "is_consecutive": True}
     sell_win = {"start": "2026-10-17T15:00:00Z", "end": "2026-10-17T18:00:00Z"}
 
-    slots = pstryk_engine.generate_deye_tou_schedule(
+    # Case A: Half-full battery (50% to 90%, 4h window) -> 1690W (~33A)
+    slots_50 = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=50,
+        max_soc=90,
+        min_soc=20,
+        best_pb_window=pb_4h,
+        best_sell_window=sell_win,
+        calibration_active=False,
+        max_charge_current=100.0,
+    )
+    charge_slot_50 = [s for s in slots_50 if s["grid_charge"] is True][0]
+    assert charge_slot_50["power_w"] == 1690
+
+    # Slot 5 (Peak Discharge) strictly full power (5000W)
+    assert slots_50[4]["slot"] == 5
+    assert slots_50[4]["power_w"] == 5000
+    assert slots_50[4]["grid_charge"] is False
+    assert slots_50[4]["target_soc"] == 20
+
+    # Case B: Empty battery (20% to 90%, 4h window) -> 2960W (~58A)
+    slots_20 = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=20,
+        max_soc=90,
+        min_soc=20,
+        best_pb_window=pb_4h,
+        best_sell_window=sell_win,
+        calibration_active=False,
+        max_charge_current=100.0,
+    )
+    charge_slot_20 = [s for s in slots_20 if s["grid_charge"] is True][0]
+    assert charge_slot_20["power_w"] == 2960
+
+    # Case C: Nearly full (85% to 90%, 4h window) -> clamped to 1000W floor
+    slots_85 = pstryk_engine.generate_deye_tou_schedule(
         current_soc=85,
         max_soc=90,
         min_soc=20,
@@ -1042,46 +1077,55 @@ def test_proportional_charging_power_scaling_and_slot5_protection():
         calibration_active=False,
         max_charge_current=100.0,
     )
-
-    assert len(slots) == 6
-    # Find charging slot
-    charge_slots = [s for s in slots if s["grid_charge"] is True]
-    assert len(charge_slots) == 1
-    charge_slot = charge_slots[0]
-    assert charge_slot["power_w"] == 2500  # 5000 * 2 / 4 = 2500W
-
-    # Slot 5 (Peak Discharge)
-    assert slots[4]["slot"] == 5
-    assert slots[4]["power_w"] == 5000  # Strictly full power
-    assert slots[4]["grid_charge"] is False
-    assert slots[4]["target_soc"] == 20
+    charge_slot_85 = [s for s in slots_85 if s["grid_charge"] is True][0]
+    assert charge_slot_85["power_w"] == 1000
 
 
 def test_dynamic_inverter_max_charge_current_scaling():
     """
-    Verifies that base 100% power dynamically adapts when max_charge_current is 120A (6000W) or 200A (10000W).
+    Verifies that base 100% power dynamically adapts when max_charge_current is 120A (6000W) or 200A (10000W),
+    scaling both charging ceiling and Peak Discharge (Slot 5).
     """
-    pb_4h = {"start": "2026-10-17T09:00:00Z", "end": "2026-10-17T13:00:00Z", "duration_hours": 4, "is_consecutive": True}
+    pb_2h = {"start": "2026-10-17T11:00:00Z", "end": "2026-10-17T13:00:00Z", "duration_hours": 2, "is_consecutive": True}
     sell_win = {"start": "2026-10-17T15:00:00Z", "end": "2026-10-17T18:00:00Z"}
 
-    # 120A: base = 6000W. 4h -> 3000W
+    # 100A: base = 5000W. Empty battery (20%) in 2h needs ~5930W -> clamped to 5000W
+    slots_100 = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=20,
+        max_soc=90,
+        min_soc=20,
+        best_pb_window=pb_2h,
+        best_sell_window=sell_win,
+        max_charge_current=100.0,
+    )
+    charge_100 = [s for s in slots_100 if s["grid_charge"] is True][0]
+    assert charge_100["power_w"] == 5000
+    assert slots_100[4]["power_w"] == 5000
+
+    # 120A: base = 6000W. 5930W fits under 6000W limit
     slots_120 = pstryk_engine.generate_deye_tou_schedule(
-        best_pb_window=pb_4h,
+        current_soc=20,
+        max_soc=90,
+        min_soc=20,
+        best_pb_window=pb_2h,
         best_sell_window=sell_win,
         max_charge_current=120.0,
     )
     charge_120 = [s for s in slots_120 if s["grid_charge"] is True][0]
-    assert charge_120["power_w"] == 3000
+    assert charge_120["power_w"] == 5930
     assert slots_120[4]["power_w"] == 6000
 
-    # 200A: base = 10000W. 4h -> 5000W
+    # 200A: base = 10000W. Slot 5 Peak Discharge is 10000W
     slots_200 = pstryk_engine.generate_deye_tou_schedule(
-        best_pb_window=pb_4h,
+        current_soc=20,
+        max_soc=90,
+        min_soc=20,
+        best_pb_window=pb_2h,
         best_sell_window=sell_win,
         max_charge_current=200.0,
     )
     charge_200 = [s for s in slots_200 if s["grid_charge"] is True][0]
-    assert charge_200["power_w"] == 5000
+    assert charge_200["power_w"] == 5930
     assert slots_200[4]["power_w"] == 10000
 
 
@@ -1142,6 +1186,258 @@ def test_save_last_tou_sync_result(tmp_path):
         data = json.load(f)
     assert data["success"] is True
     assert data["slots_count"] == 6
+
+
+def test_soc_delta_dynamic_charging_power_matrix():
+    """
+    Verifies all 7 matrix test cases for Delta-SOC & duration-based power scaling:
+    C = 16.13 kWh, min_soc = 20%, max_soc = 90%, base_power_w = 5000W.
+    """
+    sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
+    win_2h = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2, "is_consecutive": True}
+    win_3h = {"start": "2026-10-17T11:00:00Z", "end": "2026-10-17T14:00:00Z", "duration_hours": 3, "is_consecutive": True}
+    win_4h = {"start": "2026-10-17T11:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 4, "is_consecutive": True}
+
+    def get_charge_power(curr_soc, win):
+        s = pstryk_engine.generate_deye_tou_schedule(
+            current_soc=curr_soc,
+            max_soc=90,
+            min_soc=20,
+            best_pb_window=win,
+            best_sell_window=sell_win,
+            calibration_active=False,
+            max_charge_current=100.0,
+        )
+        return [slot for slot in s if slot["grid_charge"] is True][0]["power_w"]
+
+    # Case 1: Empty battery (20%), 2h window -> clamped to 5000W ceiling (100% speed, ~98A)
+    assert get_charge_power(20, win_2h) == 5000
+
+    # Case 2: User Example (50%), 2h window -> 3390W (~66A, 68% speed)
+    assert get_charge_power(50, win_2h) == 3390
+
+    # Case 3: Sunny morning (70%), 2h window -> 1690W (~33A, 34% speed)
+    assert get_charge_power(70, win_2h) == 1690
+
+    # Case 4: Weekend Empty (20%), 3h window -> 3950W (~77A, 79% speed)
+    assert get_charge_power(20, win_3h) == 3950
+
+    # Case 5: Weekend Half (50%), 3h window -> 2260W (~44A, 45% speed)
+    assert get_charge_power(50, win_3h) == 2260
+
+    # Case 6: Weekend 4h (50%), 4h window -> 1690W (~33A, 34% speed)
+    assert get_charge_power(50, win_4h) == 1690
+
+    # Case 7: Nearly full (85%), 2h window -> clamped to 1000W floor (~20A, 20% speed)
+    assert get_charge_power(85, win_2h) == 1000
+
+
+def test_dynamic_morning_reserve_adapting_to_min_soc():
+    """
+    Verifies that morning reserve dynamically evaluates to min_soc + 10%
+    for different hardware configurations (10%, 20%, 25%).
+    """
+    pb_win = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2, "is_consecutive": True}
+    sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
+
+    # 1. min_soc = 10% -> morning reserve = 20%
+    slots_10 = pstryk_engine.generate_deye_tou_schedule(
+        min_soc=10, max_soc=90, best_pb_window=pb_win, best_sell_window=sell_win
+    )
+    assert slots_10[0]["target_soc"] == 20
+    assert slots_10[1]["target_soc"] == 10  # Morning peak discharges down to min_soc
+    assert slots_10[5]["target_soc"] == 20
+
+    # 2. min_soc = 20% -> morning reserve = 30%
+    slots_20 = pstryk_engine.generate_deye_tou_schedule(
+        min_soc=20, max_soc=90, best_pb_window=pb_win, best_sell_window=sell_win
+    )
+    assert slots_20[0]["target_soc"] == 30
+    assert slots_20[1]["target_soc"] == 20
+    assert slots_20[5]["target_soc"] == 30
+
+    # 3. min_soc = 25% -> morning reserve = 35%
+    slots_25 = pstryk_engine.generate_deye_tou_schedule(
+        min_soc=25, max_soc=90, best_pb_window=pb_win, best_sell_window=sell_win
+    )
+    assert slots_25[0]["target_soc"] == 35
+    assert slots_25[1]["target_soc"] == 25
+    assert slots_25[5]["target_soc"] == 35
+
+
+def test_uninstalled_battery_zero_soc_safeguard():
+    """
+    Verifies that when battery is not installed or reporting 0% SOC,
+    current_soc <= 0 safely defaults to safe_min_soc without raising errors.
+    """
+    pb_win = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2}
+    sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
+
+    slots_zero = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=0,
+        max_soc=90,
+        min_soc=20,
+        best_pb_window=pb_win,
+        best_sell_window=sell_win,
+    )
+    charge_slot = [s for s in slots_zero if s["grid_charge"] is True][0]
+    # Treats as empty battery (20%) -> 5000W
+    assert charge_slot["power_w"] == 5000
+
+
+def test_are_tou_slots_identical_matching_and_tolerance():
+    """
+    Verifies the idempotent diff check logic:
+    - Exactly identical slots -> True
+    - Slots within +-50W tolerance -> True
+    - Slots differing by >50W -> False
+    - Slots differing by target_soc, time, or grid_charge -> False
+    """
+    base_slots = [
+        {"slot": 1, "time": "00:00", "power_w": 5000, "target_soc": 30, "grid_charge": False},
+        {"slot": 2, "time": "06:00", "power_w": 5000, "target_soc": 20, "grid_charge": False},
+        {"slot": 3, "time": "13:00", "power_w": 3390, "target_soc": 90, "grid_charge": True},
+        {"slot": 4, "time": "15:00", "power_w": 5000, "target_soc": 70, "grid_charge": False},
+        {"slot": 5, "time": "17:00", "power_w": 5000, "target_soc": 20, "grid_charge": False},
+        {"slot": 6, "time": "21:00", "power_w": 5000, "target_soc": 30, "grid_charge": False},
+    ]
+
+    # Identical copy
+    assert pstryk_engine.are_tou_slots_identical(base_slots, [dict(s) for s in base_slots]) is True
+
+    # Within 30W tolerance (e.g. 3390 vs 3420)
+    tol_slots = [dict(s) for s in base_slots]
+    tol_slots[2]["power_w"] = 3420
+    assert pstryk_engine.are_tou_slots_identical(base_slots, tol_slots) is True
+
+    # Beyond tolerance (e.g. 3390 vs 3500, diff = 110W)
+    diff_pwr = [dict(s) for s in base_slots]
+    diff_pwr[2]["power_w"] = 3500
+    assert pstryk_engine.are_tou_slots_identical(base_slots, diff_pwr) is False
+
+    # Different time
+    diff_time = [dict(s) for s in base_slots]
+    diff_time[2]["time"] = "12:00"
+    assert pstryk_engine.are_tou_slots_identical(base_slots, diff_time) is False
+
+    # Different SOC
+    diff_soc = [dict(s) for s in base_slots]
+    diff_soc[0]["target_soc"] = 20
+    assert pstryk_engine.are_tou_slots_identical(base_slots, diff_soc) is False
+
+    # Different grid charge flag
+    diff_grid = [dict(s) for s in base_slots]
+    diff_grid[2]["grid_charge"] = False
+    assert pstryk_engine.are_tou_slots_identical(base_slots, diff_grid) is False
+
+
+def test_sync_deye_inverter_tou_schedule_idempotent_skip_and_force(tmp_path):
+    """
+    Verifies that sync_deye_inverter_tou_schedule skips write if schedule matches active schedule,
+    and forces write when force=True.
+    """
+    cache_dir = str(tmp_path)
+    # Mock cached data
+    pb_win = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2, "is_consecutive": True}
+    sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
+    fake_cache = {
+        "current": {}, "today": {}, "all_prices": [],
+        "powerbank_best_window": pb_win,
+        "best_sell_window": sell_win,
+    }
+    c_file = pstryk_engine.get_cache_file_path("dol", cache_dir)
+    pstryk_engine.write_cache(c_file, fake_cache)
+
+    expected_slots = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=50, max_soc=90, min_soc=20,
+        best_pb_window=pb_win, best_sell_window=sell_win,
+        max_charge_current=100.0,
+    )
+
+    mock_telem = {
+        "success": True,
+        "config": {"max_charge_soc": 90, "min_discharge_soc": 20, "max_charge_current": 100},
+        "telemetry": {"battery_soc": 50, "max_charge_current": 100},
+        "active_tou": {"enabled": True, "slots": expected_slots},
+    }
+
+    mock_client = mock.MagicMock()
+    mock_client.read_inverter_telemetry.return_value = mock_telem
+    mock_client.sync_tou_schedule.return_value = {"success": True, "registers_written": 26}
+    mock_client.get_configured_inverter_ip.return_value = "10.20.2.6"
+    mock_client.get_configured_inverter_port.return_value = 8899
+
+    with mock.patch("pstryk_engine.solarman_v5_client", mock_client):
+        # 1. Without force -> diff check matches -> write skipped (unchanged: True)
+        res_skipped = pstryk_engine.sync_deye_inverter_tou_schedule(
+            cache_dir=cache_dir,
+            force=False,
+        )
+        assert res_skipped["success"] is True
+        assert res_skipped["unchanged"] is True
+        assert "pominięto zapis" in res_skipped["message"]
+        mock_client.sync_tou_schedule.assert_not_called()
+
+        # 2. With force=True -> diff check bypassed -> sync_tou_schedule called!
+        res_forced = pstryk_engine.sync_deye_inverter_tou_schedule(
+            cache_dir=cache_dir,
+            force=True,
+        )
+        assert res_forced["success"] is True
+        assert res_forced["unchanged"] is False
+        mock_client.sync_tou_schedule.assert_called_once()
+
+
+def test_fetch_consolidated_custom_soc_and_battery_model(tmp_path):
+    """
+    Asserts that fetch_consolidated_data correctly adopts user-supplied max_soc,
+    min_soc, and current_soc into both BatteryModel and the generated TOU schedules.
+    """
+    cache_dir = str(tmp_path / "cache_soc")
+    os.makedirs(cache_dir, exist_ok=True)
+
+    dummy_payload = {
+        "frames": [
+            {
+                "start": "2026-10-16T10:00:00Z",
+                "end": "2026-10-16T11:00:00Z",
+                "is_live": False,
+                "metrics": {
+                    "pricing": {"price_gross": 0.80, "price_net": 0.65},
+                    "cost": {"cost_gross": 0.80, "cost_net": 0.65},
+                    "meter_values": {"kwh_import": 1.0, "kwh_export": 0.0},
+                    "carbon": {"carbon_g": 500.0},
+                },
+            }
+        ]
+    }
+
+    with mock.patch("pstryk_engine.fetch_api", return_value=dummy_payload):
+        consolidated = pstryk_engine.fetch_consolidated_data(
+            api_key="sk-CUSTOM-SOC",
+            installation="dol",
+            use_cache=False,
+            cache_dir=cache_dir,
+            max_soc=80,
+            min_soc=15,
+            current_soc=40,
+        )
+
+        # Verify BatteryModel reflects custom limits
+        bm = consolidated.get("battery_model", {})
+        assert bm.get("max_soc") == 80.0
+        assert bm.get("min_soc") == 15.0
+        assert bm.get("operating_capacity_kwh") == round((80.0 - 15.0) / 100.0 * 16.13, 2)
+
+        # Verify TOU schedule reflects safe_max_soc = 80 and morning reserve min_soc + 10 = 25
+        tou_slots = consolidated.get("deye_tou_schedule_today", [])
+        assert len(tou_slots) == 6
+        assert tou_slots[0]["target_soc"] == 25  # Slot 1: morning reserve (15 + 10)
+        assert tou_slots[1]["target_soc"] == 15  # Slot 2: min_soc
+        assert tou_slots[2]["target_soc"] == 80  # Slot 3: max_soc
+        assert tou_slots[3]["target_soc"] == 60  # Slot 4: pre_peak autokonsumpcja (max_soc - 20)
+        assert tou_slots[4]["target_soc"] == 15  # Slot 5: evening peak discharge down to min_soc
+        assert tou_slots[5]["target_soc"] == 25  # Slot 6: night standby reserve (15 + 10)
 
 
 if __name__ == "__main__":

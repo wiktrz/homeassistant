@@ -1189,6 +1189,7 @@ sync_deye_inverter_tou:
       data:
         calibration: "{{ is_state('input_boolean.deye_battery_calibration_in_progress', 'on') }}"
         tomorrow: "{{ tomorrow | default(false) }}"
+        force: "{{ force | default(false) }}"
     - delay: "00:00:10"
     - action: homeassistant.update_entity
       target:

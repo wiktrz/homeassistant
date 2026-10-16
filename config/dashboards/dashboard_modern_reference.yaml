@@ -614,6 +614,9 @@ views:
           - entity: input_datetime.deye_tou_last_synced_date
             name: Data Ostatniej Synchronizacji TOU
             icon: mdi:calendar-sync
+          - entity: input_number.deye_battery_max_charge_soc
+            name: Docelowy Max SOC Ładowania (Suwak)
+            icon: mdi:battery-arrow-up
           - entity: input_select.ev_charging_target_hours
             name: Długość Okna Ładowania EV
             icon: mdi:car-electric

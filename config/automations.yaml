@@ -3112,6 +3112,45 @@
     - action: script.scan_and_set_deye_inverter_ip
   mode: single
 
+- id: deye_tou_hourly_recalculation
+  alias: "Deye: Cogodzinne Przeliczanie Harmonogramu TOU i Synchronizacja przy Zmianie"
+  description: "Co godzinę weryfikuje okna cenowe i stan naładowania baterii, przelicza harmonogram TOU i wysyła do falownika tylko, jeśli nastąpiła zmiana parametrów (ochrona EEPROM i limitów Cloud)."
+  triggers:
+    - trigger: time_pattern
+      minutes: 2
+    - trigger: time
+      at: "00:00:30"
+  conditions:
+    - condition: state
+      entity_id: input_boolean.deye_battery_installed
+      state: "on"
+  actions:
+    - action: script.sync_deye_inverter_tou
+      data:
+        tomorrow: false
+  mode: single
+
+- id: deye_max_soc_change_sync
+  alias: "Deye: Synchronizacja Harmonogramu TOU przy Zmianie Max SOC"
+  description: "Automatycznie przelicza harmonogram TOU i wysyła do falownika Deye po zmianie suwaka Max SOC w Home Assistant."
+  triggers:
+    - trigger: state
+      entity_id: input_number.deye_battery_max_charge_soc
+      for:
+        seconds: 5
+  conditions:
+    - condition: state
+      entity_id: input_boolean.deye_battery_installed
+      state: "on"
+    - condition: template
+      value_template: "{{ trigger.to_state.state not in ['unknown', 'unavailable', ''] }}"
+  actions:
+    - action: script.sync_deye_inverter_tou
+      data:
+        tomorrow: false
+  mode: restart
+
+
 
 
 

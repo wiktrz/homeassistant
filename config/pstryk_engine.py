@@ -946,6 +946,11 @@ def generate_deye_tou_schedule(
 
     safe_max_soc = 100 if calibration_active else max(50, min(100, int(max_soc)))
     safe_min_soc = max(10, min(50, int(min_soc)))
+    morning_reserve_soc = min(safe_max_soc, safe_min_soc + 10)
+    pre_peak_soc = max(safe_min_soc + 20, safe_max_soc - 20)
+
+    # Safeguard against uninstalled battery (0 or negative SOC) defaulting safely to safe_min_soc
+    eff_current_soc = safe_min_soc if (current_soc is None or int(current_soc) <= 0) else int(current_soc)
 
     pb_start_m = 120  # Default 02:00 (safe night charge fallback if no pricing data)
     pb_end_m = 240    # Default 04:00
@@ -985,15 +990,14 @@ def generate_deye_tou_schedule(
         except (ValueError, TypeError):
             pass
 
-    # Proportional power reduction: 2h = 100%, 3h = 67%, 4h = 50%, 5h = 40%
-    if charging_duration_hours > 2 and not calibration_active:
-        scaling_factor = 2.0 / float(charging_duration_hours)
-        charge_power_w = max(1000, int(round(base_power_w * scaling_factor, -1)))
-    else:
-        charge_power_w = base_power_w
-
+    # Dynamic power calculation based on needed energy delta and window duration
     if calibration_active:
         charge_power_w = max(3500, base_power_w)
+    else:
+        delta_soc = max(0, safe_max_soc - eff_current_soc)
+        needed_kwh = (delta_soc / 100.0) * 16.13
+        p_calc = (needed_kwh * 1050.0) / float(charging_duration_hours)
+        charge_power_w = max(1000, min(base_power_w, int(round(p_calc, -1))))
 
     sell_start_m = 1020  # Default 17:00
     sell_end_m = 1260    # Default 21:00
@@ -1048,7 +1052,7 @@ def generate_deye_tou_schedule(
                 "slot": 4,
                 "time": to_time_str(times[3]),
                 "power_w": base_power_w,
-                "target_soc": safe_max_soc,
+                "target_soc": pre_peak_soc,
                 "grid_charge": False,
                 "label": "Rezerwa Przed Szczytem (Hold)",
             },
@@ -1064,9 +1068,9 @@ def generate_deye_tou_schedule(
                 "slot": 6,
                 "time": to_time_str(times[5]),
                 "power_w": base_power_w,
-                "target_soc": safe_min_soc,
+                "target_soc": morning_reserve_soc,
                 "grid_charge": False,
-                "label": "Autokonsumpcja Nocna",
+                "label": "Autokonsumpcja Nocna / Rezerwa",
             },
         ]
     elif is_midday:
@@ -1087,9 +1091,9 @@ def generate_deye_tou_schedule(
                 "slot": 1,
                 "time": to_time_str(times[0]),
                 "power_w": base_power_w,
-                "target_soc": safe_min_soc,
+                "target_soc": morning_reserve_soc,
                 "grid_charge": False,
-                "label": "Czuwanie Nocne",
+                "label": "Rezerwa na Szczyt Poranny (Hold)",
             },
             {
                 "slot": 2,
@@ -1111,9 +1115,9 @@ def generate_deye_tou_schedule(
                 "slot": 4,
                 "time": to_time_str(times[3]),
                 "power_w": base_power_w,
-                "target_soc": safe_max_soc,
+                "target_soc": pre_peak_soc,
                 "grid_charge": False,
-                "label": "Czuwanie Przed Szczytem (Hold)",
+                "label": "Autokonsumpcja PV",
             },
             {
                 "slot": 5,
@@ -1127,9 +1131,9 @@ def generate_deye_tou_schedule(
                 "slot": 6,
                 "time": to_time_str(times[5]),
                 "power_w": base_power_w,
-                "target_soc": safe_min_soc,
+                "target_soc": morning_reserve_soc,
                 "grid_charge": False,
-                "label": "Autokonsumpcja Nocna",
+                "label": "Autokonsumpcja Nocna / Czuwanie",
             },
         ]
     else:
@@ -1166,7 +1170,7 @@ def generate_deye_tou_schedule(
                 "slot": 3,
                 "time": to_time_str(times[2]),
                 "power_w": base_power_w,
-                "target_soc": max(safe_min_soc + 20, 50),
+                "target_soc": safe_min_soc,
                 "grid_charge": False,
                 "label": "Szczyt Poranny (Autokonsumpcja)",
             },
@@ -1174,7 +1178,7 @@ def generate_deye_tou_schedule(
                 "slot": 4,
                 "time": to_time_str(times[3]),
                 "power_w": base_power_w,
-                "target_soc": max(safe_min_soc + 20, 50),
+                "target_soc": pre_peak_soc,
                 "grid_charge": False,
                 "label": "Autokonsumpcja PV",
             },
@@ -1190,9 +1194,9 @@ def generate_deye_tou_schedule(
                 "slot": 6,
                 "time": to_time_str(times[5]),
                 "power_w": base_power_w,
-                "target_soc": safe_min_soc,
+                "target_soc": morning_reserve_soc,
                 "grid_charge": False,
-                "label": "Czuwanie Nocne",
+                "label": "Autokonsumpcja Nocna / Czuwanie",
             },
         ]
 
@@ -1215,6 +1219,46 @@ def save_last_tou_sync_result(result_data: Dict[str, Any]) -> None:
             continue
 
 
+def are_tou_slots_identical(new_slots: List[Dict[str, Any]], active_slots: List[Dict[str, Any]]) -> bool:
+    """
+    Compares newly calculated 6-slot TOU schedule with active inverter slots.
+    Returns True only if all 6 slots match in time, target_soc, grid_charge,
+    and power_w (within +-50W tolerance).
+    """
+    if not isinstance(new_slots, list) or not isinstance(active_slots, list):
+        return False
+    if len(new_slots) != 6 or len(active_slots) != 6:
+        return False
+
+    for ns, aslot in zip(new_slots, active_slots):
+        if not isinstance(ns, dict) or not isinstance(aslot, dict):
+            return False
+        # Normalize and compare time (e.g. "13:00" vs "13:00")
+        t_new = str(ns.get("time", "")).strip()
+        t_act = str(aslot.get("time", "")).strip()
+        if t_new != t_act:
+            return False
+        # Compare target_soc
+        try:
+            if int(ns.get("target_soc", 0)) != int(aslot.get("target_soc", 0)):
+                return False
+        except (ValueError, TypeError):
+            return False
+        # Compare grid_charge
+        if bool(ns.get("grid_charge")) != bool(aslot.get("grid_charge")):
+            return False
+        # Compare power_w with 50W tolerance
+        try:
+            p_new = int(ns.get("power_w", 5000))
+            p_act = int(aslot.get("power_w", 5000))
+            if abs(p_new - p_act) > 50:
+                return False
+        except (ValueError, TypeError):
+            return False
+
+    return True
+
+
 def sync_deye_inverter_tou_schedule(
     host: Optional[str] = None,
     port: Optional[int] = None,
@@ -1226,10 +1270,14 @@ def sync_deye_inverter_tou_schedule(
     installation: str = "dol",
     cache_dir: str = DEFAULT_CACHE_DIR,
     for_tomorrow: bool = False,
+    force: bool = False,
+    max_charge_current: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Recalculates and uploads the 6-slot TOU schedule to the Deye hybrid inverter via Solarman V5 client.
     Reads live inverter telemetry and config when available, and derives optimal windows from Pstryk pricing data.
+    Applies idempotent diff check: if calculated slots match the active inverter schedule, write is skipped
+    to protect flash memory (EEPROM) and avoid cloud rate limits. Use force=True to bypass diff check.
     """
     global solarman_v5_client
     if solarman_v5_client is None:
@@ -1255,11 +1303,12 @@ def sync_deye_inverter_tou_schedule(
     # Resolve SOC parameters (prefer explicit arguments, fallback to live inverter read, fallback to standard defaults)
     inv_cfg = live_telem.get("config", {}) if isinstance(live_telem, dict) else {}
     inv_tlm = live_telem.get("telemetry", {}) if isinstance(live_telem, dict) else {}
+    active_tou = live_telem.get("active_tou", {}) if isinstance(live_telem, dict) else {}
 
     eff_max_soc = max_soc if max_soc is not None else inv_cfg.get("max_charge_soc", 90)
     eff_min_soc = min_soc if min_soc is not None else inv_cfg.get("min_discharge_soc", 20)
     eff_current_soc = current_soc if current_soc is not None else inv_tlm.get("battery_soc", 85)
-    eff_max_charge_current = inv_cfg.get("max_charge_current") or inv_tlm.get("max_charge_current") or 100.0
+    eff_max_charge_current = max_charge_current or inv_cfg.get("max_charge_current") or inv_tlm.get("max_charge_current") or 100.0
 
     # Resolve pricing windows (from cache or API)
     cache_file = get_cache_file_path(installation, cache_dir)
@@ -1336,6 +1385,30 @@ def sync_deye_inverter_tou_schedule(
         max_charge_current=eff_max_charge_current,
     )
 
+    # Idempotent diff check: verify if active inverter slots already match newly calculated schedule
+    active_slots = active_tou.get("slots", []) if isinstance(active_tou, dict) else []
+    active_enabled = active_tou.get("enabled", True) if isinstance(active_tou, dict) else True
+    if not force and active_enabled and are_tou_slots_identical(slots, active_slots):
+        unchanged_res = {
+            "success": True,
+            "unchanged": True,
+            "message": "Harmonogram TOU w falowniku jest identyczny z wyliczonym — pominięto zapis (ochrona pamięci i limitów API).",
+            "timestamp": datetime.now().isoformat(),
+            "host": host,
+            "port": port,
+            "for_tomorrow": for_tomorrow,
+            "calibration_active": calibration_active,
+            "soc_limits": {
+                "current_soc": eff_current_soc,
+                "max_soc": eff_max_soc,
+                "min_soc": eff_min_soc,
+                "max_charge_current": eff_max_charge_current,
+            },
+            "slots": slots,
+        }
+        save_last_tou_sync_result(unchanged_res)
+        return unchanged_res
+
     sync_result = {"success": False, "message": "solarman_v5_client module not available"}
     if solarman_v5_client is not None:
         try:
@@ -1358,6 +1431,7 @@ def sync_deye_inverter_tou_schedule(
 
     final_result = {
         "success": sync_result.get("success", False),
+        "unchanged": False,
         "timestamp": datetime.now().isoformat(),
         "host": host,
         "port": port,
@@ -1367,6 +1441,7 @@ def sync_deye_inverter_tou_schedule(
             "current_soc": eff_current_soc,
             "max_soc": eff_max_soc,
             "min_soc": eff_min_soc,
+            "max_charge_current": eff_max_charge_current,
         },
         "slots": slots,
         "inverter_response": sync_result,
@@ -1744,6 +1819,11 @@ def fetch_consolidated_data(
     use_cache: bool = True,
     cache_ttl: int = CACHE_TTL_SECONDS,
     cache_dir: str = DEFAULT_CACHE_DIR,
+    max_soc: Optional[int] = None,
+    min_soc: Optional[int] = None,
+    current_soc: Optional[int] = None,
+    calibration_active: bool = False,
+    max_charge_current: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Fetches all 5 datasets (latest, forward 48h, today, month, year),
@@ -1901,18 +1981,25 @@ def fetch_consolidated_data(
     frames_tomorrow = [f for f in all_frames if get_frame_warsaw_date(f) == tomorrow_date]
     has_tomorrow_pricing = len(frames_tomorrow) >= 12
 
+    # Resolve effective SOC parameters
+    eff_max_soc = max_soc if max_soc is not None else 90
+    eff_min_soc = min_soc if min_soc is not None else 20
+    eff_current_soc = current_soc if current_soc is not None else 85
+    eff_current = max_charge_current or 100.0
+
     # Dispatch windows for TODAY (stable across all 24h of the current day)
     target_today_data = {"frames": frames_today} if frames_today else (forward_data if (isinstance(forward_data, dict) and forward_data.get("frames")) else today_data)
     ev_window_today = find_ev_best_window(target_today_data, target_hours="auto", now_dt=now_warsaw)
     pb_window_today = find_powerbank_best_window(target_today_data, target_hours="auto", allow_disjoint=False, now_dt=now_warsaw)
     sell_window_today = find_best_sell_window(target_today_data, target_hours=3)
     tou_today = generate_deye_tou_schedule(
-        current_soc=85,
-        max_soc=90,
-        min_soc=20,
+        current_soc=eff_current_soc,
+        max_soc=eff_max_soc,
+        min_soc=eff_min_soc,
         best_pb_window=pb_window_today,
         best_sell_window=sell_window_today,
-        calibration_active=False,
+        calibration_active=calibration_active,
+        max_charge_current=eff_current,
     )
 
     # Dispatch windows for TOMORROW (published ~12:00 Warsaw time)
@@ -1923,12 +2010,13 @@ def fetch_consolidated_data(
         pb_window_tomorrow = find_powerbank_best_window(target_tomorrow_data, target_hours="auto", allow_disjoint=False, now_dt=tomorrow_ref_dt)
         sell_window_tomorrow = find_best_sell_window(target_tomorrow_data, target_hours=3)
         tou_tomorrow = generate_deye_tou_schedule(
-            current_soc=85,
-            max_soc=90,
-            min_soc=20,
+            current_soc=eff_current_soc,
+            max_soc=eff_max_soc,
+            min_soc=eff_min_soc,
             best_pb_window=pb_window_tomorrow,
             best_sell_window=sell_window_tomorrow,
-            calibration_active=False,
+            calibration_active=calibration_active,
+            max_charge_current=eff_current,
         )
     else:
         pending_msg = "Oczekiwanie na publikację (ok. 12:00)"
@@ -1949,11 +2037,11 @@ def fetch_consolidated_data(
     # Battery model defaults for Deye 12kW + SunDeposit 16.13 kWh
     battery_model = BatteryModel(
         capacity_kwh=16.13,
-        max_soc=90.0,
-        min_soc=20.0,
+        max_soc=float(eff_max_soc),
+        min_soc=float(eff_min_soc),
         shutdown_soc=5.0,
-        charge_current_a=100.0,
-        discharge_current_a=100.0,
+        charge_current_a=float(eff_current),
+        discharge_current_a=float(eff_current),
         voltage_v=51.2,
     )
 
@@ -2042,6 +2130,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--calibration", action="store_true", help="Flag to charge to 100 percent for BMS calibration")
     parser.add_argument("--tomorrow", action="store_true", help="Target tomorrow's schedule instead of today")
     parser.add_argument("--print-tou", action="store_true", help="Print human-readable ASCII TOU schedule table without writing to inverter")
+    parser.add_argument("--force", action="store_true", help="Force TOU write even if schedule is identical to current inverter settings")
+    parser.add_argument("--max-charge-current", type=float, default=None, help="Inverter max charge current override (Amperes)")
 
     args = parser.parse_args(argv)
     resolved_key, key_source = resolve_api_key(args.installation, args.key)
@@ -2053,6 +2143,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             installation=args.installation,
             hours_ahead=args.hours,
             use_cache=not args.no_cache,
+            max_soc=args.max_soc,
+            min_soc=args.min_soc,
+            current_soc=args.current_soc,
+            calibration_active=args.calibration,
+            max_charge_current=args.max_charge_current,
         )
         if not isinstance(data, dict) or "error" in data:
             print(f"Błąd pobierania danych: {data.get('error') if isinstance(data, dict) else data}")
@@ -2094,6 +2189,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             api_key=resolved_key,
             installation=args.installation,
             for_tomorrow=args.tomorrow,
+            force=args.force,
+            max_charge_current=args.max_charge_current,
         )
         print(json.dumps(sync_res, indent=2))
         return 0 if sync_res.get("success") else 1
