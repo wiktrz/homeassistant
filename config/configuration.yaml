@@ -53,9 +53,9 @@ shell_command:
   scan_deye_inverter_ip: >-
     python3 /config/solarman_v5_client.py --scan --save-discovered
   sync_deye_inverter_tou: >-
-    python3 /config/pstryk_engine.py --sync-deye-tou --inverter-host {{ states('input_text.deye_inverter_ip') | default('10.20.2.6') }} --inverter-port {{ states('input_number.deye_inverter_port') | int(8899) }} {% if calibration is defined and calibration %}--calibration{% endif %}
+    python3 /config/pstryk_engine.py --sync-deye-tou --inverter-host {{ states('input_text.deye_inverter_ip') | default('10.20.2.6', true) }} --inverter-port {{ states('input_number.deye_inverter_port') | int(8899) }} {% if calibration is defined and calibration %}--calibration{% endif %} {% if tomorrow is defined and (tomorrow == true or tomorrow == 'true') %}--tomorrow{% endif %}
   sync_deye_inverter: >-
-    python3 /config/pstryk_engine.py --sync-deye-tou --inverter-host {{ states('input_text.deye_inverter_ip') | default('10.20.2.6') }} --inverter-port {{ states('input_number.deye_inverter_port') | int(8899) }}
+    python3 /config/pstryk_engine.py --sync-deye-tou --inverter-host {{ states('input_text.deye_inverter_ip') | default('10.20.2.6', true) }} --inverter-port {{ states('input_number.deye_inverter_port') | int(8899) }} {% if tomorrow is defined and (tomorrow == true or tomorrow == 'true') %}--tomorrow{% endif %}
 
 light:
   - platform: group
@@ -657,6 +657,7 @@ input_number:
     max: 65535
     step: 1
     initial: 8899
+    mode: box
     unit_of_measurement: "TCP"
     icon: mdi:ethernet
 

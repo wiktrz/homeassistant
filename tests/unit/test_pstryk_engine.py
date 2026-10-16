@@ -993,6 +993,145 @@ def test_sync_deye_inverter_tou_schedule_for_tomorrow(tmp_path):
     assert len(result["slots"]) == 6
 
 
+def test_powerbank_weekend_auto_duration_and_weekday_fixed():
+    """Verifies that find_powerbank_best_window defaults to 2h on weekdays and expands on weekends."""
+    # Weekday (Friday): 2026-10-16
+    friday_dt = datetime(2026, 10, 16, 12, 0, tzinfo=pstryk_engine.WARSAW_TZ)
+    base_fri = datetime(2026, 10, 16, 0, 0, tzinfo=timezone.utc)
+    sample_frames = []
+    for h in range(24):
+        st = (base_fri + timedelta(hours=h)).isoformat()
+        et = (base_fri + timedelta(hours=h + 1)).isoformat()
+        # Midday cheap price
+        price = 0.50 if 11 <= h <= 15 else 1.20
+        sample_frames.append({"start": st, "end": et, "metrics": {"pricing": {"price_gross": price}}})
+
+    res_weekday = pstryk_engine.find_powerbank_best_window({"frames": sample_frames}, target_hours="auto", now_dt=friday_dt)
+    assert res_weekday["duration_hours"] == 2
+
+    # Weekend (Saturday): 2026-10-17
+    saturday_dt = datetime(2026, 10, 17, 12, 0, tzinfo=pstryk_engine.WARSAW_TZ)
+    base_sat = datetime(2026, 10, 17, 0, 0, tzinfo=timezone.utc)
+    sat_frames = []
+    for h in range(24):
+        st = (base_sat + timedelta(hours=h)).isoformat()
+        et = (base_sat + timedelta(hours=h + 1)).isoformat()
+        # Midday solar dip 11:00 - 15:00 (4 hours)
+        price = 0.50 if 11 <= h <= 14 else 1.20
+        sat_frames.append({"start": st, "end": et, "metrics": {"pricing": {"price_gross": price}}})
+
+    res_weekend = pstryk_engine.find_powerbank_best_window({"frames": sat_frames}, target_hours="auto", now_dt=saturday_dt)
+    assert res_weekend["duration_hours"] >= 4
+    assert res_weekend["is_consecutive"] is True
+
+
+def test_proportional_charging_power_scaling_and_slot5_protection():
+    """
+    Verifies that when charging duration is 4h, charging slot power is reduced by 50% (2500W),
+    while Slot 5 (Peak Evening Discharge) strictly retains full 5000W.
+    """
+    pb_4h = {"start": "2026-10-17T09:00:00Z", "end": "2026-10-17T13:00:00Z", "duration_hours": 4, "is_consecutive": True}
+    sell_win = {"start": "2026-10-17T15:00:00Z", "end": "2026-10-17T18:00:00Z"}
+
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=85,
+        max_soc=90,
+        min_soc=20,
+        best_pb_window=pb_4h,
+        best_sell_window=sell_win,
+        calibration_active=False,
+        max_charge_current=100.0,
+    )
+
+    assert len(slots) == 6
+    # Find charging slot
+    charge_slots = [s for s in slots if s["grid_charge"] is True]
+    assert len(charge_slots) == 1
+    charge_slot = charge_slots[0]
+    assert charge_slot["power_w"] == 2500  # 5000 * 2 / 4 = 2500W
+
+    # Slot 5 (Peak Discharge)
+    assert slots[4]["slot"] == 5
+    assert slots[4]["power_w"] == 5000  # Strictly full power
+    assert slots[4]["grid_charge"] is False
+    assert slots[4]["target_soc"] == 20
+
+
+def test_dynamic_inverter_max_charge_current_scaling():
+    """
+    Verifies that base 100% power dynamically adapts when max_charge_current is 120A (6000W) or 200A (10000W).
+    """
+    pb_4h = {"start": "2026-10-17T09:00:00Z", "end": "2026-10-17T13:00:00Z", "duration_hours": 4, "is_consecutive": True}
+    sell_win = {"start": "2026-10-17T15:00:00Z", "end": "2026-10-17T18:00:00Z"}
+
+    # 120A: base = 6000W. 4h -> 3000W
+    slots_120 = pstryk_engine.generate_deye_tou_schedule(
+        best_pb_window=pb_4h,
+        best_sell_window=sell_win,
+        max_charge_current=120.0,
+    )
+    charge_120 = [s for s in slots_120 if s["grid_charge"] is True][0]
+    assert charge_120["power_w"] == 3000
+    assert slots_120[4]["power_w"] == 6000
+
+    # 200A: base = 10000W. 4h -> 5000W
+    slots_200 = pstryk_engine.generate_deye_tou_schedule(
+        best_pb_window=pb_4h,
+        best_sell_window=sell_win,
+        max_charge_current=200.0,
+    )
+    charge_200 = [s for s in slots_200 if s["grid_charge"] is True][0]
+    assert charge_200["power_w"] == 5000
+    assert slots_200[4]["power_w"] == 10000
+
+
+def test_powerbank_weekend_tolerance_expansion_user_example():
+    """
+    Verifies the user's explicit requirement:
+    - Base 12:00-14:00 (2h) has average price 0.90 zł/kWh.
+    - If 14:00-15:00 is 0.93 zł/kWh (<= 0.90 + 0.05 = 0.95), expand to 3h window (12:00-15:00) with avg 0.91 zł/kWh.
+    - If 14:00-15:00 is 0.96 zł/kWh (> 0.95), keep 2h window (12:00-14:00) with avg 0.90 zł/kWh.
+    """
+    saturday_dt = datetime(2026, 10, 17, 12, 0, tzinfo=pstryk_engine.WARSAW_TZ)
+    base_sat = datetime(2026, 10, 17, 0, 0, tzinfo=timezone.utc)
+
+    # Case A: 14:00-15:00 is 0.93 zł/kWh -> expands to 3h (avg 0.91)
+    frames_a = []
+    for h in range(24):
+        st = (base_sat + timedelta(hours=h)).isoformat()
+        et = (base_sat + timedelta(hours=h + 1)).isoformat()
+        if h in (12, 13):
+            p = 0.90
+        elif h == 14:
+            p = 0.93
+        else:
+            p = 1.20
+        frames_a.append({"start": st, "end": et, "metrics": {"pricing": {"price_gross": p}}})
+
+    res_a = pstryk_engine.find_powerbank_best_window({"frames": frames_a}, target_hours="auto", now_dt=saturday_dt)
+    assert res_a["duration_hours"] == 3
+    assert res_a["average_price"] == 0.91
+    assert res_a["is_consecutive"] is True
+
+    # Case B: 14:00-15:00 is 0.96 zł/kWh -> stays 2h (avg 0.90)
+    frames_b = []
+    for h in range(24):
+        st = (base_sat + timedelta(hours=h)).isoformat()
+        et = (base_sat + timedelta(hours=h + 1)).isoformat()
+        if h in (12, 13):
+            p = 0.90
+        elif h == 14:
+            p = 0.96
+        else:
+            p = 1.20
+        frames_b.append({"start": st, "end": et, "metrics": {"pricing": {"price_gross": p}}})
+
+    res_b = pstryk_engine.find_powerbank_best_window({"frames": frames_b}, target_hours="auto", now_dt=saturday_dt)
+    assert res_b["duration_hours"] == 2
+    assert res_b["average_price"] == 0.90
+    assert res_b["is_consecutive"] is True
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 

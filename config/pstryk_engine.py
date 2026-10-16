@@ -99,26 +99,37 @@ def resolve_api_key(
     """
     clean_inst = "dol" if str(installation).lower() not in ("dol", "gora") else str(installation).lower()
 
+    def is_valid_candidate(key: Optional[str]) -> bool:
+        if not key or not isinstance(key, str):
+            return False
+        clean = key.strip()
+        if clean in (DEFAULT_API_KEY, "None", "", "null"):
+            return False
+        if clean.startswith("!secret") or clean.startswith("sk-YOUR_") or clean.startswith("sk-xxxx") or clean.startswith("sk-XXXX"):
+            return False
+        if len(clean) < 8:
+            return False
+        return True
+
     # 1. Explicit key argument
-    if explicit_key and explicit_key not in (DEFAULT_API_KEY, "None", ""):
-        if not explicit_key.startswith("!secret") and not explicit_key.startswith("sk-YOUR_"):
-            return explicit_key, "arg"
+    if is_valid_candidate(explicit_key):
+        return explicit_key.strip(), "arg"
 
     # 2. Installation-specific env var from .env
     inst_env_var = f"PSTRYK_API_KEY_{clean_inst.upper()}"
     env_inst_key = os.getenv(inst_env_var)
-    if env_inst_key and env_inst_key not in (DEFAULT_API_KEY, "None", "") and not env_inst_key.startswith("sk-YOUR_"):
-        return env_inst_key, "env"
+    if is_valid_candidate(env_inst_key):
+        return env_inst_key.strip(), "env"
 
     # 3. Generic env var from .env
     generic_env = os.getenv("PSTRYK_API_KEY")
-    if generic_env and generic_env not in (DEFAULT_API_KEY, "None", "") and not generic_env.startswith("sk-YOUR_"):
-        return generic_env, "env"
+    if is_valid_candidate(generic_env):
+        return generic_env.strip(), "env"
 
     # 4. Fallback: secrets.yaml
     sec_key = load_secrets_yaml_key(clean_inst)
-    if sec_key:
-        return sec_key, "secrets_yaml"
+    if is_valid_candidate(sec_key):
+        return sec_key.strip(), "secrets_yaml"
 
     return None, "missing"
 
@@ -652,12 +663,14 @@ def find_ev_best_window(
 
 def find_powerbank_best_window(
     data: Dict[str, Any],
-    target_hours: int = 2,
-    allow_disjoint: bool = True
+    target_hours: Any = "auto",
+    allow_disjoint: bool = False,
+    now_dt: Optional[datetime] = None
 ) -> Dict[str, Any]:
     """
     Finds the optimal window for home battery (Power Bank) charging.
-    Can be contiguous or disjoint (e.g., 1h at night + 1h during midday solar dip).
+    Defaults: Weekdays (Mon-Fri) = 2h, Weekends (Sat-Sun) = 2h to 5h depending on spot prices.
+    By default uses a single contiguous block (allow_disjoint=False).
     """
     if not data or not isinstance(data, dict) or "error" in data:
         return {"error": data.get("error", "No data") if isinstance(data, dict) else "No data"}
@@ -675,8 +688,18 @@ def find_powerbank_best_window(
     if not valid_frames:
         return {"error": "No valid pricing frames"}
 
+    ref_dt = now_dt or datetime.now(WARSAW_TZ)
+    first_start = valid_frames[0].get("start")
+    if first_start:
+        try:
+            frame_dt = datetime.fromisoformat(first_start.replace("Z", "+00:00")).astimezone(WARSAW_TZ)
+            wday = frame_dt.weekday()
+        except Exception:
+            wday = ref_dt.weekday()
+    else:
+        wday = ref_dt.weekday()
+
     search_frames = valid_frames[:24] if len(valid_frames) >= 24 else valid_frames
-    n_hours = max(1, min(len(search_frames), target_hours))
 
     def get_gross(f):
         p = f["metrics"]["pricing"]
@@ -688,29 +711,89 @@ def find_powerbank_best_window(
             return round(float(p["price_net"]) * 1.23, 4)
         return 999.0
 
-    if allow_disjoint:
-        indexed_frames = list(enumerate(search_frames))
-        indexed_frames.sort(key=lambda item: get_gross(item[1]))
-        chosen_indexed = indexed_frames[:n_hours]
-        chosen_indexed.sort(key=lambda item: item[0])
-        chosen_frames = [item[1] for item in chosen_indexed]
-        chosen_indices = [item[0] for item in chosen_indexed]
+    # Determine duration: weekdays = 2h, weekends = greedy expansion with +0.05 PLN/kWh tolerance
+    if target_hours == "auto" or target_hours is None:
+        if wday < 5:
+            # Weekdays: strictly 2 hours cheapest contiguous window
+            n_hours = min(2, len(search_frames))
+            best_idx = 0
+            best_avg = float("inf")
+            for i in range(len(search_frames) - n_hours + 1):
+                w = search_frames[i : i + n_hours]
+                avg = sum(get_gross(f) for f in w) / float(n_hours)
+                if avg < best_avg:
+                    best_avg = avg
+                    best_idx = i
+            chosen_frames = search_frames[best_idx : best_idx + n_hours]
+            is_consecutive = True
+        else:
+            # Weekends: start with cheapest 2h contiguous base window and expand with +0.05 PLN/kWh tolerance
+            base_n = min(2, len(search_frames))
+            best_2h_idx = 0
+            best_2h_avg = float("inf")
+            for i in range(len(search_frames) - base_n + 1):
+                w2 = search_frames[i : i + base_n]
+                avg2 = sum(get_gross(f) for f in w2) / float(base_n)
+                if avg2 < best_2h_avg:
+                    best_2h_avg = avg2
+                    best_2h_idx = i
 
-        is_consecutive = all(
-            chosen_indices[i + 1] == chosen_indices[i] + 1
-            for i in range(len(chosen_indices) - 1)
-        )
+            threshold = best_2h_avg + 0.05  # +0.05 PLN/kWh tolerance
+            start_idx = best_2h_idx
+            end_idx = best_2h_idx + base_n - 1  # inclusive
+            max_h = min(5, len(search_frames))
+
+            while (end_idx - start_idx + 1) < max_h:
+                cand_left = start_idx - 1 if start_idx > 0 else None
+                cand_right = end_idx + 1 if end_idx < len(search_frames) - 1 else None
+
+                left_price = get_gross(search_frames[cand_left]) if cand_left is not None else float("inf")
+                right_price = get_gross(search_frames[cand_right]) if cand_right is not None else float("inf")
+
+                if left_price <= right_price and left_price <= threshold:
+                    start_idx = cand_left
+                elif right_price < left_price and right_price <= threshold:
+                    end_idx = cand_right
+                elif left_price <= threshold:
+                    start_idx = cand_left
+                elif right_price <= threshold:
+                    end_idx = cand_right
+                else:
+                    break
+
+            chosen_frames = search_frames[start_idx : end_idx + 1]
+            is_consecutive = True
     else:
-        best_idx = 0
-        best_avg = float("inf")
-        for i in range(len(search_frames) - n_hours + 1):
-            window = search_frames[i : i + n_hours]
-            avg = sum(get_gross(f) for f in window) / n_hours
-            if avg < best_avg:
-                best_avg = avg
-                best_idx = i
-        chosen_frames = search_frames[best_idx : best_idx + n_hours]
-        is_consecutive = True
+        try:
+            n_hours = int(str(target_hours).replace("h", "").strip())
+        except ValueError:
+            n_hours = 2
+
+        n_hours = max(1, min(len(search_frames), n_hours))
+
+        if allow_disjoint:
+            indexed_frames = list(enumerate(search_frames))
+            indexed_frames.sort(key=lambda item: get_gross(item[1]))
+            chosen_indexed = indexed_frames[:n_hours]
+            chosen_indexed.sort(key=lambda item: item[0])
+            chosen_frames = [item[1] for item in chosen_indexed]
+            chosen_indices = [item[0] for item in chosen_indexed]
+
+            is_consecutive = all(
+                chosen_indices[i + 1] == chosen_indices[i] + 1
+                for i in range(len(chosen_indices) - 1)
+            )
+        else:
+            best_idx = 0
+            best_avg = float("inf")
+            for i in range(len(search_frames) - n_hours + 1):
+                window = search_frames[i : i + n_hours]
+                avg = sum(get_gross(f) for f in window) / n_hours
+                if avg < best_avg:
+                    best_avg = avg
+                    best_idx = i
+            chosen_frames = search_frames[best_idx : best_idx + n_hours]
+            is_consecutive = True
 
     gross_prices = [get_gross(f) for f in chosen_frames]
     avg_price = round(sum(gross_prices) / len(gross_prices), 3)
@@ -827,12 +910,19 @@ def generate_deye_tou_schedule(
     best_sell_window: Optional[Dict[str, Any]] = None,
     calibration_active: bool = False,
     default_power_w: int = 5000,
+    max_charge_current: Optional[float] = None,
 ) -> List[Dict[str, Any]]:
     """
     Generates a 6-slot Time-of-Use (TOU) schedule for Deye Hybrid Inverter.
-    Slots adapt dynamically to place the 2-hour charge slot during the cheapest prices
-    (whether midday solar dip e.g. 13:00-15:00 or night e.g. 02:00-04:00), holding charge
+    Slots adapt dynamically to place the charge slot during the cheapest prices
+    (whether midday solar dip e.g. 11:00-15:00 or night e.g. 02:00-04:00), holding charge
     until the major peak, and discharging to 100% cover house load during the peak.
+
+    Dynamic Power Scaling:
+    Base 100% power is dynamically derived from inverter max_charge_current (100A -> 5000W).
+    When charging window exceeds 2h (e.g. 4h on weekends), charging power is proportionally
+    reduced (P_charge = P_100 * 2 / T, e.g. 4h -> 2500W / ~50A).
+    Slot 5 (Peak Evening Discharge) strictly retains full 5000W.
     """
     def to_minutes(hhmm_str: Optional[str], default_m: int) -> int:
         if not hhmm_str or hhmm_str == "--:--":
@@ -847,6 +937,12 @@ def generate_deye_tou_schedule(
         hh = (m // 60) % 24
         mm = m % 60
         return f"{hh:02d}:{mm:02d}"
+
+    # Derive dynamic 100% base power from inverter max_charge_current (default 100A -> 5000W)
+    if max_charge_current is not None and float(max_charge_current) > 0:
+        base_power_w = min(12000, max(1000, int(round(float(max_charge_current) * 50.0))))
+    else:
+        base_power_w = int(default_power_w)
 
     safe_max_soc = 100 if calibration_active else max(50, min(100, int(max_soc)))
     safe_min_soc = max(10, min(50, int(min_soc)))
@@ -881,6 +977,24 @@ def generate_deye_tou_schedule(
         if pb_end_m <= pb_start_m:
             pb_end_m = pb_start_m + 120
 
+    # Determine charging duration in integer hours
+    charging_duration_hours = max(1, int(round((pb_end_m - pb_start_m) / 60)))
+    if isinstance(best_pb_window, dict) and best_pb_window.get("duration_hours"):
+        try:
+            charging_duration_hours = int(best_pb_window["duration_hours"])
+        except (ValueError, TypeError):
+            pass
+
+    # Proportional power reduction: 2h = 100%, 3h = 67%, 4h = 50%, 5h = 40%
+    if charging_duration_hours > 2 and not calibration_active:
+        scaling_factor = 2.0 / float(charging_duration_hours)
+        charge_power_w = max(1000, int(round(base_power_w * scaling_factor, -1)))
+    else:
+        charge_power_w = base_power_w
+
+    if calibration_active:
+        charge_power_w = max(3500, base_power_w)
+
     sell_start_m = 1020  # Default 17:00
     sell_end_m = 1260    # Default 21:00
     if isinstance(best_sell_window, dict) and "error" not in best_sell_window:
@@ -903,13 +1017,13 @@ def generate_deye_tou_schedule(
         times = [t1, t2, t3, t4, t5, t6]
         for idx in range(1, len(times)):
             if times[idx] <= times[idx - 1]:
-                times[idx] = min(1410, times[idx - 1] + 30)
+                times[idx] = min(1380, times[idx - 1] + 60)
 
         slots = [
             {
                 "slot": 1,
                 "time": to_time_str(times[0]),
-                "power_w": default_power_w,
+                "power_w": charge_power_w,
                 "target_soc": safe_max_soc,
                 "grid_charge": True,
                 "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Ładowanie Nocne ({to_time_str(times[0])}-{to_time_str(times[1])})",
@@ -917,7 +1031,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 2,
                 "time": to_time_str(times[1]),
-                "power_w": default_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_max_soc,
                 "grid_charge": False,
                 "label": "Czuwanie Poranne (Hold)",
@@ -925,7 +1039,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 3,
                 "time": to_time_str(times[2]),
-                "power_w": default_power_w,
+                "power_w": charge_power_w,
                 "target_soc": safe_max_soc,
                 "grid_charge": True,
                 "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Tania Godzina Dzienna ({to_time_str(times[2])}-{to_time_str(times[3])})",
@@ -933,7 +1047,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 4,
                 "time": to_time_str(times[3]),
-                "power_w": default_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_max_soc,
                 "grid_charge": False,
                 "label": "Rezerwa Przed Szczytem (Hold)",
@@ -941,7 +1055,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 5,
                 "time": to_time_str(times[4]),
-                "power_w": default_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_min_soc,
                 "grid_charge": False,
                 "label": f"Szczyt Wieczorny 100% ({to_time_str(times[4])}-{to_time_str(times[5])})",
@@ -949,7 +1063,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 6,
                 "time": to_time_str(times[5]),
-                "power_w": default_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_min_soc,
                 "grid_charge": False,
                 "label": "Autokonsumpcja Nocna",
@@ -963,16 +1077,16 @@ def generate_deye_tou_schedule(
         t5 = max(t4 + 60, sell_start_m)
         t6 = max(t5 + 60, sell_end_m)
         times = [t1, t2, t3, t4, t5, t6]
-        # Guarantee strict monotonicity
+        # Guarantee strict monotonicity with 1-hour integer steps
         for idx in range(1, len(times)):
             if times[idx] <= times[idx - 1]:
-                times[idx] = min(1410, times[idx - 1] + 30)
+                times[idx] = min(1380, times[idx - 1] + 60)
 
         slots = [
             {
                 "slot": 1,
                 "time": to_time_str(times[0]),
-                "power_w": default_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_min_soc,
                 "grid_charge": False,
                 "label": "Czuwanie Nocne",
@@ -980,7 +1094,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 2,
                 "time": to_time_str(times[1]),
-                "power_w": default_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_min_soc,
                 "grid_charge": False,
                 "label": "Szczyt Poranny (Autokonsumpcja)",
@@ -988,7 +1102,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 3,
                 "time": to_time_str(times[2]),
-                "power_w": default_power_w,
+                "power_w": charge_power_w,
                 "target_soc": safe_max_soc,
                 "grid_charge": True,
                 "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Najtańsze Ładowanie ({to_time_str(times[2])}-{to_time_str(times[3])})",
@@ -996,7 +1110,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 4,
                 "time": to_time_str(times[3]),
-                "power_w": default_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_max_soc,
                 "grid_charge": False,
                 "label": "Czuwanie Przed Szczytem (Hold)",
@@ -1004,7 +1118,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 5,
                 "time": to_time_str(times[4]),
-                "power_w": default_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_min_soc,
                 "grid_charge": False,
                 "label": f"Szczyt Wieczorny 100% ({to_time_str(times[4])}-{to_time_str(times[5])})",
@@ -1012,7 +1126,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 6,
                 "time": to_time_str(times[5]),
-                "power_w": default_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_min_soc,
                 "grid_charge": False,
                 "label": "Autokonsumpcja Nocna",
@@ -1026,16 +1140,16 @@ def generate_deye_tou_schedule(
         t5 = max(t4 + 60, sell_start_m)
         t6 = max(t5 + 60, sell_end_m)
         times = [t1, t2, t3, t4, t5, t6]
-        # Guarantee strict monotonicity
+        # Guarantee strict monotonicity with 1-hour integer steps
         for idx in range(1, len(times)):
             if times[idx] <= times[idx - 1]:
-                times[idx] = min(1410, times[idx - 1] + 30)
+                times[idx] = min(1380, times[idx - 1] + 60)
 
         slots = [
             {
                 "slot": 1,
                 "time": to_time_str(times[0]),
-                "power_w": default_power_w,
+                "power_w": charge_power_w,
                 "target_soc": safe_max_soc,
                 "grid_charge": True,
                 "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Najtańsze Ładowanie ({to_time_str(times[0])}-{to_time_str(times[1])})",
@@ -1043,7 +1157,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 2,
                 "time": to_time_str(times[1]),
-                "power_w": default_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_max_soc,
                 "grid_charge": False,
                 "label": "Czuwanie Poranne (Hold)",
@@ -1051,7 +1165,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 3,
                 "time": to_time_str(times[2]),
-                "power_w": default_power_w,
+                "power_w": base_power_w,
                 "target_soc": max(safe_min_soc + 20, 50),
                 "grid_charge": False,
                 "label": "Szczyt Poranny (Autokonsumpcja)",
@@ -1059,7 +1173,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 4,
                 "time": to_time_str(times[3]),
-                "power_w": default_power_w,
+                "power_w": base_power_w,
                 "target_soc": max(safe_min_soc + 20, 50),
                 "grid_charge": False,
                 "label": "Autokonsumpcja PV",
@@ -1067,7 +1181,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 5,
                 "time": to_time_str(times[4]),
-                "power_w": default_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_min_soc,
                 "grid_charge": False,
                 "label": f"Szczyt Wieczorny 100% ({to_time_str(times[4])}-{to_time_str(times[5])})",
@@ -1075,7 +1189,7 @@ def generate_deye_tou_schedule(
             {
                 "slot": 6,
                 "time": to_time_str(times[5]),
-                "power_w": default_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_min_soc,
                 "grid_charge": False,
                 "label": "Czuwanie Nocne",
@@ -1129,6 +1243,7 @@ def sync_deye_inverter_tou_schedule(
     eff_max_soc = max_soc if max_soc is not None else inv_cfg.get("max_charge_soc", 90)
     eff_min_soc = min_soc if min_soc is not None else inv_cfg.get("min_discharge_soc", 20)
     eff_current_soc = current_soc if current_soc is not None else inv_tlm.get("battery_soc", 85)
+    eff_max_charge_current = inv_cfg.get("max_charge_current") or inv_tlm.get("max_charge_current") or 100.0
 
     # Resolve pricing windows (from cache or API)
     cache_file = get_cache_file_path(installation, cache_dir)
@@ -1136,15 +1251,34 @@ def sync_deye_inverter_tou_schedule(
     pb_window = None
     sell_window = None
 
+    if for_tomorrow:
+        has_tomorrow = bool(cached_data and isinstance(cached_data, dict) and cached_data.get("has_tomorrow_pricing"))
+        if not has_tomorrow:
+            resolved_key, _ = resolve_api_key(installation=installation, explicit_key=api_key)
+            if resolved_key:
+                try:
+                    fresh_data = fetch_consolidated_data(api_key=resolved_key, installation=installation, cache_dir=cache_dir)
+                    if isinstance(fresh_data, dict) and fresh_data.get("has_tomorrow_pricing"):
+                        cached_data = fresh_data
+                        has_tomorrow = True
+                except Exception:
+                    pass
+        if not has_tomorrow:
+            return {
+                "success": False,
+                "error": "Ceny na jutro nie zostały jeszcze opublikowane przez Pstryk (publikacja ok. 12:00-14:00). Anulowano synchronizację TOU.",
+                "for_tomorrow": True,
+            }
+
     if cached_data and isinstance(cached_data, dict):
-        if for_tomorrow and cached_data.get("has_tomorrow_pricing"):
+        if for_tomorrow:
             pb_window = cached_data.get("powerbank_best_window_tomorrow")
             sell_window = cached_data.get("best_sell_window_tomorrow")
         else:
             pb_window = cached_data.get("powerbank_best_window")
             sell_window = cached_data.get("best_sell_window")
 
-    if not pb_window or not sell_window:
+    if not pb_window or not sell_window or (isinstance(pb_window, dict) and "error" in pb_window):
         resolved_key, _ = resolve_api_key(installation=installation, explicit_key=api_key)
         if resolved_key:
             try:
@@ -1159,6 +1293,19 @@ def sync_deye_inverter_tou_schedule(
             except Exception:
                 pass
 
+    if (
+        not pb_window
+        or not sell_window
+        or (isinstance(pb_window, dict) and "error" in pb_window)
+        or (isinstance(sell_window, dict) and "error" in sell_window)
+    ):
+        err_msg = pb_window.get("error") if (isinstance(pb_window, dict) and "error" in pb_window) else "Brak poprawnych danych cenowych Pstryk"
+        return {
+            "success": False,
+            "error": f"Nie można zsynchronizować TOU z falownikiem: {err_msg}. Przerwano zapis, aby zachować dotychczasowy harmonogram.",
+            "for_tomorrow": for_tomorrow,
+        }
+
     slots = generate_deye_tou_schedule(
         current_soc=eff_current_soc,
         max_soc=eff_max_soc,
@@ -1166,6 +1313,7 @@ def sync_deye_inverter_tou_schedule(
         best_pb_window=pb_window,
         best_sell_window=sell_window,
         calibration_active=calibration_active,
+        max_charge_current=eff_max_charge_current,
     )
 
     sync_result = {"success": False, "message": "solarman_v5_client module not available"}
@@ -1635,7 +1783,7 @@ def fetch_consolidated_data(
     )
 
     # If critical authentication or bad request error, abort early
-    if isinstance(latest_data, dict) and latest_data.get("status_code") in (400, 401):
+    if isinstance(latest_data, dict) and latest_data.get("status_code") in (400, 401, 403):
         return latest_data
 
     forward_data = get_pstryk_data(
@@ -1733,7 +1881,7 @@ def fetch_consolidated_data(
     # Dispatch windows for TODAY (stable across all 24h of the current day)
     target_today_data = {"frames": frames_today} if frames_today else (forward_data if (isinstance(forward_data, dict) and forward_data.get("frames")) else today_data)
     ev_window_today = find_ev_best_window(target_today_data, target_hours="auto", now_dt=now_warsaw)
-    pb_window_today = find_powerbank_best_window(target_today_data, target_hours=2, allow_disjoint=True)
+    pb_window_today = find_powerbank_best_window(target_today_data, target_hours="auto", allow_disjoint=False, now_dt=now_warsaw)
     sell_window_today = find_best_sell_window(target_today_data, target_hours=3)
     tou_today = generate_deye_tou_schedule(
         current_soc=85,
@@ -1749,7 +1897,7 @@ def fetch_consolidated_data(
         target_tomorrow_data = {"frames": frames_tomorrow}
         tomorrow_ref_dt = now_warsaw + timedelta(days=1)
         ev_window_tomorrow = find_ev_best_window(target_tomorrow_data, target_hours="auto", now_dt=tomorrow_ref_dt)
-        pb_window_tomorrow = find_powerbank_best_window(target_tomorrow_data, target_hours=2, allow_disjoint=True)
+        pb_window_tomorrow = find_powerbank_best_window(target_tomorrow_data, target_hours="auto", allow_disjoint=False, now_dt=tomorrow_ref_dt)
         sell_window_tomorrow = find_best_sell_window(target_tomorrow_data, target_hours=3)
         tou_tomorrow = generate_deye_tou_schedule(
             current_soc=85,
@@ -1870,10 +2018,47 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--min-soc", type=int, default=None, help="Min Discharge SOC override")
     parser.add_argument("--calibration", action="store_true", help="Flag to charge to 100 percent for BMS calibration")
     parser.add_argument("--tomorrow", action="store_true", help="Target tomorrow's schedule instead of today")
+    parser.add_argument("--print-tou", action="store_true", help="Print human-readable ASCII TOU schedule table without writing to inverter")
 
     args = parser.parse_args(argv)
     resolved_key, key_source = resolve_api_key(args.installation, args.key)
     api_key = resolved_key or DEFAULT_API_KEY
+
+    if args.print_tou:
+        data = fetch_consolidated_data(
+            api_key=api_key,
+            installation=args.installation,
+            hours_ahead=args.hours,
+            use_cache=not args.no_cache,
+        )
+        if not isinstance(data, dict) or "error" in data:
+            print(f"Błąd pobierania danych: {data.get('error') if isinstance(data, dict) else data}")
+            return 1
+
+        target_sched_key = "deye_tou_schedule_tomorrow" if args.tomorrow else "deye_tou_schedule_today"
+        schedule_label = "JUTRO (TOMORROW)" if args.tomorrow else "DZIŚ (TODAY)"
+        slots = data.get(target_sched_key, [])
+        if not slots and not args.tomorrow:
+            slots = data.get("deye_tou_schedule", [])
+
+        print(f"\n=== HARMONOGRAM TOU DEYE — {schedule_label} ===")
+        if not slots:
+            print(f"Brak harmonogramu dla {schedule_label} (publikacja cen na jutro ok. 12:00-14:00).")
+            return 0
+
+        header = f"{'Slot':<5} | {'Godzina':<7} | {'Moc (W)':<8} | {'Prąd (~A)':<9} | {'SOC (%)':<8} | {'Sieć':<6} | {'Tryb Pracy'}"
+        print(header)
+        print("-" * len(header))
+        for s in slots:
+            slot_num = s.get("slot", 0)
+            time_str = s.get("time", "--:--")
+            pwr = s.get("power_w", 5000)
+            approx_a = round(pwr / 51.2)
+            soc = s.get("target_soc", 0)
+            grid = "TAK" if s.get("grid_charge") else "NIE"
+            label = s.get("label", "")
+            print(f"{slot_num:<5} | {time_str:<7} | {pwr:<8} | ~{approx_a:<8} | {soc:<8} | {grid:<6} | {label}")
+        return 0
 
     if args.sync_deye_tou:
         sync_res = sync_deye_inverter_tou_schedule(

@@ -2785,8 +2785,14 @@
               conditions:
                 - condition: template
                   value_template: "{{ trigger.id == 'manual_trigger' }}"
-                - condition: template
-                  value_template: "{{ states('input_datetime.deye_tou_last_synced_date') != now().strftime('%Y-%m-%d') }}"
+                - condition: and
+                  conditions:
+                    - condition: template
+                      value_template: "{{ trigger.id in ['scheduled_daily', 'retry_check'] }}"
+                    - condition: template
+                      value_template: "{{ now().hour > 0 or now().minute >= 30 }}"
+                    - condition: template
+                      value_template: "{{ states('input_datetime.deye_tou_last_synced_date') != now().strftime('%Y-%m-%d') }}"
           sequence:
             - action: script.sync_deye_inverter_tou
             - action: input_datetime.set_datetime

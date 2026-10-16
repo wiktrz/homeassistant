@@ -847,10 +847,10 @@ views:
           {% set active = state_attr('sensor.deye_inverter_status', 'active_tou') %}
           {% set slots = active['slots'] if active and active['slots'] is defined else (state_attr('sensor.deye_tou_active_schedule', 'slots') if state_attr('sensor.deye_tou_active_schedule', 'slots') is defined else []) %}
           {% if slots and slots | length == 6 -%}
-          | Slot | Godzina | SOC | Sieć | Tryb Pracy |
-          |:---:|:---:|:---:|:---:|:---|
+          | Slot | Godzina | Moc / Prąd | SOC | Sieć | Tryb Pracy |
+          |:---:|:---:|:---:|:---:|:---:|:---|
           {% for s in slots -%}
-          | **{{ s.slot }}** | `{{ s.time }}` | {{ s.target_soc }}% | {{ '**⚡ TAK**' if s.grid_charge else 'NIE' }} | {{ s.label if s.label else ('Najtańsze Ładowanie' if s.grid_charge else ('Czuwanie Przed Szczytem' if s.target_soc >= 80 else 'Autokonsumpcja PV')) }} |
+          | **{{ s.slot }}** | `{{ s.time }}` | {{ s.power_w if s.power_w is defined else 5000 }} W (~{{ ((s.power_w if s.power_w is defined else 5000) / 51.2) | round(0) }} A) | {{ s.target_soc }}% | {{ '**⚡ TAK**' if s.grid_charge else 'NIE' }} | {{ s.label if s.label else ('Najtańsze Ładowanie' if s.grid_charge else ('Czuwanie Przed Szczytem' if s.target_soc >= 80 else 'Autokonsumpcja PV')) }} |
           {% endfor %}
 
           ---
