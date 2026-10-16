@@ -525,9 +525,14 @@
     - name: "Deye TOU Active Schedule"
       unique_id: deye_tou_active_schedule
       state: >
+        {% set inv_online = is_state('sensor.deye_inverter_status', 'online') %}
         {% set tou = state_attr('sensor.deye_inverter_status', 'active_tou') %}
         {% if tou and tou.enabled is defined and tou.enabled %}
           Aktywny (6 slotów)
+        {% elif inv_online and tou and tou.enabled is defined and not tou.enabled %}
+          Wyłączony
+        {% elif not inv_online and this.state is defined and this.state not in ['unknown', 'unavailable', 'None'] %}
+          {{ this.state }}
         {% else %}
           Wyłączony
         {% endif %}

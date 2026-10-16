@@ -1199,6 +1199,22 @@ def generate_deye_tou_schedule(
     return slots
 
 
+def save_last_tou_sync_result(result_data: Dict[str, Any]) -> None:
+    """Persists the last TOU synchronization outcome to disk for Home Assistant UI feedback."""
+    candidate_paths = [
+        "/config/.deye_tou_last_sync.json",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), ".deye_tou_last_sync.json"),
+        "/tmp/.deye_tou_last_sync.json",
+    ]
+    for p in candidate_paths:
+        try:
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(result_data, f, indent=2, ensure_ascii=False)
+            break
+        except Exception:
+            continue
+
+
 def sync_deye_inverter_tou_schedule(
     host: Optional[str] = None,
     port: Optional[int] = None,
@@ -1264,11 +1280,13 @@ def sync_deye_inverter_tou_schedule(
                 except Exception:
                     pass
         if not has_tomorrow:
-            return {
+            err_dict = {
                 "success": False,
                 "error": "Ceny na jutro nie zostały jeszcze opublikowane przez Pstryk (publikacja ok. 12:00-14:00). Anulowano synchronizację TOU.",
                 "for_tomorrow": True,
             }
+            save_last_tou_sync_result(err_dict)
+            return err_dict
 
     if cached_data and isinstance(cached_data, dict):
         if for_tomorrow:
@@ -1300,11 +1318,13 @@ def sync_deye_inverter_tou_schedule(
         or (isinstance(sell_window, dict) and "error" in sell_window)
     ):
         err_msg = pb_window.get("error") if (isinstance(pb_window, dict) and "error" in pb_window) else "Brak poprawnych danych cenowych Pstryk"
-        return {
+        err_dict = {
             "success": False,
             "error": f"Nie można zsynchronizować TOU z falownikiem: {err_msg}. Przerwano zapis, aby zachować dotychczasowy harmonogram.",
             "for_tomorrow": for_tomorrow,
         }
+        save_last_tou_sync_result(err_dict)
+        return err_dict
 
     slots = generate_deye_tou_schedule(
         current_soc=eff_current_soc,
@@ -1336,11 +1356,12 @@ def sync_deye_inverter_tou_schedule(
         except Exception:
             pass
 
-    return {
+    final_result = {
         "success": sync_result.get("success", False),
         "timestamp": datetime.now().isoformat(),
         "host": host,
         "port": port,
+        "for_tomorrow": for_tomorrow,
         "calibration_active": calibration_active,
         "soc_limits": {
             "current_soc": eff_current_soc,
@@ -1350,6 +1371,8 @@ def sync_deye_inverter_tou_schedule(
         "slots": slots,
         "inverter_response": sync_result,
     }
+    save_last_tou_sync_result(final_result)
+    return final_result
 
 
 def aggregate_frames(data: Dict[str, Any]) -> Dict[str, float]:

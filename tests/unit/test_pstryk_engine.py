@@ -1132,6 +1132,18 @@ def test_powerbank_weekend_tolerance_expansion_user_example():
     assert res_b["is_consecutive"] is True
 
 
+def test_save_last_tou_sync_result(tmp_path):
+    """Verifies that save_last_tou_sync_result persists JSON data properly."""
+    test_file = tmp_path / ".deye_tou_last_sync.json"
+    with mock.patch("pstryk_engine.os.path.join", return_value=str(test_file)):
+        pstryk_engine.save_last_tou_sync_result({"success": True, "for_tomorrow": False, "slots_count": 6})
+    assert test_file.exists()
+    with open(test_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    assert data["success"] is True
+    assert data["slots_count"] == 6
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 

@@ -1183,15 +1183,23 @@ radio_volume_down:
 
 sync_deye_inverter_tou:
   alias: Synchronizuj Harmonogram TOU z Falownikiem Deye
-  description: Przelicza dynamiczny 6-slotowy harmonogram Time-of-Use i przesyła go do falownika Deye (Solarman V5 Modbus).
+  description: Przelicza dynamiczny 6-slotowy harmonogram Time-of-Use i przesyła go do falownika Deye (Solarman V5 Modbus / Deye Cloud).
   sequence:
     - action: shell_command.sync_deye_inverter_tou
       data:
         calibration: "{{ is_state('input_boolean.deye_battery_calibration_in_progress', 'on') }}"
         tomorrow: "{{ tomorrow | default(false) }}"
+    - delay: "00:00:10"
     - action: homeassistant.update_entity
       target:
         entity_id: sensor.deye_inverter_status
+    - action: persistent_notification.create
+      data:
+        title: "⚡ Deye TOU: Synchronizacja Zakończona"
+        message: >-
+          Harmonogram Time-of-Use został przesłany do falownika Deye ({% if tomorrow | default(false) %}na Jutro{% else %}na Dziś{% endif %}).
+          Odczekano 10s na potwierdzenie przez Deye Cloud. Status: {{ states('sensor.deye_tou_active_schedule') }}.
+        notification_id: deye_tou_sync_status
   mode: single
   icon: mdi:sync
 
