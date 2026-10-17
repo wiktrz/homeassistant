@@ -59,9 +59,21 @@
   - User-facing status string values meant for display (e.g. `"Oczekiwanie na publikację (ok. 12:00)"`, `"Najtańsze Ładowanie"`)
 - Everything under the hood (logic, variables, templates, attributes, internal constants) must be 100% English.
 
+### Rule 9: Zero Hardcoded Hardware Parameters (Battery & Inverters)
+- **Zero Hardcoding Rule:** Battery storage and hybrid inverter hardware parameters (total capacity in kWh, nominal voltage in V, maximum charge/discharge current in A, and battery model names) must **NEVER** be hardcoded as static constants or fallback values anywhere in YAML files (templates, configurations, dashboards, scripts, automations) or python engines.
+- All hardware specifications must be read dynamically from the physical inverter registers (Modbus reg `102` for Ah, reg `108` for charge current, reg `587` for voltage) or Cloud OpenAPI (`/v1.0/config/battery`), dynamically deriving `batt_capacity_kwh = (batt_capacity * nominal_voltage) / 1000.0`.
+- Continuous automated regression protection is enforced by `tests/invariants/test_safety_rules.py::test_no_hardcoded_battery_parameters`.
+- Complete hardware specifications, caching rules, and register mappings are defined in [`SPEC_DEYE_BATTERY_SYSTEM.md`](SPEC_DEYE_BATTERY_SYSTEM.md).
+
 ---
 
 ## 2. Hardware Safety & Architectural Invariants
+
+### Deye Inverter & Battery Storage Protection Invariants
+- **Registers 108..112 Read-Only:** Direct writes to system configuration registers 108 (Max Charge Current), 109 (Max Discharge Current), 110 (Min Discharge SOC), 111 (Shutdown SOC), and 112 (Max Charge SOC) are **strictly blocked in software**. Parameters must be configured manually on the inverter physical screen; Home Assistant operates strictly in Read-Only mode.
+- **Write-on-Change Caching & Logger Flooding Protection:** All Deye reads implement a 30s TTL cache with semantic write-on-change comparison (`are_deye_readings_identical`). Cache writes to disk occur strictly when data changes to eliminate flash storage wear. On network dropouts, systems fall back to the last known cache to prevent sensor flapping.
+- **2-Step Confirmation Process:** Modifications to safety-critical limits (`min_discharge_soc`, `shutdown_soc`) pause automatic synchronization and require explicit confirmation via "Zatwierdź i Zastosuj" (`script.confirm_and_apply_deye_battery_settings`).
+- **Dynamic Charging Power Scaling (+10% Loss Buffer):** When charging windows exceed 2 hours (e.g. weekends), power scales dynamically to the energy delta $\Delta SOC = \max(0, \text{max\_soc} - SOC_{\text{current}})$ with an extra 10% buffer for conversion efficiency without exceeding maximum safe hardware power. Slot 5 (Peak Evening Discharge) strictly remains at full base power $P_{\text{base}}$.
 
 ### Protected Power Supplies (Exclusion from All-Off Scripts)
 The following 4 BoneIO relay channels power critical LED transformers and ambient controllers:
@@ -86,3 +98,4 @@ The following 4 BoneIO relay channels power critical LED transformers and ambien
 - **Non-blocking Execution:** Never introduce `delay()` in firmware loops; use `millis()` timers.
 - **OneWire Conversion:** Set `sensors.setWaitForConversion(false)` on DallasTemperature instances.
 - **Day Indexing Discrepancy:** C++ `tm_wday` and Node.js `getDay()` use 0=Sunday. Map days using ISO 8601 `(day === 0) ? 7 : day` to prevent schedule shifts.
+

@@ -220,26 +220,48 @@ def call_deye_api(
 def read_inverter_telemetry(
     inverter_sn: Optional[str] = None,
     cfg: Optional[Dict[str, Any]] = None,
+    force_refresh: bool = False,
+    cache_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Reads live inverter telemetry, configuration, and battery metrics via Deye Cloud OpenAPI.
     Uses official POST endpoints (/v1.0/device/latest, /v1.0/config/battery, /v1.0/config/tou).
     Supports installations without PV or battery (e.g. pre-installation phase).
+    Caches reads with TTL and falls back to cached data on network errors.
     """
+    if not force_refresh:
+        try:
+            import solarman_v5_client
+            cached = solarman_v5_client.load_deye_cache(ignore_ttl=False, cache_path=cache_path)
+            if cached and cached.get("success"):
+                cached_copy = dict(cached)
+                cached_copy["source"] = "cache"
+                return cached_copy
+        except Exception:
+            pass
+
     if cfg is None:
         cfg = get_deye_cloud_config()
     target_sn = inverter_sn or cfg.get("inverter_sn", DEFAULT_INVERTER_SN)
     timestamp = datetime.now().isoformat()
 
-    # Default fallback data structure
+    # Dynamic fallback data structure (no hardcoded capacity, voltage, or current)
+    env_cap_ah = os.getenv("BATTERY_CAPACITY_AH")
+    env_cap_kwh = os.getenv("BATTERY_CAPACITY_KWH")
+    env_nom_v = os.getenv("BATTERY_NOMINAL_VOLTAGE")
+    env_max_curr = os.getenv("BATTERY_MAX_CHARGE_CURRENT")
+
     config_data = {
-        "max_charge_current": 100,
-        "max_discharge_current": 100,
+        "max_charge_current": int(float(env_max_curr)) if env_max_curr else 0,
+        "max_discharge_current": int(float(env_max_curr)) if env_max_curr else 0,
         "min_discharge_soc": 20,
         "shutdown_soc": 5,
         "max_charge_soc": 90,
-        "batt_capacity": 200,
+        "batt_capacity": int(float(env_cap_ah)) if env_cap_ah else 0,
+        "nominal_voltage": float(env_nom_v) if env_nom_v else 0.0,
+        "batt_capacity_kwh": float(env_cap_kwh) if env_cap_kwh else 0.0,
     }
+
     telemetry_data = {
         "battery_voltage": 0.0,
         "battery_soc": 0,
@@ -481,7 +503,32 @@ def read_inverter_telemetry(
         if "zeroExportPower" in payload_sys:
             config_data["zero_export_power"] = payload_sys.get("zeroExportPower")
 
-    return {
+    # Derive nominal voltage and batt_capacity_kwh dynamically
+    if config_data["nominal_voltage"] <= 0.0:
+        if telemetry_data["battery_installed"] and telemetry_data["battery_voltage"] > 40.0:
+            config_data["nominal_voltage"] = 51.2 if 44.0 <= telemetry_data["battery_voltage"] <= 58.4 else telemetry_data["battery_voltage"]
+        elif env_nom_v:
+            config_data["nominal_voltage"] = float(env_nom_v)
+
+    if config_data["batt_capacity"] > 0 and config_data["nominal_voltage"] > 0:
+        config_data["batt_capacity_kwh"] = round((config_data["batt_capacity"] * config_data["nominal_voltage"]) / 1000.0, 2)
+    elif env_cap_kwh and float(env_cap_kwh) > 0:
+        config_data["batt_capacity_kwh"] = float(env_cap_kwh)
+
+    if not cloud_ok:
+        try:
+            import solarman_v5_client
+            cached = solarman_v5_client.load_deye_cache(ignore_ttl=True, cache_path=cache_path)
+            if cached and cached.get("success"):
+                cached_copy = dict(cached)
+                cached_copy["offline"] = True
+                cached_copy["source"] = "cached_fallback"
+                cached_copy["error"] = last_err or "Deye Cloud OpenAPI query failed; serving last known cache"
+                return cached_copy
+        except Exception:
+            pass
+
+    result = {
         "success": cloud_ok,
         "source": "deye_cloud_openapi",
         "timestamp": timestamp,
@@ -493,6 +540,14 @@ def read_inverter_telemetry(
         "active_tou": active_tou,
         "error": None if cloud_ok else last_err,
     }
+    if cloud_ok:
+        try:
+            import solarman_v5_client
+            solarman_v5_client.save_deye_cache(result, cache_path=cache_path)
+        except Exception:
+            pass
+    return result
+
 
 
 def sync_tou_schedule(

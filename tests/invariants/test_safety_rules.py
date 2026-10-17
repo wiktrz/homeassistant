@@ -162,6 +162,12 @@ def test_modern_dashboards_referenced_helpers_and_templates_exist():
 
     tpl_path = os.path.join(CONFIG_DIR, "templates.yaml")
     tpl_entities = set()
+    for cl_item in cfg.get("command_line", []):
+        if isinstance(cl_item, dict) and "sensor" in cl_item:
+            s_item = cl_item["sensor"]
+            if isinstance(s_item, dict) and "name" in s_item:
+                tpl_entities.add(f"sensor.{slugify(str(s_item['name']))}")
+
     with open(tpl_path, "r", encoding="utf-8") as f:
         tpl_list = yaml.load(f, Loader=SafeLoaderIgnore) or []
         for block in tpl_list:
@@ -185,10 +191,61 @@ def test_modern_dashboards_referenced_helpers_and_templates_exist():
                 if eid == "input_button.press":
                     continue
                 assert eid in helpers, f"Missing helper '{eid}' referenced in {db_name}!"
-            elif any(kw in eid for kw in ["pstryk_", "deye_battery_", "dynamic_"]):
+            elif any(kw in eid for kw in ["pstryk_", "deye_battery_", "dynamic_", "powerbank_"]):
                 assert eid in tpl_entities, f"Missing template sensor '{eid}' referenced in {db_name}!"
+
+
+def test_no_hardcoded_battery_parameters():
+    """
+    INVARIANT: ZERO HARDCODED BATTERY CONSTANTS.
+    Enforces that battery capacity (16.13 kWh), nominal voltage (51.2 V),
+    and maximum charging current (100 A) are NEVER hardcoded into Home Assistant
+    YAML files (templates, configuration, dashboards, scripts, automations).
+    All hardware values must be read dynamically from Deye inverter registers / API.
+    """
+    import re
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    config_dir = os.path.join(repo_root, "config")
+
+    files_to_check = [
+        os.path.join(config_dir, "templates.yaml"),
+        os.path.join(config_dir, "configuration.yaml"),
+        os.path.join(config_dir, "scripts.yaml"),
+        os.path.join(config_dir, "automations.yaml"),
+        os.path.join(config_dir, "dashboards", "dashboard_modern_reference.yaml"),
+        os.path.join(config_dir, "dashboards", "dashboard_home_improved.yaml"),
+    ]
+
+    forbidden_patterns = [
+        (re.compile(r"default\s*\(\s*['\"]?16\.13['\"]?"), "Hardcoded 16.13 capacity default fallback"),
+        (re.compile(r"float\s*\(\s*16\.13\s*\)"), "Hardcoded float(16.13) capacity fallback"),
+        (re.compile(r"default\s*\(\s*['\"]?51\.2['\"]?"), "Hardcoded 51.2 voltage default fallback"),
+        (re.compile(r"float\s*\(\s*51\.2\s*\)"), "Hardcoded float(51.2) voltage fallback"),
+        (re.compile(r"state:\s*['\"]51\.2['\"]"), "Hardcoded state: 51.2 voltage"),
+        (re.compile(r"default\s*\(\s*['\"]?100(?:\.0)?['\"]?"), "Hardcoded 100A current default fallback"),
+        (re.compile(r"float\s*\(\s*100(?:\.0)?\s*\)"), "Hardcoded float(100.0) current fallback"),
+        (re.compile(r"SunDeposit\s+16\.13\s*kWh"), "Hardcoded static battery model string"),
+    ]
+
+    violations = []
+    for fpath in files_to_check:
+        if not os.path.exists(fpath):
+            continue
+        rel_path = os.path.relpath(fpath, repo_root)
+        with open(fpath, "r", encoding="utf-8") as f:
+            for line_no, line in enumerate(f, 1):
+                clean_line = line.strip()
+                # Skip comments and description strings that don't execute
+                if clean_line.startswith("#") or "description:" in clean_line:
+                    continue
+                for pat, desc in forbidden_patterns:
+                    if pat.search(line):
+                        violations.append(f"{rel_path}:{line_no} [{desc}]: {clean_line}")
+
+    assert not violations, "Found forbidden hardcoded battery parameters in YAML files:\n" + "\n".join(violations)
 
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
 

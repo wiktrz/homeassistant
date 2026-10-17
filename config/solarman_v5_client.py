@@ -25,6 +25,8 @@ DEFAULT_INVERTER_IP = "10.20.2.6"
 DEFAULT_INVERTER_PORT = 8899
 DEFAULT_TIMEOUT = 5.0
 CONFIG_FILENAME = ".deye_inverter_config.json"
+CACHE_FILENAME = ".deye_inverter_cache.json"
+CACHE_TTL_SECONDS = 30.0
 
 
 def load_dotenv(paths: Optional[List[str]] = None) -> None:
@@ -61,6 +63,7 @@ load_dotenv()
 
 # Modbus Holding Registers (Deye Hybrid Inverter):
 # 1. Config Registers (Read-Only)
+REG_BATT_CAPACITY = 102          # 0x0066 (Ah) - Physical Battery Pack Capacity
 REG_MAX_CHARGE_CURRENT = 108     # 0x006C (A)
 REG_MAX_DISCHARGE_CURRENT = 109  # 0x006D (A)
 REG_MIN_DISCHARGE_SOC = 110      # 0x006E (%) - Capacity Grid-tied lower bound
@@ -178,6 +181,88 @@ def get_config_file_path() -> str:
         return os.path.join("/config", CONFIG_FILENAME)
     script_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(script_dir, CONFIG_FILENAME)
+
+
+def get_cache_file_path() -> str:
+    """Returns persistent cache file path for Deye inverter reads."""
+    custom = os.getenv("DEYE_CACHE_FILE")
+    if custom:
+        return custom
+    if os.path.isdir("/config"):
+        return os.path.join("/config", CACHE_FILENAME)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(script_dir, CACHE_FILENAME)
+
+
+def are_deye_readings_identical(new_data: Dict[str, Any], cached_data: Dict[str, Any]) -> bool:
+    """
+    Compares the meaningful semantic payload (config, telemetry, active_tou) between new and cached reads.
+    Returns True if data is identical (ignoring volatile fields like timestamp, host latency, error).
+    """
+    if not isinstance(new_data, dict) or not isinstance(cached_data, dict):
+        return False
+
+    keys_to_compare = ["config", "telemetry", "active_tou"]
+    for k in keys_to_compare:
+        val_new = new_data.get(k)
+        val_cached = cached_data.get(k)
+        if val_new != val_cached:
+            return False
+    return True
+
+
+def load_deye_cache(ignore_ttl: bool = False, max_age: float = CACHE_TTL_SECONDS, cache_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Loads cached Deye inverter readings.
+    If ignore_ttl is False, returns None if cache is older than max_age seconds.
+    """
+    paths = [cache_path] if cache_path else [get_cache_file_path(), "/tmp/.deye_inverter_cache.json"]
+    for path in paths:
+        if not path or not os.path.exists(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                continue
+            cache_time = data.get("cache_updated_at", 0)
+            if not ignore_ttl and (time.time() - cache_time) > max_age:
+                continue
+            return data
+        except Exception:
+            continue
+    return None
+
+
+def save_deye_cache(data: Dict[str, Any], cache_path: Optional[str] = None) -> bool:
+    """
+    Saves inverter readings to persistent JSON cache file ONLY if the semantic data has changed.
+    Minimizes flash storage write cycles and avoids unnecessary disk I/O.
+    Returns True if written, False if skipped due to identical data.
+    """
+    if not isinstance(data, dict) or not data.get("success"):
+        return False
+
+    cached = load_deye_cache(ignore_ttl=True, cache_path=cache_path)
+    if cached and are_deye_readings_identical(data, cached):
+        return False
+
+    cache_data = dict(data)
+    cache_data["cache_updated_at"] = time.time()
+    paths = [cache_path] if cache_path else [get_cache_file_path(), "/tmp/.deye_inverter_cache.json"]
+
+    for path in paths:
+        if not path:
+            continue
+        try:
+            tmp_path = f"{path}.tmp.{os.getpid()}"
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(cache_data, f, indent=2)
+            os.replace(tmp_path, path)
+            return True
+        except Exception:
+            continue
+    return False
 
 
 def load_inverter_config() -> Dict[str, Any]:
@@ -456,43 +541,85 @@ def sync_soc_limits(
     }
 
 
-def read_inverter_telemetry(host: Optional[str] = None, port: Optional[int] = None) -> Dict[str, Any]:
+def read_inverter_telemetry(
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    force_refresh: bool = False,
+    cache_path: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Polls Deye inverter in Read-Only mode to retrieve config, telemetry, and active TOU table.
+    Enforces a 30s TTL cache to protect against logger flooding.
+    Only writes cache to disk when readings actually change (semantic diff).
+    Falls back to cached telemetry when offline.
     """
+    if not force_refresh:
+        cached = load_deye_cache(ignore_ttl=False, cache_path=cache_path)
+        if cached and cached.get("success"):
+            cached_copy = dict(cached)
+            cached_copy["source"] = "cache"
+            return cached_copy
+
     host = get_configured_inverter_ip(host)
     port = get_configured_inverter_port(port)
     timestamp = datetime.now().isoformat()
 
-    # 1. Read Hardware Configuration (Registers 108..112)
-    cfg_res = read_holding_registers(host, port, REG_MAX_CHARGE_CURRENT, 5)
+    # Dynamic defaults for config & telemetry (no hardcoded capacity, voltage, or current)
+    env_cap_ah = os.getenv("BATTERY_CAPACITY_AH")
+    env_cap_kwh = os.getenv("BATTERY_CAPACITY_KWH")
+    env_nom_v = os.getenv("BATTERY_NOMINAL_VOLTAGE")
+    env_max_curr = os.getenv("BATTERY_MAX_CHARGE_CURRENT")
+
     config = {
-        "max_charge_current": 100,
-        "max_discharge_current": 100,
+        "max_charge_current": int(float(env_max_curr)) if env_max_curr else 0,
+        "max_discharge_current": int(float(env_max_curr)) if env_max_curr else 0,
         "min_discharge_soc": 20,
         "shutdown_soc": 5,
         "max_charge_soc": 90,
+        "batt_capacity": int(float(env_cap_ah)) if env_cap_ah else 0,
+        "nominal_voltage": float(env_nom_v) if env_nom_v else 0.0,
+        "batt_capacity_kwh": float(env_cap_kwh) if env_cap_kwh else 0.0,
     }
-    if cfg_res["success"] and len(cfg_res["registers"]) >= 5:
+
+    # 1. Read Hardware Configuration (Holding Registers 102..112)
+    # Attempt reading 11 contiguous registers starting at 102 (Capacity in Ah, Currents, SOC bounds)
+    cfg_res = read_holding_registers(host, port, REG_BATT_CAPACITY, 11)
+    if cfg_res["success"] and len(cfg_res["registers"]) >= 11:
         r = cfg_res["registers"]
-        config["max_charge_current"] = r[0]
-        config["max_discharge_current"] = r[1]
-        config["min_discharge_soc"] = r[2]
-        config["shutdown_soc"] = r[3]
-        config["max_charge_soc"] = r[4]
+        config["batt_capacity"] = r[0]           # Reg 102: Capacity in Ah
+        config["max_charge_current"] = r[6]      # Reg 108: Max Charge Current (A)
+        config["max_discharge_current"] = r[7]   # Reg 109: Max Discharge Current (A)
+        config["min_discharge_soc"] = r[8]       # Reg 110: Min Discharge SOC (%)
+        config["shutdown_soc"] = r[9]            # Reg 111: Shutdown SOC (%)
+        config["max_charge_soc"] = r[10]         # Reg 112: Max Charge SOC (%)
+    else:
+        # Fallback to reading 5 registers from 108, and 1 from 102
+        cfg_res = read_holding_registers(host, port, REG_MAX_CHARGE_CURRENT, 5)
+        if cfg_res["success"] and len(cfg_res["registers"]) >= 5:
+            r = cfg_res["registers"]
+            config["max_charge_current"] = r[0]
+            config["max_discharge_current"] = r[1]
+            config["min_discharge_soc"] = r[2]
+            config["shutdown_soc"] = r[3]
+            config["max_charge_soc"] = r[4]
+            cap_res = read_holding_registers(host, port, REG_BATT_CAPACITY, 1)
+            if cap_res["success"] and len(cap_res["registers"]) >= 1:
+                config["batt_capacity"] = cap_res["registers"][0]
 
     # 2. Read Live Battery Telemetry (Registers 587..591)
     telem_res = read_holding_registers(host, port, REG_BATTERY_VOLTAGE, 5)
     telemetry = {
-        "battery_voltage": 51.2,
-        "battery_soc": 85,
+        "battery_voltage": 0.0,
+        "battery_soc": 0,
         "battery_power": 0,
         "battery_current": 0.0,
+        "battery_installed": False,
     }
     if telem_res["success"] and len(telem_res["registers"]) >= 5:
         r = telem_res["registers"]
         telemetry["battery_voltage"] = round(r[0] * 0.1, 1)
         telemetry["battery_soc"] = r[1]
+        telemetry["battery_installed"] = (telemetry["battery_voltage"] > 40.0)
         # power (signed 16-bit at index 3: offset 590 - 587 = 3)
         p_raw = r[3]
         telemetry["battery_power"] = p_raw if p_raw < 32768 else p_raw - 65536
@@ -500,6 +627,18 @@ def read_inverter_telemetry(host: Optional[str] = None, port: Optional[int] = No
         c_raw = r[4]
         c_signed = c_raw if c_raw < 32768 else c_raw - 65536
         telemetry["battery_current"] = round(c_signed * 0.1, 1)
+
+    # Derive nominal voltage and batt_capacity_kwh dynamically
+    if config["nominal_voltage"] <= 0.0:
+        if telemetry["battery_installed"] and telemetry["battery_voltage"] > 40.0:
+            config["nominal_voltage"] = 51.2 if 44.0 <= telemetry["battery_voltage"] <= 58.4 else telemetry["battery_voltage"]
+        elif env_nom_v:
+            config["nominal_voltage"] = float(env_nom_v)
+
+    if config["batt_capacity"] > 0 and config["nominal_voltage"] > 0:
+        config["batt_capacity_kwh"] = round((config["batt_capacity"] * config["nominal_voltage"]) / 1000.0, 2)
+    elif env_cap_kwh and float(env_cap_kwh) > 0:
+        config["batt_capacity_kwh"] = float(env_cap_kwh)
 
     # 3. Read Active TOU Schedule (Registers 248..273)
     tou_res = read_holding_registers(host, port, REG_TOU_ENABLE, 26)
@@ -547,13 +686,23 @@ def read_inverter_telemetry(host: Optional[str] = None, port: Optional[int] = No
             import deye_cloud_client
             cloud_cfg = deye_cloud_client.get_deye_cloud_config()
             if cloud_cfg.get("api_key") or cloud_cfg.get("app_id") or cloud_cfg.get("email"):
-                cloud_res = deye_cloud_client.read_inverter_telemetry(cfg=cloud_cfg)
+                cloud_res = deye_cloud_client.read_inverter_telemetry(cfg=cloud_cfg, force_refresh=force_refresh, cache_path=cache_path)
                 if cloud_res.get("success"):
+                    save_deye_cache(cloud_res, cache_path=cache_path)
                     return cloud_res
         except Exception:
             pass
 
-    return {
+        # Offline fallback: Check if cached data exists
+        cached = load_deye_cache(ignore_ttl=True, cache_path=cache_path)
+        if cached and cached.get("success"):
+            cached_copy = dict(cached)
+            cached_copy["offline"] = True
+            cached_copy["source"] = "cached_fallback"
+            cached_copy["error"] = cfg_res.get("message", "Connection failed; serving last known cache")
+            return cached_copy
+
+    result = {
         "success": overall_success,
         "timestamp": timestamp,
         "host": host,
@@ -563,6 +712,10 @@ def read_inverter_telemetry(host: Optional[str] = None, port: Optional[int] = No
         "active_tou": active_tou,
         "error": None if overall_success else cfg_res.get("message", "Connection failed"),
     }
+    if overall_success:
+        save_deye_cache(result, cache_path=cache_path)
+    return result
+
 
 
 def sync_tou_schedule(
@@ -655,6 +808,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--host", default=None, help="Inverter IP address (defaults to configured/discovered IP or 10.20.2.6)")
     parser.add_argument("--port", type=int, default=None, help="Inverter port (defaults to configured port or 8899)")
     parser.add_argument("--read-all", action="store_true", help="Read config, telemetry, and TOU settings")
+    parser.add_argument("--force-refresh", action="store_true", help="Bypass 30s TTL cache and force live query from inverter")
     parser.add_argument("--read-soc", action="store_true", help="Read battery SOC from register 588")
     parser.add_argument("--read-tou", action="store_true", help="Read current TOU schedule from inverter")
     parser.add_argument("--sync-tou", type=str, help="Synchronize 6 TOU slots (JSON string or file path)")
@@ -702,9 +856,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
 
     if args.read_all:
-        res = read_inverter_telemetry(resolved_host, resolved_port)
+        res = read_inverter_telemetry(resolved_host, resolved_port, force_refresh=args.force_refresh)
         print(json.dumps(res, indent=2))
         return 0
+
 
     if args.read_soc:
         res = read_holding_registers(resolved_host, resolved_port, REG_BATTERY_SOC, 1)

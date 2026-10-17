@@ -14,10 +14,20 @@ import urllib.request
 import urllib.parse
 import urllib.error
 from datetime import datetime, timedelta, timezone
-import zoneinfo
+try:
+    import zoneinfo
+    WARSAW_TZ = zoneinfo.ZoneInfo("Europe/Warsaw")
+except (ImportError, AttributeError):
+    try:
+        from backports import zoneinfo  # type: ignore
+        WARSAW_TZ = zoneinfo.ZoneInfo("Europe/Warsaw")
+    except (ImportError, AttributeError):
+        try:
+            from dateutil import tz as dateutil_tz  # type: ignore
+            WARSAW_TZ = dateutil_tz.gettz("Europe/Warsaw") or timezone(timedelta(hours=2))
+        except (ImportError, AttributeError):
+            WARSAW_TZ = timezone(timedelta(hours=2))
 from typing import Dict, Any, List, Optional, Tuple
-
-WARSAW_TZ = zoneinfo.ZoneInfo("Europe/Warsaw")
 
 DEFAULT_API_KEY = "sk-YOUR_TOKEN_HERE"
 BASE_URL = "https://api.pstryk.pl/integrations/meter-data/unified-metrics/"
@@ -514,25 +524,100 @@ def find_cheapest_window(data: Dict[str, Any], max_increase_ratio: float = 0.10)
     }
 
 
+def resolve_battery_hardware_parameters(
+    battery_capacity_kwh: Optional[float] = None,
+    nominal_voltage: Optional[float] = None,
+    max_charge_current: Optional[float] = None,
+    inv_cfg: Optional[Dict[str, Any]] = None,
+    inv_tlm: Optional[Dict[str, Any]] = None,
+) -> Tuple[float, float, float]:
+    """
+    Dynamically resolves physical battery capacity (kWh), nominal voltage (V),
+    and maximum charge current (A) without hardcoding static constants.
+    Priority:
+    1. Explicit arguments (if provided and > 0)
+    2. Inverter config / telemetry dictionary (if provided)
+    3. Cached inverter readings (from solarman_v5_client cache)
+    4. Environment variables (BATTERY_CAPACITY_KWH, BATTERY_NOMINAL_VOLTAGE, BATTERY_MAX_CHARGE_CURRENT)
+    5. Fallback defaults (16.13, 51.2, 100.0) ONLY if completely unconfigured anywhere
+    """
+    cfg = dict(inv_cfg) if inv_cfg else {}
+    tlm = dict(inv_tlm) if inv_tlm else {}
+
+    # Check cached inverter data if not supplied
+    if not cfg:
+        try:
+            import solarman_v5_client
+            cached = solarman_v5_client.load_deye_cache(ignore_ttl=True)
+            if cached and isinstance(cached, dict):
+                cfg = cached.get("config", {}) or {}
+                tlm = cached.get("telemetry", {}) or {}
+        except Exception:
+            pass
+
+    # 1. Resolve Nominal Voltage (V)
+    resolved_v = None
+    if nominal_voltage is not None and float(nominal_voltage) > 0:
+        resolved_v = float(nominal_voltage)
+    elif cfg.get("nominal_voltage") and float(cfg["nominal_voltage"]) > 0:
+        resolved_v = float(cfg["nominal_voltage"])
+    elif tlm.get("battery_voltage") and float(tlm["battery_voltage"]) > 40.0:
+        b_v = float(tlm["battery_voltage"])
+        resolved_v = 51.2 if 44.0 <= b_v <= 58.4 else b_v
+    else:
+        env_v = os.getenv("BATTERY_NOMINAL_VOLTAGE")
+        resolved_v = float(env_v) if env_v else 51.2
+
+    # 2. Resolve Maximum Charge Current (A)
+    resolved_curr = None
+    if max_charge_current is not None and float(max_charge_current) > 0:
+        resolved_curr = float(max_charge_current)
+    elif cfg.get("max_charge_current") and float(cfg["max_charge_current"]) > 0:
+        resolved_curr = float(cfg["max_charge_current"])
+    else:
+        env_c = os.getenv("BATTERY_MAX_CHARGE_CURRENT")
+        resolved_curr = float(env_c) if env_c else 100.0
+
+    # 3. Resolve Battery Capacity (kWh)
+    resolved_cap = None
+    if battery_capacity_kwh is not None and float(battery_capacity_kwh) > 0:
+        resolved_cap = float(battery_capacity_kwh)
+    elif cfg.get("batt_capacity_kwh") and float(cfg["batt_capacity_kwh"]) > 0:
+        resolved_cap = float(cfg["batt_capacity_kwh"])
+    elif cfg.get("batt_capacity") and float(cfg["batt_capacity"]) > 0:
+        resolved_cap = round((float(cfg["batt_capacity"]) * resolved_v) / 1000.0, 2)
+    else:
+        env_cap = os.getenv("BATTERY_CAPACITY_KWH")
+        resolved_cap = float(env_cap) if env_cap else 16.13
+
+    return resolved_cap, resolved_v, resolved_curr
+
+
 class BatteryModel:
     """Mathematical and physical model of battery pack with configurable SOC bounds."""
     def __init__(
         self,
-        capacity_kwh: float = 16.13,
+        capacity_kwh: Optional[float] = None,
         max_soc: float = 90.0,
         min_soc: float = 20.0,
         shutdown_soc: float = 5.0,
-        charge_current_a: float = 100.0,
-        discharge_current_a: float = 100.0,
-        voltage_v: float = 51.2,
+        charge_current_a: Optional[float] = None,
+        discharge_current_a: Optional[float] = None,
+        voltage_v: Optional[float] = None,
     ):
-        self.capacity_kwh = float(capacity_kwh)
+        def_cap, def_v, def_c = resolve_battery_hardware_parameters(
+            battery_capacity_kwh=capacity_kwh,
+            nominal_voltage=voltage_v,
+            max_charge_current=charge_current_a,
+        )
+        self.capacity_kwh = float(capacity_kwh if capacity_kwh is not None else def_cap)
         self.max_soc = max(50.0, min(100.0, float(max_soc)))
         self.min_soc = max(10.0, min(50.0, float(min_soc)))
         self.shutdown_soc = max(0.0, min(15.0, float(shutdown_soc)))
-        self.charge_current_a = float(charge_current_a)
-        self.discharge_current_a = float(discharge_current_a)
-        self.voltage_v = float(voltage_v)
+        self.charge_current_a = float(charge_current_a if charge_current_a is not None else def_c)
+        self.discharge_current_a = float(discharge_current_a if discharge_current_a is not None else self.charge_current_a)
+        self.voltage_v = float(voltage_v if voltage_v is not None else def_v)
+
 
     @property
     def operating_capacity_kwh(self) -> float:
@@ -911,10 +996,10 @@ def generate_deye_tou_schedule(
     calibration_active: bool = False,
     default_power_w: int = 5000,
     max_charge_current: Optional[float] = None,
-    battery_capacity_kwh: float = 16.13,
+    battery_capacity_kwh: Optional[float] = None,
     morning_reserve_margin: int = 10,
     pre_peak_margin: int = 20,
-    nominal_voltage: float = 51.2,
+    nominal_voltage: Optional[float] = None,
     loss_buffer_pct: float = 10.0,
 ) -> List[Dict[str, Any]]:
     """
@@ -943,16 +1028,25 @@ def generate_deye_tou_schedule(
         mm = m % 60
         return f"{hh:02d}:{mm:02d}"
 
-    # Derive dynamic 100% base power from inverter max_charge_current and nominal voltage (default 100A @ 51.2V -> 5120W)
-    eff_volts = float(nominal_voltage) if nominal_voltage and float(nominal_voltage) > 0 else 51.2
+    # Derive dynamic 100% base power and capacity from inverter readings / env
+    eff_cap, eff_volts, eff_curr = resolve_battery_hardware_parameters(
+        battery_capacity_kwh=battery_capacity_kwh,
+        nominal_voltage=nominal_voltage,
+        max_charge_current=max_charge_current,
+    )
     if max_charge_current is not None and float(max_charge_current) > 0:
         base_power_w = min(12000, max(1000, int(round(float(max_charge_current) * eff_volts, -1))))
-    else:
+    elif default_power_w is not None and int(default_power_w) > 0:
         base_power_w = int(default_power_w)
+    elif eff_curr > 0 and eff_volts > 0:
+        base_power_w = min(12000, max(1000, int(round(eff_curr * eff_volts, -1))))
+    else:
+        base_power_w = 5000
 
     safe_max_soc = 100 if calibration_active else max(50, min(100, int(max_soc)))
     safe_min_soc = max(10, min(50, int(min_soc)))
     morning_reserve_soc = min(safe_max_soc, safe_min_soc + max(0, int(morning_reserve_margin)))
+
     pre_peak_soc = max(safe_min_soc + int(pre_peak_margin), safe_max_soc - int(pre_peak_margin))
 
     # Safeguard against uninstalled battery (0 or negative SOC) defaulting safely to safe_min_soc
@@ -1001,7 +1095,7 @@ def generate_deye_tou_schedule(
         charge_power_w = max(3500, base_power_w)
     else:
         delta_soc = max(0, safe_max_soc - eff_current_soc)
-        needed_kwh = (delta_soc / 100.0) * float(battery_capacity_kwh)
+        needed_kwh = (delta_soc / 100.0) * float(eff_cap)
         loss_multiplier = 1.0 + (float(loss_buffer_pct) / 100.0)
         charge_energy_kwh = needed_kwh * loss_multiplier
         p_calc = (charge_energy_kwh * 1000.0) / float(charging_duration_hours)
@@ -1321,10 +1415,14 @@ def sync_deye_inverter_tou_schedule(
     eff_max_soc = max_soc if max_soc is not None else inv_cfg.get("max_charge_soc", 90)
     eff_min_soc = min_soc if min_soc is not None else inv_cfg.get("min_discharge_soc", 20)
     eff_current_soc = current_soc if current_soc is not None else inv_tlm.get("battery_soc", 85)
-    eff_max_charge_current = max_charge_current or inv_cfg.get("max_charge_current") or inv_tlm.get("max_charge_current") or 100.0
-    eff_capacity_kwh = float(battery_capacity_kwh) if battery_capacity_kwh is not None else 16.13
+    eff_capacity_kwh, eff_nominal_voltage, eff_max_charge_current = resolve_battery_hardware_parameters(
+        battery_capacity_kwh=battery_capacity_kwh,
+        nominal_voltage=nominal_voltage,
+        max_charge_current=max_charge_current,
+        inv_cfg=inv_cfg,
+        inv_tlm=inv_tlm,
+    )
     eff_morning_margin = int(morning_reserve_margin) if morning_reserve_margin is not None else 10
-    eff_nominal_voltage = float(nominal_voltage) if nominal_voltage is not None else 51.2
     eff_pre_peak_margin = int(pre_peak_margin) if pre_peak_margin is not None else 20
     eff_loss_buffer_pct = float(loss_buffer_pct) if loss_buffer_pct is not None else 10.0
 
@@ -1514,7 +1612,7 @@ def aggregate_frames(data: Dict[str, Any]) -> Dict[str, float]:
     }
 
 
-def format_hhmm(iso_str: Optional[str], tz: Optional[zoneinfo.ZoneInfo] = None) -> str:
+def format_hhmm(iso_str: Optional[str], tz: Optional[Any] = None) -> str:
     """Extracts 'HH:MM' time string in Europe/Warsaw timezone from an ISO timestamp."""
     if not iso_str or not isinstance(iso_str, str):
         return "--:--"
@@ -2021,10 +2119,12 @@ def fetch_consolidated_data(
     eff_max_soc = max_soc if max_soc is not None else 90
     eff_min_soc = min_soc if min_soc is not None else 20
     eff_current_soc = current_soc if current_soc is not None else 85
-    eff_current = max_charge_current or 100.0
-    eff_capacity = float(battery_capacity_kwh) if battery_capacity_kwh is not None else 16.13
+    eff_capacity, eff_voltage, eff_current = resolve_battery_hardware_parameters(
+        battery_capacity_kwh=battery_capacity_kwh,
+        nominal_voltage=nominal_voltage,
+        max_charge_current=max_charge_current,
+    )
     eff_morning_margin = int(morning_reserve_margin) if morning_reserve_margin is not None else 10
-    eff_voltage = float(nominal_voltage) if nominal_voltage is not None else 51.2
     eff_pre_peak_margin = int(pre_peak_margin) if pre_peak_margin is not None else 20
     eff_loss_buffer_pct = float(loss_buffer_pct) if loss_buffer_pct is not None else 10.0
 
@@ -2183,9 +2283,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--print-tou", action="store_true", help="Print human-readable ASCII TOU schedule table without writing to inverter")
     parser.add_argument("--force", action="store_true", help="Force TOU write even if schedule is identical to current inverter settings")
     parser.add_argument("--max-charge-current", type=float, default=None, help="Inverter max charge current override (Amperes)")
-    parser.add_argument("--battery-capacity", type=float, default=16.13, help="Battery total capacity in kWh (default: 16.13)")
+    parser.add_argument("--battery-capacity", type=float, default=None, help="Battery total capacity in kWh (dynamically resolved from Deye/env if omitted)")
     parser.add_argument("--morning-reserve-margin", type=int, default=10, help="Morning reserve SOC margin above min_soc in percent (default: 10)")
-    parser.add_argument("--nominal-voltage", type=float, default=51.2, help="Nominal battery pack voltage in Volts (default: 51.2)")
+    parser.add_argument("--nominal-voltage", type=float, default=None, help="Nominal battery pack voltage in Volts (dynamically resolved from Deye/env if omitted)")
     parser.add_argument("--pre-peak-margin", type=int, default=20, help="Pre-peak daytime autokonsumpcja margin in percent (default: 20)")
     parser.add_argument("--loss-buffer-pct", type=float, default=10.0, help="Charging energy loss buffer percentage (default: 10.0)")
 
@@ -2228,7 +2328,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         header = f"{'Slot':<5} | {'Godzina':<7} | {'Moc (W)':<8} | {'Prąd (~A)':<9} | {'SOC (%)':<8} | {'Sieć':<6} | {'Tryb Pracy'}"
         print(header)
         print("-" * len(header))
-        eff_v = args.nominal_voltage or 51.2
+        _, eff_v, _ = resolve_battery_hardware_parameters(nominal_voltage=args.nominal_voltage)
         for s in slots:
             slot_num = s.get("slot", 0)
             time_str = s.get("time", "--:--")

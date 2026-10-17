@@ -604,8 +604,39 @@ views:
           - entity: script.refresh_deye_inverter_status
             name: Wymuś Odczyt Telemetrii z Falownika
             icon: mdi:refresh
+      - type: conditional
+        conditions:
+          - entity: binary_sensor.deye_battery_critical_parameters_pending
+            state: "on"
+        card:
+          type: vertical-stack
+          cards:
+            - type: markdown
+              title: ⚠️ Oczekuje na Zatwierdzenie Zmiany Progów Baterii
+              content: |-
+                Wykryto zmianę progów na suwakach, która **nie została jeszcze wysłana** do falownika Deye:
+                * **Min SOC (Batt LOW):** `{{ state_attr('binary_sensor.deye_battery_critical_parameters_pending', 'inverter_min_soc') }}` ➔ **`{{ state_attr('binary_sensor.deye_battery_critical_parameters_pending', 'pending_min_soc') }}`**
+                * **Shutdown SOC:** `{{ state_attr('binary_sensor.deye_battery_critical_parameters_pending', 'inverter_shutdown_soc') }}` ➔ **`{{ state_attr('binary_sensor.deye_battery_critical_parameters_pending', 'pending_shutdown_soc') }}`**
+
+                *Wybierz działanie poniżej. Zmiany nie zostaną zapisane bez Twojego potwierdzenia.*
+            - type: horizontal-stack
+              cards:
+                - type: button
+                  name: Zatwierdź i Zastosuj
+                  icon: mdi:check-decagram
+                  tap_action:
+                    action: call-service
+                    service: script.confirm_and_apply_deye_battery_settings
+                    confirmation:
+                      text: "Czy na pewno chcesz zatwierdzić zmianę progów baterii i przesłać nowy harmonogram do falownika Deye?"
+                - type: button
+                  name: Cofnij do Falownika
+                  icon: mdi:undo-variant
+                  tap_action:
+                    action: call-service
+                    service: script.revert_deye_battery_settings_from_inverter
       - type: entities
-        title: Harmonogram Time-of-Use (TOU - Zapis o 00:30 + Retry)
+        title: Harmonogram Time-of-Use & Parametry Baterii
         show_header_toggle: false
         entities:
           - entity: sensor.deye_tou_active_schedule
@@ -614,21 +645,33 @@ views:
           - entity: input_datetime.deye_tou_last_synced_date
             name: Data Ostatniej Synchronizacji TOU
             icon: mdi:calendar-sync
+          - type: section
+            label: Parametry Dyspozycji (Suwaki Edytowalne)
           - entity: input_number.deye_battery_max_charge_soc
             name: Docelowy Max SOC Ładowania (Suwak)
             icon: mdi:battery-arrow-up
           - entity: input_number.deye_morning_reserve_margin_pct
             name: Margines Rezerwy Porannej (+%)
             icon: mdi:battery-plus
-          - entity: input_number.powerbank_total_capacity_kwh
-            name: Pojemność Magazynu Energii (kWh)
+          - entity: input_number.deye_battery_min_discharge_soc
+            name: Min SOC Praca w Sieci (Batt LOW)
+            icon: mdi:battery-arrow-down
+          - entity: input_number.deye_battery_shutdown_soc
+            name: Shutdown SOC (Blackout)
+            icon: mdi:battery-alert
+          - type: section
+            label: Parametry Sprzętowe (Tylko Odczyt)
+          - entity: sensor.powerbank_total_capacity_kwh
+            name: Pojemność Magazynu (Specyfikacja)
             icon: mdi:battery-high
-          - entity: input_number.powerbank_charge_current_a
-            name: Limit Prądu Ładowania (A)
-            icon: mdi:current-ac
-          - entity: input_number.powerbank_voltage_v
-            name: Napięcie Nominalne Magazynu (V)
+          - entity: sensor.deye_inverter_max_charge_current
+            name: Limit Prądu Ładowania (Falownik Reg 108)
+            icon: mdi:current-dc
+          - entity: sensor.powerbank_voltage_v
+            name: Napięcie Nominalne Magazynu (Specyfikacja)
             icon: mdi:sine-wave
+          - type: section
+            label: Sterowanie Ręczne
           - entity: input_select.ev_charging_target_hours
             name: Długość Okna Ładowania EV
             icon: mdi:car-electric
@@ -641,14 +684,14 @@ views:
       - type: markdown
         title: Aktywne Sloty Falownika Deye (Time-of-Use) — Dziś
         content: |-
-          {% set nom_v = states('input_number.powerbank_voltage_v') | default('51.2', true) | float(51.2) %}
+          {% set nom_v = states('sensor.powerbank_voltage_v') | float(0.0) %}
           {% set active = state_attr('sensor.deye_inverter_status', 'active_tou') %}
           {% set slots = active['slots'] if active and active['slots'] is defined else (state_attr('sensor.deye_tou_active_schedule', 'slots') if state_attr('sensor.deye_tou_active_schedule', 'slots') is defined else []) %}
           {% if slots and slots | length == 6 -%}
           | Slot | Godzina | Moc / Prąd | SOC | Sieć | Tryb Pracy |
           |:---:|:---:|:---:|:---:|:---:|:---|
           {% for s in slots -%}
-          | **{{ s.slot }}** | `{{ s.time }}` | {{ s.power_w if s.power_w is defined else 5000 }} W (~{{ ((s.power_w if s.power_w is defined else 5000) / nom_v) | round(0) }} A) | {{ s.target_soc }}% | {{ '**⚡ TAK**' if s.grid_charge else 'NIE' }} | {{ s.label if s.label else ('Najtańsze Ładowanie' if s.grid_charge else ('Czuwanie Przed Szczytem' if s.target_soc >= 80 else 'Autokonsumpcja PV')) }} |
+          | **{{ s.slot }}** | `{{ s.time }}` | {{ s.power_w if s.power_w is defined else 5000 }} W{% if nom_v > 0 %} (~{{ ((s.power_w if s.power_w is defined else 5000) / nom_v) | round(0) }} A){% endif %} | {{ s.target_soc }}% | {{ '**⚡ TAK**' if s.grid_charge else 'NIE' }} | {{ s.label if s.label else ('Najtańsze Ładowanie' if s.grid_charge else ('Czuwanie Przed Szczytem' if s.target_soc >= 80 else 'Autokonsumpcja PV')) }} |
           {% endfor %}
 
           ---

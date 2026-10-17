@@ -169,8 +169,8 @@ def test_read_inverter_telemetry_offline_fallback():
         assert "active_tou" in res
         assert res["config"]["max_charge_soc"] == 90
         assert res["config"]["min_discharge_soc"] == 20
-        assert res["telemetry"]["battery_voltage"] == 51.2
-        assert res["telemetry"]["battery_soc"] == 85
+        assert res["telemetry"]["battery_voltage"] == 0.0
+        assert res["telemetry"]["battery_soc"] == 0
 
 
 def test_read_inverter_telemetry_online():
@@ -326,4 +326,81 @@ def test_cli_scan_and_set_config(tmp_path):
         mock_scan.return_value = {"found": True, "ip": "10.20.2.6", "port": 8899, "devices": []}
         ret_scan = solarman_v5_client.main(["--scan"])
         assert ret_scan == 0
+
+
+def test_read_inverter_telemetry_reads_capacity_reg_102():
+    """Verifies read_inverter_telemetry reads reg 102 (Ah) and dynamically derives batt_capacity_kwh."""
+    def mock_read(host, port, start_reg, qty, serial=0):
+        if start_reg == 102 and qty == 11:
+            # 102: 315 Ah, 103..107: 0, 108: 140A, 109: 140A, 110: 20%, 111: 5%, 112: 95%
+            return {"success": True, "registers": [315, 0, 0, 0, 0, 0, 140, 140, 20, 5, 95], "message": "OK"}
+        elif start_reg == 587:
+            # 51.2V, 80% SOC
+            return {"success": True, "registers": [512, 80, 0, 0, 0], "message": "OK"}
+        elif start_reg == 248:
+            return {"success": True, "registers": [1, 0] + [100]*6 + [5000]*6 + [90]*6 + [1]*6, "message": "OK"}
+        return {"success": False, "registers": [], "message": "Unknown reg"}
+
+    with mock.patch("solarman_v5_client.read_holding_registers", side_effect=mock_read):
+        res = solarman_v5_client.read_inverter_telemetry("10.20.2.6", 8899, force_refresh=True)
+        assert res["success"] is True
+        assert res["config"]["batt_capacity"] == 315
+        assert res["config"]["max_charge_current"] == 140
+        assert res["config"]["nominal_voltage"] == 51.2
+        # 315 Ah * 51.2 V / 1000 = 16.128 -> 16.13 kWh
+        assert res["config"]["batt_capacity_kwh"] == 16.13
+
+
+def test_deye_read_cache_lifecycle_and_write_on_change(tmp_path):
+    """Verifies that readings are cached for 30s TTL and only written to disk when data changes."""
+    cache_file = str(tmp_path / "cache_test.json")
+
+    sample_data = {
+        "success": True,
+        "config": {"batt_capacity": 315, "max_charge_current": 100, "nominal_voltage": 51.2},
+        "telemetry": {"battery_voltage": 51.2, "battery_soc": 90, "battery_installed": True},
+        "active_tou": {"enabled": True, "slots": []},
+    }
+
+    # 1. First save: writes to disk
+    written = solarman_v5_client.save_deye_cache(sample_data, cache_path=cache_file)
+    assert written is True
+    assert os.path.exists(cache_file)
+
+    # 2. Identical save: skipped to prevent disk/flash wear
+    written_second = solarman_v5_client.save_deye_cache(sample_data, cache_path=cache_file)
+    assert written_second is False
+
+    # 3. Read within TTL returns cached copy
+    cached = solarman_v5_client.load_deye_cache(cache_path=cache_file)
+    assert cached is not None
+    assert cached["config"]["batt_capacity"] == 315
+
+    # 4. Modified save: writes to disk
+    sample_data_mod = dict(sample_data)
+    sample_data_mod["telemetry"] = dict(sample_data["telemetry"], battery_soc=92)
+    written_third = solarman_v5_client.save_deye_cache(sample_data_mod, cache_path=cache_file)
+    assert written_third is True
+
+
+def test_deye_offline_fallback_to_cache(tmp_path):
+    """Verifies that when Deye is unreachable, read_inverter_telemetry serves cached data with offline=True."""
+    cache_file = str(tmp_path / "cache_offline.json")
+    cached_payload = {
+        "success": True,
+        "config": {"batt_capacity": 315, "max_charge_current": 100},
+        "telemetry": {"battery_voltage": 51.2, "battery_soc": 85, "battery_installed": True},
+        "active_tou": {"enabled": True, "slots": []},
+    }
+    solarman_v5_client.save_deye_cache(cached_payload, cache_path=cache_file)
+
+    # Inverter poll fails
+    with mock.patch("solarman_v5_client.read_holding_registers", return_value={"success": False, "registers": [], "message": "Host down"}):
+        res = solarman_v5_client.read_inverter_telemetry("10.20.2.6", 8899, force_refresh=True, cache_path=cache_file)
+        assert res["success"] is True
+        assert res["offline"] is True
+        assert res["source"] == "cached_fallback"
+        assert res["config"]["batt_capacity"] == 315
+        assert res["telemetry"]["battery_soc"] == 85
+
 

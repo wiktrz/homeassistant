@@ -53,9 +53,9 @@ shell_command:
   scan_deye_inverter_ip: >-
     python3 /config/solarman_v5_client.py --scan --save-discovered
   sync_deye_inverter_tou: >-
-    python3 /config/pstryk_engine.py --sync-deye-tou --inverter-host {{ states('input_text.deye_inverter_ip') | default('10.20.2.6', true) }} --inverter-port {{ states('input_number.deye_inverter_port') | int(8899) }} {% if calibration is defined and calibration %}--calibration{% endif %} {% if tomorrow is defined and (tomorrow == true or tomorrow == 'true') %}--tomorrow{% endif %} {% if force is defined and (force == true or force == 'true') %}--force{% endif %} {% if states('sensor.deye_battery_soc') not in ['unknown', 'unavailable', ''] and states('sensor.deye_battery_soc') | int(0) > 0 %}--current-soc {{ states('sensor.deye_battery_soc') | int }}{% endif %} {% if states('input_number.deye_battery_max_charge_soc') not in ['unknown', 'unavailable', ''] %}--max-soc {{ states('input_number.deye_battery_max_charge_soc') | int(90) }}{% endif %} {% if states('sensor.deye_inverter_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('sensor.deye_inverter_min_discharge_soc') | int(20) }}{% endif %} {% if states('sensor.deye_inverter_max_charge_current') not in ['unknown', 'unavailable', ''] %}--max-charge-current {{ states('sensor.deye_inverter_max_charge_current') | float }}{% elif states('input_number.powerbank_charge_current_a') not in ['unknown', 'unavailable', ''] %}--max-charge-current {{ states('input_number.powerbank_charge_current_a') | float(100.0) }}{% endif %} {% if states('input_number.powerbank_total_capacity_kwh') not in ['unknown', 'unavailable', ''] %}--battery-capacity {{ states('input_number.powerbank_total_capacity_kwh') | float(16.13) }}{% endif %} {% if states('input_number.deye_morning_reserve_margin_pct') not in ['unknown', 'unavailable', ''] %}--morning-reserve-margin {{ states('input_number.deye_morning_reserve_margin_pct') | int(10) }}{% endif %} {% if states('input_number.powerbank_voltage_v') not in ['unknown', 'unavailable', ''] %}--nominal-voltage {{ states('input_number.powerbank_voltage_v') | float(51.2) }}{% endif %} --loss-buffer-pct 10.0
+    python3 /config/pstryk_engine.py --sync-deye-tou --inverter-host {{ states('input_text.deye_inverter_ip') | default('10.20.2.6', true) }} --inverter-port {{ states('input_number.deye_inverter_port') | int(8899) }} {% if calibration is defined and calibration %}--calibration{% endif %} {% if tomorrow is defined and (tomorrow == true or tomorrow == 'true') %}--tomorrow{% endif %} {% if force is defined and (force == true or force == 'true') %}--force{% endif %} {% if states('sensor.deye_battery_soc') not in ['unknown', 'unavailable', ''] and states('sensor.deye_battery_soc') | int(0) > 0 %}--current-soc {{ states('sensor.deye_battery_soc') | int }}{% endif %} {% if states('input_number.deye_battery_max_charge_soc') not in ['unknown', 'unavailable', ''] %}--max-soc {{ states('input_number.deye_battery_max_charge_soc') | int(90) }}{% endif %} {% if states('input_number.deye_battery_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('input_number.deye_battery_min_discharge_soc') | int(20) }}{% elif states('sensor.deye_inverter_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('sensor.deye_inverter_min_discharge_soc') | int(20) }}{% endif %} {% if states('sensor.deye_inverter_max_charge_current') | float(0) > 0 %}--max-charge-current {{ states('sensor.deye_inverter_max_charge_current') | float }}{% endif %} {% if states('sensor.powerbank_total_capacity_kwh') | float(0) > 0 %}--battery-capacity {{ states('sensor.powerbank_total_capacity_kwh') | float }}{% endif %} {% if states('input_number.deye_morning_reserve_margin_pct') not in ['unknown', 'unavailable', ''] %}--morning-reserve-margin {{ states('input_number.deye_morning_reserve_margin_pct') | int(10) }}{% endif %} {% if states('sensor.powerbank_voltage_v') | float(0) > 0 %}--nominal-voltage {{ states('sensor.powerbank_voltage_v') | float }}{% endif %} --loss-buffer-pct 10.0
   sync_deye_inverter: >-
-    python3 /config/pstryk_engine.py --sync-deye-tou --inverter-host {{ states('input_text.deye_inverter_ip') | default('10.20.2.6', true) }} --inverter-port {{ states('input_number.deye_inverter_port') | int(8899) }} {% if calibration is defined and calibration %}--calibration{% endif %} {% if tomorrow is defined and (tomorrow == true or tomorrow == 'true') %}--tomorrow{% endif %} {% if force is defined and (force == true or force == 'true') %}--force{% endif %} {% if states('sensor.deye_battery_soc') not in ['unknown', 'unavailable', ''] and states('sensor.deye_battery_soc') | int(0) > 0 %}--current-soc {{ states('sensor.deye_battery_soc') | int }}{% endif %} {% if states('input_number.deye_battery_max_charge_soc') not in ['unknown', 'unavailable', ''] %}--max-soc {{ states('input_number.deye_battery_max_charge_soc') | int(90) }}{% endif %} {% if states('sensor.deye_inverter_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('sensor.deye_inverter_min_discharge_soc') | int(20) }}{% endif %} {% if states('sensor.deye_inverter_max_charge_current') not in ['unknown', 'unavailable', ''] %}--max-charge-current {{ states('sensor.deye_inverter_max_charge_current') | float }}{% elif states('input_number.powerbank_charge_current_a') not in ['unknown', 'unavailable', ''] %}--max-charge-current {{ states('input_number.powerbank_charge_current_a') | float(100.0) }}{% endif %} {% if states('input_number.powerbank_total_capacity_kwh') not in ['unknown', 'unavailable', ''] %}--battery-capacity {{ states('input_number.powerbank_total_capacity_kwh') | float(16.13) }}{% endif %} {% if states('input_number.deye_morning_reserve_margin_pct') not in ['unknown', 'unavailable', ''] %}--morning-reserve-margin {{ states('input_number.deye_morning_reserve_margin_pct') | int(10) }}{% endif %} {% if states('input_number.powerbank_voltage_v') not in ['unknown', 'unavailable', ''] %}--nominal-voltage {{ states('input_number.powerbank_voltage_v') | float(51.2) }}{% endif %} --loss-buffer-pct 10.0
+    python3 /config/pstryk_engine.py --sync-deye-tou --inverter-host {{ states('input_text.deye_inverter_ip') | default('10.20.2.6', true) }} --inverter-port {{ states('input_number.deye_inverter_port') | int(8899) }} {% if calibration is defined and calibration %}--calibration{% endif %} {% if tomorrow is defined and (tomorrow == true or tomorrow == 'true') %}--tomorrow{% endif %} {% if force is defined and (force == true or force == 'true') %}--force{% endif %} {% if states('sensor.deye_battery_soc') not in ['unknown', 'unavailable', ''] and states('sensor.deye_battery_soc') | int(0) > 0 %}--current-soc {{ states('sensor.deye_battery_soc') | int }}{% endif %} {% if states('input_number.deye_battery_max_charge_soc') not in ['unknown', 'unavailable', ''] %}--max-soc {{ states('input_number.deye_battery_max_charge_soc') | int(90) }}{% endif %} {% if states('input_number.deye_battery_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('input_number.deye_battery_min_discharge_soc') | int(20) }}{% elif states('sensor.deye_inverter_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('sensor.deye_inverter_min_discharge_soc') | int(20) }}{% endif %} {% if states('sensor.deye_inverter_max_charge_current') | float(0) > 0 %}--max-charge-current {{ states('sensor.deye_inverter_max_charge_current') | float }}{% endif %} {% if states('sensor.powerbank_total_capacity_kwh') | float(0) > 0 %}--battery-capacity {{ states('sensor.powerbank_total_capacity_kwh') | float }}{% endif %} {% if states('input_number.deye_morning_reserve_margin_pct') not in ['unknown', 'unavailable', ''] %}--morning-reserve-margin {{ states('input_number.deye_morning_reserve_margin_pct') | int(10) }}{% endif %} {% if states('sensor.powerbank_voltage_v') | float(0) > 0 %}--nominal-voltage {{ states('sensor.powerbank_voltage_v') | float }}{% endif %} --loss-buffer-pct 10.0
 
 light:
   - platform: group
@@ -627,38 +627,6 @@ input_number:
     mode: slider
     unit_of_measurement: "%"
     icon: mdi:battery-alert
-  powerbank_total_capacity_kwh:
-    name: "Całkowita Pojemność Magazynu Energii"
-    min: 5.0
-    max: 100.0
-    step: 0.1
-    mode: slider
-    unit_of_measurement: "kWh"
-    icon: mdi:battery-high
-  powerbank_charge_current_a:
-    name: "Prąd Ładowania Magazynu"
-    min: 10
-    max: 240
-    step: 5
-    mode: slider
-    unit_of_measurement: "A"
-    icon: mdi:current-ac
-  powerbank_discharge_current_a:
-    name: "Prąd Rozładowania / Sprzedaży Magazynu"
-    min: 10
-    max: 240
-    step: 5
-    mode: slider
-    unit_of_measurement: "A"
-    icon: mdi:current-ac
-  powerbank_voltage_v:
-    name: "Napięcie Nominalne Magazynu"
-    min: 48.0
-    max: 60.0
-    step: 0.1
-    mode: slider
-    unit_of_measurement: "V"
-    icon: mdi:sine-wave
   deye_inverter_port:
     name: "Port Falownika Deye (Solarman V5)"
     min: 1

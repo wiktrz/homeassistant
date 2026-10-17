@@ -1212,6 +1212,43 @@ sync_deye_inverter_soc:
   mode: single
   icon: mdi:sync
 
+confirm_and_apply_deye_battery_settings:
+  alias: Zatwierdź i Zastosuj Parametry Baterii w Falowniku
+  description: Dwustopniowe potwierdzenie — zatwierdza nowe progi baterii (Min SOC / Shutdown SOC) i przesyła zaktualizowany harmonogram TOU do falownika Deye.
+  sequence:
+    - action: script.sync_deye_inverter_tou
+      data:
+        tomorrow: false
+        force: true
+    - action: persistent_notification.create
+      data:
+        title: "⚡ Deye: Zastosowano Nowe Progi Baterii"
+        message: >-
+          Zatwierdzono i przesłano parametry do falownika Deye:
+          Min SOC (Batt LOW): {{ states('input_number.deye_battery_min_discharge_soc') }}%,
+          Shutdown SOC: {{ states('input_number.deye_battery_shutdown_soc') }}%,
+          Max SOC: {{ states('input_number.deye_battery_max_charge_soc') }}%.
+        notification_id: deye_battery_confirmed_params
+  mode: single
+  icon: mdi:check-decagram
+
+revert_deye_battery_settings_from_inverter:
+  alias: Cofnij Zmiany do Ustawień Falownika
+  description: Cofa wprowadzone na suwakach zmiany progów baterii i przywraca wartości aktualnie aktywne w falowniku Deye.
+  sequence:
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.deye_battery_min_discharge_soc
+      data:
+        value: "{{ states('sensor.deye_inverter_min_discharge_soc') | default('20', true) | float(20) }}"
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.deye_battery_shutdown_soc
+      data:
+        value: "{{ states('sensor.deye_inverter_shutdown_soc') | default('5', true) | float(5) }}"
+  mode: single
+  icon: mdi:undo-variant
+
 start_deye_battery_calibration:
   alias: Rozpocznij Kalibrację Baterii do 100% (BMS Health)
   description: Zezwala na pełne naładowanie magazynu SunDeposit do 100% w celu kalibracji BMS i zbalansowania cel LiFePO4 w oknie TOU.
