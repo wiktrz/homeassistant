@@ -331,7 +331,7 @@ def test_cli_sync_pstryk_tou_flag():
 
 
 def test_set_battery_safety_limits_cloud_success():
-    """Verifies set_battery_safety_limits_cloud formats payload and calls OpenAPI."""
+    """Verifies set_battery_safety_limits_cloud formats payload according to OpenAPI schema and customControl."""
     with mock.patch("deye_cloud_client.call_deye_api") as mock_api:
         mock_api.return_value = (True, {"code": "1000000", "msg": "success"}, "OK")
         cfg = {"inverter_sn": "2603160727", "api_key": "test_key"}
@@ -340,11 +340,36 @@ def test_set_battery_safety_limits_cloud_success():
         assert res["success"] is True
         assert res["min_soc"] == 15
         assert res["shutdown_soc"] == 5
+
+        # Verify calls: 1st for BATT_LOW, 2nd for Shutdown SOC customControl
+        assert mock_api.call_count == 2
+        call_min = mock_api.call_args_list[0]
+        assert call_min[0][0] == "/v1.0/order/battery/parameter/update"
+        assert call_min[1]["data"]["deviceSn"] == "2603160727"
+        assert call_min[1]["data"]["paramterType"] == "BATT_LOW"
+        assert call_min[1]["data"]["value"] == 15
+
+        call_shut = mock_api.call_args_list[1]
+        assert call_shut[0][0] == "/v1.0/order/customControl"
+        assert call_shut[1]["data"]["deviceSn"] == "2603160727"
+        assert "content" in call_shut[1]["data"]
+
+
+def test_set_charge_current_cloud_success():
+    """Verifies set_charge_current_cloud formats payload according to OpenAPI schema."""
+    with mock.patch("deye_cloud_client.call_deye_api") as mock_api:
+        mock_api.return_value = (True, {"code": "1000000", "msg": "success"}, "OK")
+        cfg = {"inverter_sn": "2603160727", "api_key": "test_key"}
+        res = deye_cloud_client.set_charge_current_cloud(current_a=50, cfg=cfg)
+
+        assert res["success"] is True
+        assert res["current_a"] == 50
         mock_api.assert_called_once()
         args, kwargs = mock_api.call_args
+        assert args[0] == "/v1.0/order/battery/parameter/update"
         assert kwargs["data"]["deviceSn"] == "2603160727"
-        assert kwargs["data"]["battLowCapacity"] == 15
-        assert kwargs["data"]["battShutDownCapacity"] == 5
+        assert kwargs["data"]["paramterType"] == "MAX_CHARGE_CURRENT"
+        assert kwargs["data"]["value"] == 50
 
 
 def test_set_battery_safety_limits_cloud_validation():
@@ -362,5 +387,6 @@ def test_cli_set_safety_limits_flag():
         ret = deye_cloud_client.main(["--set-safety-limits", "--min-soc", "15", "--shutdown-soc", "5"])
         assert ret == 0
         mock_set.assert_called_once_with(min_soc=15, shutdown_soc=5, cfg=mock.ANY)
+
 
 

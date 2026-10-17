@@ -121,8 +121,8 @@ def build_solarman_v5_frame(modbus_payload: bytes, serial_number: int = 0) -> by
     return full_body + struct.pack("BB", checksum, 0x15)
 
 
-def send_command(host: str, port: int, frame: bytes, timeout: float = DEFAULT_TIMEOUT, retries: int = 2) -> Tuple[bool, bytes, str]:
-    """Sends raw frame to inverter stick logger and awaits response with retries."""
+def send_command(host: str, port: int, frame: bytes, timeout: float = DEFAULT_TIMEOUT, retries: int = 3) -> Tuple[bool, bytes, str]:
+    """Sends raw frame to inverter stick logger and awaits response with retries and backoff."""
     last_err = ""
     for attempt in range(retries + 1):
         try:
@@ -143,7 +143,7 @@ def send_command(host: str, port: int, frame: bytes, timeout: float = DEFAULT_TI
             last_err = f"Socket error connecting to {host}:{port}: {e}"
 
         if attempt < retries:
-            time.sleep(0.3)
+            time.sleep(0.5)
     return False, b"", last_err
 
 

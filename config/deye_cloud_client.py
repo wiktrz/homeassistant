@@ -20,6 +20,7 @@ import hashlib
 import urllib.request
 import urllib.error
 import urllib.parse
+import struct
 import argparse
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple, List
@@ -629,7 +630,7 @@ def sync_tou_schedule(
 def set_charge_current_cloud(current_a: Optional[int] = None, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Sets battery max charge current via Deye Cloud OpenAPI.
-    Calls POST /v1.0/order/battery/parameter/update or /v1.0/order/sys/battery/update
+    Calls POST /v1.0/order/battery/parameter/update with paramterType="MAX_CHARGE_CURRENT"
     """
     cfg = cfg or get_deye_cloud_config()
     target_sn = cfg.get("inverter_sn")
@@ -642,11 +643,10 @@ def set_charge_current_cloud(current_a: Optional[int] = None, cfg: Optional[Dict
 
     payload = {
         "deviceSn": target_sn,
-        "maxChargeCurrent": clamped_a,
+        "paramterType": "MAX_CHARGE_CURRENT",
+        "value": clamped_a,
     }
     ok, res, msg = call_deye_api("/v1.0/order/battery/parameter/update", method="POST", data=payload, cfg=cfg)
-    if not ok:
-        ok, res, msg = call_deye_api("/v1.0/order/sys/battery/update", method="POST", data=payload, cfg=cfg)
 
     app_success = False
     if ok and isinstance(res, dict):
@@ -673,7 +673,8 @@ def set_battery_safety_limits_cloud(
 ) -> Dict[str, Any]:
     """
     Sets battery safety limits (Batt LOW / Min SOC and Shutdown SOC) via Deye Cloud OpenAPI.
-    Calls POST /v1.0/order/battery/parameter/update or /v1.0/order/sys/battery/update
+    - Batt LOW (Min SOC, Reg 110) via POST /v1.0/order/battery/parameter/update with paramterType="BATT_LOW"
+    - Shutdown SOC (Reg 111) via POST /v1.0/order/customControl (Modbus RTU Function 0x06 frame)
     """
     cfg = cfg or get_deye_cloud_config()
     target_sn = cfg.get("inverter_sn")
@@ -692,31 +693,68 @@ def set_battery_safety_limits_cloud(
             "message": f"Invalid safety limits: Shutdown SOC ({clamped_shutdown}%) must be strictly less than Min SOC ({clamped_min}%)",
         }
 
-    payload = {
+    # 1. Update Batt LOW (Min SOC, Register 110) via official OpenAPI endpoint
+    payload_min = {
         "deviceSn": target_sn,
-        "battLowCapacity": clamped_min,
-        "battShutDownCapacity": clamped_shutdown,
+        "paramterType": "BATT_LOW",
+        "value": clamped_min,
     }
-    ok, res, msg = call_deye_api("/v1.0/order/battery/parameter/update", method="POST", data=payload, cfg=cfg)
-    if not ok:
-        ok, res, msg = call_deye_api("/v1.0/order/sys/battery/update", method="POST", data=payload, cfg=cfg)
+    ok_min, res_min, msg_min = call_deye_api("/v1.0/order/battery/parameter/update", method="POST", data=payload_min, cfg=cfg)
 
-    app_success = False
-    if ok and isinstance(res, dict):
-        code = str(res.get("code", ""))
-        app_success = (code in ("1000000", "1106000") or res.get("success") is True)
-        if "msg" in res:
-            msg = res.get("msg")
-    elif ok:
-        app_success = True
+    min_success = False
+    if ok_min and isinstance(res_min, dict):
+        code = str(res_min.get("code", ""))
+        min_success = (code in ("1000000", "1106000") or res_min.get("success") is True)
+        if "msg" in res_min:
+            msg_min = res_min.get("msg")
+    elif ok_min:
+        min_success = True
+
+    # 2. Update Shutdown SOC (Holding Register 111 / 0x006F) via customControl Modbus frame if provided
+    res_shut = None
+    msg_shut = ""
+    shut_success = False
+    if shutdown_soc is not None:
+        try:
+            # Build Modbus RTU Function 0x06 write to Register 111 (0x006F)
+            modbus_payload = struct.pack(">BBHH", 1, 6, 111, clamped_shutdown)
+            crc = 0xFFFF
+            for byte in modbus_payload:
+                crc ^= byte
+                for _ in range(8):
+                    if crc & 0x0001:
+                        crc = (crc >> 1) ^ 0xA001
+                    else:
+                        crc >>= 1
+            full_frame = modbus_payload + struct.pack("<H", crc)
+            custom_payload = {
+                "deviceSn": target_sn,
+                "content": full_frame.hex(),
+            }
+            ok_shut, res_shut, msg_shut = call_deye_api("/v1.0/order/customControl", method="POST", data=custom_payload, cfg=cfg)
+            if ok_shut and isinstance(res_shut, dict):
+                code = str(res_shut.get("code", ""))
+                shut_success = (code in ("1000000", "1106000") or res_shut.get("success") is True)
+                if "msg" in res_shut:
+                    msg_shut = res_shut.get("msg")
+            elif ok_shut:
+                shut_success = True
+        except Exception as e:
+            msg_shut = str(e)
+
+    overall_success = min_success or shut_success
+    combined_msg = msg_min if min_success else f"BATT_LOW failed: {msg_min}"
+    if shutdown_soc is not None and not shut_success and msg_shut:
+        combined_msg += f"; Shutdown SOC customControl note: {msg_shut}"
 
     return {
-        "success": app_success,
+        "success": overall_success,
         "source": "deye_cloud_openapi",
         "min_soc": clamped_min,
         "shutdown_soc": clamped_shutdown,
-        "response": res,
-        "message": msg,
+        "response": res_min,
+        "shutdown_response": res_shut,
+        "message": combined_msg,
     }
 
 

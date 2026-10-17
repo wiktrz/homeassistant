@@ -154,8 +154,8 @@ Triggered via `script.trigger_deye_battery_calibration`:
 3. User must either:
    - Click **"Zatwierdź i Zastosuj"** (`script.confirm_and_apply_deye_battery_settings`), which executes:
      1. `shell_command.apply_deye_battery_safety_limits`: invokes `solarman_v5_client.apply_confirmed_battery_safety_limits` via `pstryk_engine.py --apply-battery-safety-limits`.
-        - Writes Register 110 (Min SOC / Batt LOW) and Register 111 (Shutdown SOC) via Modbus RTU (Function 0x06).
-        - Falls back to Deye Cloud OpenAPI (`POST /v1.0/order/battery/parameter/update` with `battLowCapacity` & `battShutDownCapacity`) if local TCP socket is refused or timed out.
+        - Writes Register 110 (Min SOC / Batt LOW) and Register 111 (Shutdown SOC) via Modbus RTU (Function 0x06) with socket retry backoff.
+        - Falls back to Deye Cloud OpenAPI (`POST /v1.0/order/battery/parameter/update` with `paramterType: "BATT_LOW"`, and `POST /v1.0/order/customControl` for Shutdown SOC) if local TCP socket is refused or timed out.
         - Immediately updates local cache (`/config/.deye_inverter_cache.json`) via cache write-through.
      2. `script.sync_deye_inverter_tou`: calculates and uploads the 6-slot TOU schedule aligned with the new Min SOC.
      3. `homeassistant.update_entity(sensor.deye_inverter_status)`: immediately ingests the updated cache, synchronizing `sensor.deye_inverter_min_discharge_soc` and `sensor.deye_inverter_shutdown_soc` with the sliders, clearing `binary_sensor.deye_battery_critical_parameters_pending` to `off`.
