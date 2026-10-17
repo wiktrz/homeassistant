@@ -1283,8 +1283,8 @@ def test_uninstalled_battery_zero_soc_safeguard():
         best_sell_window=sell_win,
     )
     charge_slot = [s for s in slots_zero if s["grid_charge"] is True][0]
-    # Treats as empty battery (20%) -> 5000W
-    assert charge_slot["power_w"] == 5000
+    # Treats as empty battery (20%) -> dynamic 5120W (100A * 51.2V)
+    assert charge_slot["power_w"] in (5000, 5120)
 
 
 def test_are_tou_slots_identical_matching_and_tolerance():

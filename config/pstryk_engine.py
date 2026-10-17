@@ -29,9 +29,12 @@ except (ImportError, AttributeError):
             WARSAW_TZ = timezone(timedelta(hours=2))
 from typing import Dict, Any, List, Optional, Tuple
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import energy_defaults
+
 DEFAULT_API_KEY = "sk-YOUR_TOKEN_HERE"
 BASE_URL = "https://api.pstryk.pl/integrations/meter-data/unified-metrics/"
-CACHE_TTL_SECONDS = 900  # 15 minutes
+CACHE_TTL_SECONDS = int(energy_defaults.PSTRYK_CACHE_TTL)
 DEFAULT_CACHE_DIR = "/tmp"
 
 
@@ -539,7 +542,7 @@ def resolve_battery_hardware_parameters(
     2. Inverter config / telemetry dictionary (if provided)
     3. Cached inverter readings (from solarman_v5_client cache)
     4. Environment variables (BATTERY_CAPACITY_KWH, BATTERY_NOMINAL_VOLTAGE, BATTERY_MAX_CHARGE_CURRENT)
-    5. Fallback defaults (16.13, 51.2, 100.0) ONLY if completely unconfigured anywhere
+    5. Fallback defaults from .env / energy_defaults ONLY if completely unconfigured anywhere
     """
     cfg = dict(inv_cfg) if inv_cfg else {}
     tlm = dict(inv_tlm) if inv_tlm else {}
@@ -561,12 +564,12 @@ def resolve_battery_hardware_parameters(
         resolved_v = float(nominal_voltage)
     elif cfg.get("nominal_voltage") and float(cfg["nominal_voltage"]) > 0:
         resolved_v = float(cfg["nominal_voltage"])
-    elif tlm.get("battery_voltage") and float(tlm["battery_voltage"]) > 40.0:
+    elif tlm.get("battery_voltage") and float(tlm["battery_voltage"]) > energy_defaults.BATTERY_PRESENCE_VOLTAGE_THRESHOLD:
         b_v = float(tlm["battery_voltage"])
-        resolved_v = 51.2 if 44.0 <= b_v <= 58.4 else b_v
+        resolved_v = energy_defaults.FALLBACK_BATTERY_NOMINAL_VOLTAGE if energy_defaults.LIFEPO4_16S_VOLTAGE_LOW <= b_v <= energy_defaults.LIFEPO4_16S_VOLTAGE_HIGH else b_v
     else:
         env_v = os.getenv("BATTERY_NOMINAL_VOLTAGE")
-        resolved_v = float(env_v) if env_v else 51.2
+        resolved_v = float(env_v) if env_v else energy_defaults.FALLBACK_BATTERY_NOMINAL_VOLTAGE
 
     # 2. Resolve Maximum Charge Current (A)
     resolved_curr = None
@@ -575,8 +578,8 @@ def resolve_battery_hardware_parameters(
     elif cfg.get("max_charge_current") and float(cfg["max_charge_current"]) > 0:
         resolved_curr = float(cfg["max_charge_current"])
     else:
-        env_c = os.getenv("BATTERY_MAX_CHARGE_CURRENT")
-        resolved_curr = float(env_c) if env_c else 100.0
+        env_c = os.getenv("BATTERY_MAX_CHARGE_CURRENT") or os.getenv("BATTERY_CHARGE_CURRENT_A")
+        resolved_curr = float(env_c) if env_c else energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT
 
     # 3. Resolve Battery Capacity (kWh)
     resolved_cap = None
@@ -588,7 +591,7 @@ def resolve_battery_hardware_parameters(
         resolved_cap = round((float(cfg["batt_capacity"]) * resolved_v) / 1000.0, 2)
     else:
         env_cap = os.getenv("BATTERY_CAPACITY_KWH")
-        resolved_cap = float(env_cap) if env_cap else 16.13
+        resolved_cap = float(env_cap) if env_cap else energy_defaults.FALLBACK_BATTERY_CAPACITY_KWH
 
     return resolved_cap, resolved_v, resolved_curr
 
@@ -598,9 +601,9 @@ class BatteryModel:
     def __init__(
         self,
         capacity_kwh: Optional[float] = None,
-        max_soc: float = 90.0,
-        min_soc: float = 20.0,
-        shutdown_soc: float = 5.0,
+        max_soc: Optional[float] = None,
+        min_soc: Optional[float] = None,
+        shutdown_soc: Optional[float] = None,
         charge_current_a: Optional[float] = None,
         discharge_current_a: Optional[float] = None,
         voltage_v: Optional[float] = None,
@@ -610,10 +613,14 @@ class BatteryModel:
             nominal_voltage=voltage_v,
             max_charge_current=charge_current_a,
         )
+        eff_max = max_soc if max_soc is not None else energy_defaults.DEFAULT_MAX_SOC
+        eff_min = min_soc if min_soc is not None else energy_defaults.DEFAULT_MIN_SOC
+        eff_shut = shutdown_soc if shutdown_soc is not None else energy_defaults.DEFAULT_SHUTDOWN_SOC
+
         self.capacity_kwh = float(capacity_kwh if capacity_kwh is not None else def_cap)
-        self.max_soc = max(50.0, min(100.0, float(max_soc)))
-        self.min_soc = max(10.0, min(50.0, float(min_soc)))
-        self.shutdown_soc = max(0.0, min(15.0, float(shutdown_soc)))
+        self.max_soc = max(50.0, min(100.0, float(eff_max)))
+        self.min_soc = max(10.0, min(50.0, float(eff_min)))
+        self.shutdown_soc = max(0.0, min(15.0, float(eff_shut)))
         self.charge_current_a = float(charge_current_a if charge_current_a is not None else def_c)
         self.discharge_current_a = float(discharge_current_a if discharge_current_a is not None else self.charge_current_a)
         self.voltage_v = float(voltage_v if voltage_v is not None else def_v)
@@ -988,19 +995,19 @@ def find_best_sell_window(
 
 
 def generate_deye_tou_schedule(
-    current_soc: int = 85,
-    max_soc: int = 90,
-    min_soc: int = 20,
+    current_soc: Optional[int] = None,
+    max_soc: Optional[int] = None,
+    min_soc: Optional[int] = None,
     best_pb_window: Optional[Dict[str, Any]] = None,
     best_sell_window: Optional[Dict[str, Any]] = None,
     calibration_active: bool = False,
-    default_power_w: int = 5000,
+    default_power_w: Optional[int] = None,
     max_charge_current: Optional[float] = None,
     battery_capacity_kwh: Optional[float] = None,
-    morning_reserve_margin: int = 10,
-    pre_peak_margin: int = 20,
+    morning_reserve_margin: Optional[int] = None,
+    pre_peak_margin: Optional[int] = None,
     nominal_voltage: Optional[float] = None,
-    loss_buffer_pct: float = 10.0,
+    loss_buffer_pct: Optional[float] = None,
 ) -> List[Dict[str, Any]]:
     """
     Generates a 6-slot Time-of-Use (TOU) schedule for Deye Hybrid Inverter.
@@ -1035,19 +1042,24 @@ def generate_deye_tou_schedule(
         max_charge_current=max_charge_current,
     )
     if max_charge_current is not None and float(max_charge_current) > 0:
-        base_power_w = min(12000, max(1000, int(round(float(max_charge_current) * eff_volts, -1))))
+        base_power_w = min(energy_defaults.INVERTER_MAX_POWER_W, max(energy_defaults.INVERTER_MIN_POWER_W, int(round(float(max_charge_current) * eff_volts, -1))))
     elif default_power_w is not None and int(default_power_w) > 0:
         base_power_w = int(default_power_w)
     elif eff_curr > 0 and eff_volts > 0:
-        base_power_w = min(12000, max(1000, int(round(eff_curr * eff_volts, -1))))
+        base_power_w = min(energy_defaults.INVERTER_MAX_POWER_W, max(energy_defaults.INVERTER_MIN_POWER_W, int(round(eff_curr * eff_volts, -1))))
     else:
-        base_power_w = 5000
+        base_power_w = energy_defaults.DEFAULT_TRANSFER_POWER_W
 
-    safe_max_soc = 100 if calibration_active else max(50, min(100, int(max_soc)))
-    safe_min_soc = max(10, min(50, int(min_soc)))
-    morning_reserve_soc = min(safe_max_soc, safe_min_soc + max(0, int(morning_reserve_margin)))
+    eff_max = max_soc if max_soc is not None else energy_defaults.DEFAULT_MAX_SOC
+    eff_min = min_soc if min_soc is not None else energy_defaults.DEFAULT_MIN_SOC
+    eff_morning_margin = morning_reserve_margin if morning_reserve_margin is not None else energy_defaults.DEFAULT_MORNING_RESERVE_MARGIN
+    eff_pre_peak = pre_peak_margin if pre_peak_margin is not None else energy_defaults.DEFAULT_PRE_PEAK_MARGIN
 
-    pre_peak_soc = max(safe_min_soc + int(pre_peak_margin), safe_max_soc - int(pre_peak_margin))
+    safe_max_soc = 100 if calibration_active else max(50, min(100, int(eff_max)))
+    safe_min_soc = max(10, min(50, int(eff_min)))
+    morning_reserve_soc = min(safe_max_soc, safe_min_soc + max(0, int(eff_morning_margin)))
+
+    pre_peak_soc = max(safe_min_soc + int(eff_pre_peak), safe_max_soc - int(eff_pre_peak))
 
     # Safeguard against uninstalled battery (0 or negative SOC) defaulting safely to safe_min_soc
     eff_current_soc = safe_min_soc if (current_soc is None or int(current_soc) <= 0) else int(current_soc)
@@ -1090,16 +1102,17 @@ def generate_deye_tou_schedule(
         except (ValueError, TypeError):
             pass
 
-    # Dynamic power calculation based on needed energy delta, window duration, and 10% loss buffer
+    # Dynamic power calculation based on needed energy delta, window duration, and loss buffer
+    eff_loss_pct = loss_buffer_pct if loss_buffer_pct is not None else energy_defaults.DEFAULT_LOSS_BUFFER_PCT
     if calibration_active:
-        charge_power_w = max(3500, base_power_w)
+        charge_power_w = max(energy_defaults.CALIBRATION_MIN_POWER_W, base_power_w)
     else:
         delta_soc = max(0, safe_max_soc - eff_current_soc)
         needed_kwh = (delta_soc / 100.0) * float(eff_cap)
-        loss_multiplier = 1.0 + (float(loss_buffer_pct) / 100.0)
+        loss_multiplier = 1.0 + (float(eff_loss_pct) / 100.0)
         charge_energy_kwh = needed_kwh * loss_multiplier
         p_calc = (charge_energy_kwh * 1000.0) / float(charging_duration_hours)
-        charge_power_w = max(1000, min(base_power_w, int(round(p_calc, -1))))
+        charge_power_w = max(energy_defaults.INVERTER_MIN_POWER_W, min(base_power_w, int(round(p_calc, -1))))
 
     sell_start_m = 1020  # Default 17:00
     sell_end_m = 1260    # Default 21:00
@@ -1349,11 +1362,11 @@ def are_tou_slots_identical(new_slots: List[Dict[str, Any]], active_slots: List[
         # Compare grid_charge
         if bool(ns.get("grid_charge")) != bool(aslot.get("grid_charge")):
             return False
-        # Compare power_w with 50W tolerance
+        # Compare power_w with tolerance
         try:
-            p_new = int(ns.get("power_w", 5000))
-            p_act = int(aslot.get("power_w", 5000))
-            if abs(p_new - p_act) > 50:
+            p_new = int(ns.get("power_w", energy_defaults.DEFAULT_TRANSFER_POWER_W))
+            p_act = int(aslot.get("power_w", energy_defaults.DEFAULT_TRANSFER_POWER_W))
+            if abs(p_new - p_act) > energy_defaults.TOU_POWER_DIFF_TOLERANCE_W:
                 return False
         except (ValueError, TypeError):
             return False
@@ -2116,23 +2129,23 @@ def fetch_consolidated_data(
     has_tomorrow_pricing = len(frames_tomorrow) >= 12
 
     # Resolve effective SOC parameters
-    eff_max_soc = max_soc if max_soc is not None else 90
-    eff_min_soc = min_soc if min_soc is not None else 20
-    eff_current_soc = current_soc if current_soc is not None else 85
+    eff_max_soc = max_soc if max_soc is not None else energy_defaults.DEFAULT_MAX_SOC
+    eff_min_soc = min_soc if min_soc is not None else energy_defaults.DEFAULT_MIN_SOC
+    eff_current_soc = current_soc if current_soc is not None else energy_defaults.DEFAULT_CURRENT_SOC
     eff_capacity, eff_voltage, eff_current = resolve_battery_hardware_parameters(
         battery_capacity_kwh=battery_capacity_kwh,
         nominal_voltage=nominal_voltage,
         max_charge_current=max_charge_current,
     )
-    eff_morning_margin = int(morning_reserve_margin) if morning_reserve_margin is not None else 10
-    eff_pre_peak_margin = int(pre_peak_margin) if pre_peak_margin is not None else 20
-    eff_loss_buffer_pct = float(loss_buffer_pct) if loss_buffer_pct is not None else 10.0
+    eff_morning_margin = int(morning_reserve_margin) if morning_reserve_margin is not None else energy_defaults.DEFAULT_MORNING_RESERVE_MARGIN
+    eff_pre_peak_margin = int(pre_peak_margin) if pre_peak_margin is not None else energy_defaults.DEFAULT_PRE_PEAK_MARGIN
+    eff_loss_buffer_pct = float(loss_buffer_pct) if loss_buffer_pct is not None else energy_defaults.DEFAULT_LOSS_BUFFER_PCT
 
     # Dispatch windows for TODAY (stable across all 24h of the current day)
     target_today_data = {"frames": frames_today} if frames_today else (forward_data if (isinstance(forward_data, dict) and forward_data.get("frames")) else today_data)
     ev_window_today = find_ev_best_window(target_today_data, target_hours="auto", now_dt=now_warsaw)
     pb_window_today = find_powerbank_best_window(target_today_data, target_hours="auto", allow_disjoint=False, now_dt=now_warsaw)
-    sell_window_today = find_best_sell_window(target_today_data, target_hours=3)
+    sell_window_today = find_best_sell_window(target_today_data, target_hours=energy_defaults.SELL_TARGET_HOURS)
     tou_today = generate_deye_tou_schedule(
         current_soc=eff_current_soc,
         max_soc=eff_max_soc,
@@ -2154,7 +2167,7 @@ def fetch_consolidated_data(
         tomorrow_ref_dt = now_warsaw + timedelta(days=1)
         ev_window_tomorrow = find_ev_best_window(target_tomorrow_data, target_hours="auto", now_dt=tomorrow_ref_dt)
         pb_window_tomorrow = find_powerbank_best_window(target_tomorrow_data, target_hours="auto", allow_disjoint=False, now_dt=tomorrow_ref_dt)
-        sell_window_tomorrow = find_best_sell_window(target_tomorrow_data, target_hours=3)
+        sell_window_tomorrow = find_best_sell_window(target_tomorrow_data, target_hours=energy_defaults.SELL_TARGET_HOURS)
         tou_tomorrow = generate_deye_tou_schedule(
             current_soc=eff_current_soc,
             max_soc=eff_max_soc,
@@ -2190,7 +2203,7 @@ def fetch_consolidated_data(
         capacity_kwh=eff_capacity,
         max_soc=float(eff_max_soc),
         min_soc=float(eff_min_soc),
-        shutdown_soc=5.0,
+        shutdown_soc=float(energy_defaults.DEFAULT_SHUTDOWN_SOC),
         charge_current_a=float(eff_current),
         discharge_current_a=float(eff_current),
         voltage_v=eff_voltage,
@@ -2268,9 +2281,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     parser = argparse.ArgumentParser(description="Pstryk Dynamic Energy Engine")
     parser.add_argument("--key", help="Pstryk API Key")
-    parser.add_argument("--hours", type=int, default=48, help="Look-ahead window in hours")
+    parser.add_argument("--hours", type=int, default=energy_defaults.DEFAULT_HOURS_AHEAD, help="Look-ahead window in hours")
     parser.add_argument("--json", action="store_true", help="Output result as JSON")
-    parser.add_argument("--installation", choices=["dol", "gora"], default="dol", help="Target installation")
+    parser.add_argument("--installation", choices=["dol", "gora"], default=energy_defaults.DEFAULT_INSTALLATION, help="Target installation")
     parser.add_argument("--no-cache", action="store_true", help="Bypass file cache")
     parser.add_argument("--sync-deye-tou", action="store_true", help="Recalculate and synchronize 6-slot TOU schedule to Deye inverter")
     parser.add_argument("--inverter-host", default=None, help="Deye Inverter logger IP (defaults to configured IP)")
@@ -2284,10 +2297,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--force", action="store_true", help="Force TOU write even if schedule is identical to current inverter settings")
     parser.add_argument("--max-charge-current", type=float, default=None, help="Inverter max charge current override (Amperes)")
     parser.add_argument("--battery-capacity", type=float, default=None, help="Battery total capacity in kWh (dynamically resolved from Deye/env if omitted)")
-    parser.add_argument("--morning-reserve-margin", type=int, default=10, help="Morning reserve SOC margin above min_soc in percent (default: 10)")
+    parser.add_argument("--morning-reserve-margin", type=int, default=energy_defaults.DEFAULT_MORNING_RESERVE_MARGIN, help="Morning reserve SOC margin above min_soc in percent")
     parser.add_argument("--nominal-voltage", type=float, default=None, help="Nominal battery pack voltage in Volts (dynamically resolved from Deye/env if omitted)")
-    parser.add_argument("--pre-peak-margin", type=int, default=20, help="Pre-peak daytime autokonsumpcja margin in percent (default: 20)")
-    parser.add_argument("--loss-buffer-pct", type=float, default=10.0, help="Charging energy loss buffer percentage (default: 10.0)")
+    parser.add_argument("--pre-peak-margin", type=int, default=energy_defaults.DEFAULT_PRE_PEAK_MARGIN, help="Pre-peak daytime autokonsumpcja margin in percent")
+    parser.add_argument("--loss-buffer-pct", type=float, default=energy_defaults.DEFAULT_LOSS_BUFFER_PCT, help="Charging energy loss buffer percentage")
 
     args = parser.parse_args(argv)
     resolved_key, key_source = resolve_api_key(args.installation, args.key)

@@ -944,7 +944,7 @@ views:
           | Slot | Godzina | Moc / Prąd | SOC | Sieć | Tryb Pracy |
           |:---:|:---:|:---:|:---:|:---:|:---|
           {% for st in tom_slots -%}
-          | **{{ st.slot }}** | `{{ st.time }}` | {{ st.power_w if st.power_w is defined else 5000 }} W (~{{ ((st.power_w if st.power_w is defined else 5000) / nom_v) | round(0) }} A) | {{ st.target_soc }}% | {{ '**⚡ TAK**' if st.grid_charge else 'NIE' }} | {{ st.label if st.label else ('Najtańsze Ładowanie' if st.grid_charge else 'Autokonsumpcja PV') }} |
+          | **{{ st.slot }}** | `{{ st.time }}` | {{ st.power_w if st.power_w is defined else 5000 }} W{% if nom_v > 0 %} (~{{ ((st.power_w if st.power_w is defined else 5000) / nom_v) | round(0) }} A){% endif %} | {{ st.target_soc }}% | {{ '**⚡ TAK**' if st.grid_charge else 'NIE' }} | {{ st.label if st.label else ('Najtańsze Ładowanie' if st.grid_charge else 'Autokonsumpcja PV') }} |
           {% endfor %}
           {%- endif %}
           {%- else -%}

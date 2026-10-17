@@ -1251,7 +1251,7 @@ revert_deye_battery_settings_from_inverter:
 
 start_deye_battery_calibration:
   alias: Rozpocznij Kalibrację Baterii do 100% (BMS Health)
-  description: Zezwala na pełne naładowanie magazynu SunDeposit do 100% w celu kalibracji BMS i zbalansowania cel LiFePO4 w oknie TOU.
+  description: Zezwala na pełne naładowanie magazynu LiFePO4 do 100% w celu kalibracji BMS i zbalansowania cel w oknie TOU.
   sequence:
     - action: input_boolean.turn_on
       target:

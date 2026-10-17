@@ -3,13 +3,17 @@ import urllib.parse
 from datetime import datetime, timedelta, timezone
 import json
 import os
+import sys
 import argparse
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import energy_defaults
 
 # --- CONFIGURATION ---
 DEFAULT_API_KEY = "sk-YOUR_TOKEN_HERE"
 BASE_URL = "https://api.pstryk.pl/integrations/meter-data/unified-metrics/"
 
-def get_pstryk_data(api_key, hours_ahead=48):
+def get_pstryk_data(api_key, hours_ahead=energy_defaults.DEFAULT_HOURS_AHEAD):
     """
     Fetches pricing data from Pstryk API for the specified window using standard urllib.
     """
@@ -33,7 +37,7 @@ def get_pstryk_data(api_key, hours_ahead=48):
 
     try:
         req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=energy_defaults.DEFAULT_HTTP_TIMEOUT) as response:
             if response.status == 200:
                 return json.loads(response.read().decode('utf-8'))
             else:

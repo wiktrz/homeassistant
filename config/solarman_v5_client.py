@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Solarman V5 & Modbus-RTU Direct Socket Client for Deye 12kW Inverter.
-Target Hardware: Deye SUN-12K-SG05LP3-EU-SM2 + SunDeposit 16.13 kWh LiFePO4.
+Target Hardware: Deye SUN-12K-SG05LP3-EU-SM2 + LiFePO4 Battery Pack.
 Default IP: 10.20.2.6, Port: 8899.
 
 Operating Mode:
@@ -21,12 +21,15 @@ import concurrent.futures
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple, List
 
-DEFAULT_INVERTER_IP = "10.20.2.6"
-DEFAULT_INVERTER_PORT = 8899
-DEFAULT_TIMEOUT = 5.0
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import energy_defaults
+
+DEFAULT_INVERTER_IP = energy_defaults.DEFAULT_INVERTER_IP
+DEFAULT_INVERTER_PORT = energy_defaults.DEFAULT_INVERTER_PORT
+DEFAULT_TIMEOUT = energy_defaults.DEFAULT_SOCKET_TIMEOUT
 CONFIG_FILENAME = ".deye_inverter_config.json"
 CACHE_FILENAME = ".deye_inverter_cache.json"
-CACHE_TTL_SECONDS = 30.0
+CACHE_TTL_SECONDS = energy_defaults.DEYE_CACHE_TTL
 
 
 def load_dotenv(paths: Optional[List[str]] = None) -> None:
@@ -573,9 +576,9 @@ def read_inverter_telemetry(
     config = {
         "max_charge_current": int(float(env_max_curr)) if env_max_curr else 0,
         "max_discharge_current": int(float(env_max_curr)) if env_max_curr else 0,
-        "min_discharge_soc": 20,
-        "shutdown_soc": 5,
-        "max_charge_soc": 90,
+        "min_discharge_soc": energy_defaults.DEFAULT_MIN_SOC,
+        "shutdown_soc": energy_defaults.DEFAULT_SHUTDOWN_SOC,
+        "max_charge_soc": energy_defaults.DEFAULT_MAX_SOC,
         "batt_capacity": int(float(env_cap_ah)) if env_cap_ah else 0,
         "nominal_voltage": float(env_nom_v) if env_nom_v else 0.0,
         "batt_capacity_kwh": float(env_cap_kwh) if env_cap_kwh else 0.0,
@@ -619,7 +622,7 @@ def read_inverter_telemetry(
         r = telem_res["registers"]
         telemetry["battery_voltage"] = round(r[0] * 0.1, 1)
         telemetry["battery_soc"] = r[1]
-        telemetry["battery_installed"] = (telemetry["battery_voltage"] > 40.0)
+        telemetry["battery_installed"] = (telemetry["battery_voltage"] > energy_defaults.BATTERY_PRESENCE_VOLTAGE_THRESHOLD)
         # power (signed 16-bit at index 3: offset 590 - 587 = 3)
         p_raw = r[3]
         telemetry["battery_power"] = p_raw if p_raw < 32768 else p_raw - 65536
@@ -630,8 +633,12 @@ def read_inverter_telemetry(
 
     # Derive nominal voltage and batt_capacity_kwh dynamically
     if config["nominal_voltage"] <= 0.0:
-        if telemetry["battery_installed"] and telemetry["battery_voltage"] > 40.0:
-            config["nominal_voltage"] = 51.2 if 44.0 <= telemetry["battery_voltage"] <= 58.4 else telemetry["battery_voltage"]
+        if telemetry["battery_installed"] and telemetry["battery_voltage"] > energy_defaults.BATTERY_PRESENCE_VOLTAGE_THRESHOLD:
+            config["nominal_voltage"] = (
+                energy_defaults.FALLBACK_BATTERY_NOMINAL_VOLTAGE
+                if energy_defaults.LIFEPO4_16S_VOLTAGE_LOW <= telemetry["battery_voltage"] <= energy_defaults.LIFEPO4_16S_VOLTAGE_HIGH
+                else telemetry["battery_voltage"]
+            )
         elif env_nom_v:
             config["nominal_voltage"] = float(env_nom_v)
 

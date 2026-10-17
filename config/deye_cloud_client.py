@@ -24,10 +24,14 @@ import argparse
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple, List
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import energy_defaults
+
 DEFAULT_API_URL = "https://eu1-developer.deyecloud.com"
-DEFAULT_LOGGER_SN = "D26213439330"
-DEFAULT_INVERTER_SN = "2603160727"
+DEFAULT_LOGGER_SN = energy_defaults.DEFAULT_LOGGER_SN
+DEFAULT_INVERTER_SN = energy_defaults.DEFAULT_INVERTER_SN
 DEFAULT_TOKEN_CACHE_FILE = "/tmp/deye_cloud_token.json"
+CACHE_TTL_SECONDS = energy_defaults.DEYE_CACHE_TTL
 
 
 def hash_deye_password(pwd: Optional[str]) -> Optional[str]:
@@ -254,9 +258,9 @@ def read_inverter_telemetry(
     config_data = {
         "max_charge_current": int(float(env_max_curr)) if env_max_curr else 0,
         "max_discharge_current": int(float(env_max_curr)) if env_max_curr else 0,
-        "min_discharge_soc": 20,
-        "shutdown_soc": 5,
-        "max_charge_soc": 90,
+        "min_discharge_soc": energy_defaults.DEFAULT_MIN_SOC,
+        "shutdown_soc": energy_defaults.DEFAULT_SHUTDOWN_SOC,
+        "max_charge_soc": energy_defaults.DEFAULT_MAX_SOC,
         "batt_capacity": int(float(env_cap_ah)) if env_cap_ah else 0,
         "nominal_voltage": float(env_nom_v) if env_nom_v else 0.0,
         "batt_capacity_kwh": float(env_cap_kwh) if env_cap_kwh else 0.0,
@@ -409,7 +413,7 @@ def read_inverter_telemetry(
                 telemetry_data["bms_version"] = str(kv["LithiumBatteryVersionNumber"])
 
             # Detect whether physical battery is actually installed
-            # A real 48V/51.2V LiFePO4 battery pack exhibits voltage > 40V and non-zero SOC or communicating BMS
+            # A real nominal 48V/51V LiFePO4 battery pack exhibits voltage > 40V and non-zero SOC or communicating BMS
             v_bat = telemetry_data["battery_voltage"]
             soc_bat = telemetry_data["battery_soc"]
             bms_ver = telemetry_data["bms_version"]
@@ -505,8 +509,12 @@ def read_inverter_telemetry(
 
     # Derive nominal voltage and batt_capacity_kwh dynamically
     if config_data["nominal_voltage"] <= 0.0:
-        if telemetry_data["battery_installed"] and telemetry_data["battery_voltage"] > 40.0:
-            config_data["nominal_voltage"] = 51.2 if 44.0 <= telemetry_data["battery_voltage"] <= 58.4 else telemetry_data["battery_voltage"]
+        if telemetry_data["battery_installed"] and telemetry_data["battery_voltage"] > energy_defaults.BATTERY_PRESENCE_VOLTAGE_THRESHOLD:
+            config_data["nominal_voltage"] = (
+                energy_defaults.FALLBACK_BATTERY_NOMINAL_VOLTAGE
+                if energy_defaults.LIFEPO4_16S_VOLTAGE_LOW <= telemetry_data["battery_voltage"] <= energy_defaults.LIFEPO4_16S_VOLTAGE_HIGH
+                else telemetry_data["battery_voltage"]
+            )
         elif env_nom_v:
             config_data["nominal_voltage"] = float(env_nom_v)
 
@@ -647,9 +655,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             tlm_data = inv_telem.get("telemetry", {})
 
             slots = pstryk_engine.generate_deye_tou_schedule(
-                current_soc=tlm_data.get("battery_soc", 85),
-                max_soc=cfg_data.get("max_charge_soc", 90),
-                min_soc=cfg_data.get("min_discharge_soc", 20),
+                current_soc=tlm_data.get("battery_soc"),
+                max_soc=cfg_data.get("max_charge_soc"),
+                min_soc=cfg_data.get("min_discharge_soc"),
                 best_pb_window=pb_win,
                 best_sell_window=sell_win,
             )

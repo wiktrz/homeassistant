@@ -16,6 +16,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 4. **Context Rule:** Always start documentation and implementation tasks by reading [`AGENT.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AGENT.md) and [`AI_DEVELOPMENT_GUIDELINES.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AI_DEVELOPMENT_GUIDELINES.md).
 5. **Session Retrospective & Quality Re-Validation:** At the conclusion of every development session, conduct a structured retrospective re-validating domain logic, hardware flags (least privilege), continuous feedback, and test coverage before finalizing.
 6. **Strict English Code & Identifiers Standard:** All variables, identifiers, function/class names, YAML keys, Jinja variables, entity IDs, unique IDs, and CLI arguments MUST be pure English. Never mix languages (no hybrid Ponglish like `jutro_date` or `_jutro_dol`). Polish is strictly reserved for user-facing UI labels, dashboard titles, notifications, and spoken TTS output.
+7. **Single Source of Truth & Mandatory Variable Pre-Check Protocol (Rule 10):** All fallback defaults must live in exactly ONE place: the environment templates (`.env.example` / `config/.env.example`). Never hardcode fallback literals (`16.13`, `51.2`, `100.0`, etc.) in Python or YAML. Before adding any new variable or helper, execute `python3 scripts/check_duplicate_variable.py --search <term>` to inspect existing variables and reuse them. Validate with `python3 scripts/check_duplicate_variable.py --validate`.
 
 ## Project Overview
 
@@ -76,7 +77,11 @@ config/
 │       └── inverted_binary_sensor.yaml
 ├── pstryk_pricing.py     # Energy pricing script
 ├── pstryk_engine.py      # Dynamic energy & metering engine (caching, aggregations, unit-tested)
+├── energy_defaults.py    # Single source of truth for energy defaults (Rule 10, AST validated)
 └── solar_engine.py       # Dynamic solar & astronomical calculation engine (Astral 2.2, 3-tier fallback)
+
+scripts/
+└── check_duplicate_variable.py # Mandatory pre-check search & AST validation tool (Rule 10)
 
 data/
 └── configuration.yaml    # Zigbee2MQTT configuration
@@ -265,6 +270,8 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 ## Energy Pricing, Multi-Window Dispatch & Battery Storage System (Pstryk & Deye)
 
 **Scripts & Drivers:**
+- `config/energy_defaults.py`: Strict Single Source of Truth architecture (Rule 10) dynamically loading baseline templates (`.env.example`) and env overrides (`.env`), eliminating duplicate hardcoded literals (`16.13`, `51.2`, `100.0`) from Python/YAML.
+- `scripts/check_duplicate_variable.py`: Mandatory pre-check search & AST validation tool (`--search <term>`, `--validate`) preventing redundant entity creation and enforcing single-source reuse.
 - `config/pstryk_engine.py`: Multi-period backend aggregation & dispatch engine (latest, forward 48h, today hourly, month daily, year monthly).
 - `config/pstryk_pricing.py`: CLI wrapper for HA command_line sensors.
 - `config/solarman_v5_client.py`: Zero-dependency Deye Modbus-RTU over Solarman V5 TCP socket client with auto-discovery (`--scan`) and dynamic IP persistence.
@@ -282,6 +289,7 @@ pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
 - Home Assistant ingests all parameters in **Read-Only** mode via `sensor.deye_inverter_status` (`solarman_v5_client.py --read-all` or `deye_cloud_client.py --read-all`).
 - **Time-of-Use (TOU) Programming:** The only write operation permitted is the 6-slot Time-of-Use schedule (registers `248..273`).
 - **Rule 9 Zero-Hardcoding Invariant:** Battery capacity, nominal voltage, and maximum currents must NEVER be hardcoded as static numbers anywhere in configuration or templates. See [`SPEC_DEYE_BATTERY_SYSTEM.md`](SPEC_DEYE_BATTERY_SYSTEM.md).
+- **Rule 10 Single Source of Truth & Pre-Check Invariant:** Fallback values must exist in exactly one place (`.env.example` / `config/.env.example`). Python and YAML must never hardcode raw fallback literals. All additions must be pre-checked via `python3 scripts/check_duplicate_variable.py --search <term>` and validated via `--validate`.
 
 **Operating Bounds & Reserves:**
 - Battery Total Capacity: strictly read-only hardware specification via `sensor.powerbank_total_capacity_kwh` dynamically computed from Deye Holding Register `102` (`batt_capacity` in Ah) and nominal voltage, or Cloud OpenAPI (`battCapacity`). Static fallbacks are strictly prohibited.

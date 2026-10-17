@@ -65,6 +65,16 @@
 - Continuous automated regression protection is enforced by `tests/invariants/test_safety_rules.py::test_no_hardcoded_battery_parameters`.
 - Complete hardware specifications, caching rules, and register mappings are defined in [`SPEC_DEYE_BATTERY_SYSTEM.md`](SPEC_DEYE_BATTERY_SYSTEM.md).
 
+### Rule 10: Single Source of Truth & Mandatory Variable Pre-Check Protocol
+- **Strict Single Source Invariant:** Fallback values (e.g. `16.13` kWh capacity, `51.2` V nominal voltage, `100.0` A max charge current, default IP `10.20.2.6`, port `8899`) must exist in **EXACTLY ONE PLACE**: the environment configuration template (`.env.example` / `.env`).
+- **Zero Fallback Literals in Python & YAML:** Python modules (`config/energy_defaults.py`, `config/pstryk_engine.py`, `config/solarman_v5_client.py`, `config/deye_cloud_client.py`) and YAML definitions must NEVER declare inline numeric fallback literals. All code must import and resolve defaults through `config/energy_defaults.py`, which dynamically parses `.env` / `.env.example`.
+- **Mandatory Pre-Check Protocol Before Adding Variables:** Before defining any new constant, environment variable, or Home Assistant helper (`input_*`), AI agents and developers **MUST run the pre-check tool**:
+  ```bash
+  python3 scripts/check_duplicate_variable.py --search "<concept_name>"
+  ```
+  If an existing variable, helper, or constant already serves the intended purpose, it **MUST BE REUSED**. Creating duplicate or parallel variables is strictly prohibited.
+- **Continuous Invariant Protection:** Enforced continuously by `scripts/check_duplicate_variable.py --validate` and `tests/invariants/test_no_duplicate_defaults.py`.
+
 ---
 
 ## 2. Hardware Safety & Architectural Invariants
