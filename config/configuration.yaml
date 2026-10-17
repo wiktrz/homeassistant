@@ -669,6 +669,13 @@ input_text:
     max: 15
     icon: mdi:ip-network
     mode: text
+  pending_ui_operations:
+    name: "Oczekujące Operacje UI"
+    initial: "[]"
+    min: 2
+    max: 255
+    icon: mdi:progress-clock
+    mode: text
 
 
 

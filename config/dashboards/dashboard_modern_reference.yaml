@@ -606,8 +606,22 @@ views:
             icon: mdi:refresh
       - type: conditional
         conditions:
+          - entity: binary_sensor.ui_op_pending_deye_battery_safety
+            state: "on"
+        card:
+          type: markdown
+          title: ⏳ Trwa Zapisywanie Ustawień do Falownika Deye
+          content: |-
+            Trwa bezpieczne przesyłanie nowych progów bezpieczeństwa baterii (Min SOC / Shutdown SOC) oraz przeliczanie i synchronizacja harmonogramu TOU.
+
+            > 🔒 **Interfejs jest zablokowany na czas trwania operacji.**
+            > Proszę nie klikać innych przycisków ani nie odświeżać strony. Po zakończeniu interfejs odblokuje się automatycznie.
+      - type: conditional
+        conditions:
           - entity: binary_sensor.deye_battery_critical_parameters_pending
             state: "on"
+          - entity: binary_sensor.ui_op_pending_deye_battery_safety
+            state: "off"
         card:
           type: vertical-stack
           cards:
@@ -635,9 +649,22 @@ views:
                   tap_action:
                     action: call-service
                     service: script.revert_deye_battery_settings_from_inverter
-      - type: entities
-        title: Harmonogram Time-of-Use & Parametry Baterii
-        show_header_toggle: false
+      - type: conditional
+        conditions:
+          - entity: binary_sensor.ui_op_pending_deye_battery_safety
+            state: "on"
+        card:
+          type: markdown
+          content: |-
+            🔒 **Suwaki parametrów baterii są zablokowane:** Trwa zapisywanie danych do falownika Deye.
+      - type: conditional
+        conditions:
+          - entity: binary_sensor.ui_op_pending_deye_battery_safety
+            state: "off"
+        card:
+          type: entities
+          title: Harmonogram Time-of-Use & Parametry Baterii
+          show_header_toggle: false
         entities:
           - entity: sensor.deye_tou_active_schedule
             name: Status Harmonogramu TOU (Reg 248)

@@ -195,3 +195,34 @@ Triggered via `script.trigger_deye_battery_calibration`:
    Identical to Inverter?            Changed Schedule?
    [UNCHANGED -> SKIP WRITE]         [WRITE 6 TOU SLOTS]
 ```
+
+---
+
+## 8. Generic UI Pending Operations & Dashboard Blocking Architecture
+
+### 8.1 Problem Statement & Latency Optimization
+Writing safety parameters or TOU tables to the inverter involves local Modbus RTU sockets and/or Deye Cloud OpenAPI network requests (~5–10 seconds). Previously:
+- The UI allowed concurrent slider adjustments and duplicate button clicks during active execution.
+- No visual in-progress indicator was shown, leading to user confusion or accidental re-triggering.
+- The pipeline contained a redundant 10-second wait and duplicate `update_entity` calls, inflating latency to ~35s.
+
+### 8.2 Latency Optimizations
+1. **Fast-Fail on Connection Refusal:** In `solarman_v5_client.send_command()`, if `ConnectionRefusedError` is caught (port 8899 closed/held by integration), the loop immediately breaks instead of retrying 3 times with 0.5s delays, immediately falling back to Deye Cloud OpenAPI.
+2. **Reduced Settle Delay:** `sync_deye_inverter_tou` settle delay reduced from 10s to 2s.
+3. **Eliminated Duplicate Entity Updates:** Removed redundant second `homeassistant.update_entity(sensor.deye_inverter_status)` from `confirm_and_apply_deye_battery_settings`.
+
+### 8.3 Generic Pending Operations Helper & Scripts
+- **Single Central Helper:** `input_text.pending_ui_operations` (default: `"[]"`). Stores a JSON array of strings representing active operation IDs (e.g. `["deye_battery_safety"]`, `["deye_tou_sync"]`).
+- **Generic Management Scripts:**
+  - `script.set_ui_operation_pending(operation: string)`: Appends operation ID to JSON list if not already present.
+  - `script.clear_ui_operation_pending(operation: string)`: Removes operation ID from JSON list.
+  - `script.clear_all_pending_ui_operations`: Emergency reset clearing the list back to `"[]"`.
+- **Sensors:**
+  - `binary_sensor.ui_any_operation_pending`: Active whenever `input_text.pending_ui_operations` is non-empty.
+  - `binary_sensor.ui_op_pending_deye_battery_safety`: Active when `'deye_battery_safety'` is in the active list.
+  - `binary_sensor.ui_op_pending_deye_tou_sync`: Active when `'deye_tou_sync'` is in the active list.
+- **Auto-Clear Safety Automation:** `auto_clear_stale_pending_ui_operations` in `config/automations.yaml` clears all pending operations if `ui_any_operation_pending` remains active for > 90 seconds, protecting against permanently locked UI states.
+- **Dashboard Lovelace Integration:** In `dashboard_modern_reference.yaml` and `dashboard_home_improved.yaml`:
+  - When `ui_op_pending_deye_battery_safety` is `on`: Renders a prominent in-progress card (`⏳ Trwa Zapisywanie Ustawień do Falownika Deye...`), hides action buttons, and locks parameter sliders.
+  - When `ui_op_pending_deye_battery_safety` is `off`: Standard interactive UI is restored.
+

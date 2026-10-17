@@ -774,6 +774,34 @@
       icon: mdi:calendar-clock
 
 - binary_sensor:
+    # --- Generic UI Blocking & Pending Operation Detectors ---
+    - name: "UI Any Operation Pending"
+      unique_id: ui_any_operation_pending
+      state: >
+        {% set raw = states('input_text.pending_ui_operations') %}
+        {{ raw not in ['[]', '', 'unavailable', 'unknown'] }}
+      attributes:
+        active_operations: >
+          {% set raw = states('input_text.pending_ui_operations') %}
+          {{ raw | from_json if (raw and raw.startswith('[')) else [] }}
+      icon: mdi:progress-clock
+
+    - name: "UI Op Pending Deye Battery Safety"
+      unique_id: ui_op_pending_deye_battery_safety
+      state: >
+        {% set raw = states('input_text.pending_ui_operations') %}
+        {% set op_list = raw | from_json if (raw and raw.startswith('[')) else [] %}
+        {{ 'deye_battery_safety' in op_list }}
+      icon: mdi:progress-clock
+
+    - name: "UI Op Pending Deye TOU Sync"
+      unique_id: ui_op_pending_deye_tou_sync
+      state: >
+        {% set raw = states('input_text.pending_ui_operations') %}
+        {% set op_list = raw | from_json if (raw and raw.startswith('[')) else [] %}
+        {{ 'deye_tou_sync' in op_list }}
+      icon: mdi:progress-clock
+
     # --- Detektor Oczekujących Zmian Progów Baterii (2-Step Confirmation) ---
     - name: "Deye Battery Critical Parameters Pending"
       unique_id: deye_battery_critical_parameters_pending

@@ -3156,6 +3156,24 @@
         tomorrow: false
   mode: restart
 
+- id: auto_clear_stale_pending_ui_operations
+  alias: "UI: Automatyczne Czyszczenie Zawieszonych Operacji UI"
+  description: "Jeśli operacja UI wisi dłużej niż 90 sekund, automatycznie czyści stan blokady interfejsu, zapobiegając trwałemu zablokowaniu dashboardu."
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.ui_any_operation_pending
+      to: "on"
+      for:
+        seconds: 90
+  actions:
+    - action: script.clear_all_pending_ui_operations
+    - action: system_log.write
+      data:
+        message: "Automatycznie odblokowano zawieszone operacje UI po 90s limitu czasu."
+        level: warning
+  mode: single
+
+
 
 
 

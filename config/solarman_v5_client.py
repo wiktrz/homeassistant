@@ -139,6 +139,7 @@ def send_command(host: str, port: int, frame: bytes, timeout: float = DEFAULT_TI
             last_err = f"Connection timed out ({timeout}s) to {host}:{port}"
         except ConnectionRefusedError:
             last_err = f"Connection refused by {host}:{port}"
+            break
         except OSError as e:
             last_err = f"Socket error connecting to {host}:{port}: {e}"
 

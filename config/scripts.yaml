@@ -1185,21 +1185,27 @@ sync_deye_inverter_tou:
   alias: Synchronizuj Harmonogram TOU z Falownikiem Deye
   description: Przelicza dynamiczny 6-slotowy harmonogram Time-of-Use i przesyła go do falownika Deye (Solarman V5 Modbus / Deye Cloud).
   sequence:
+    - action: script.set_ui_operation_pending
+      data:
+        operation: deye_tou_sync
     - action: shell_command.sync_deye_inverter_tou
       data:
         calibration: "{{ is_state('input_boolean.deye_battery_calibration_in_progress', 'on') }}"
         tomorrow: "{{ tomorrow | default(false) }}"
         force: "{{ force | default(false) }}"
-    - delay: "00:00:10"
+    - delay: "00:00:02"
     - action: homeassistant.update_entity
       target:
         entity_id: sensor.deye_inverter_status
+    - action: script.clear_ui_operation_pending
+      data:
+        operation: deye_tou_sync
     - action: persistent_notification.create
       data:
         title: "⚡ Deye TOU: Synchronizacja Zakończona"
         message: >-
           Harmonogram Time-of-Use został przesłany do falownika Deye ({% if tomorrow | default(false) %}na Jutro{% else %}na Dziś{% endif %}).
-          Odczekano 10s na potwierdzenie przez Deye Cloud. Status: {{ states('sensor.deye_tou_active_schedule') }}.
+          Odczekano 2s na potwierdzenie przez Deye Cloud. Status: {{ states('sensor.deye_tou_active_schedule') }}.
         notification_id: deye_tou_sync_status
   mode: single
   icon: mdi:sync
@@ -1214,16 +1220,19 @@ sync_deye_inverter_soc:
 
 confirm_and_apply_deye_battery_settings:
   alias: Zatwierdź i Zastosuj Parametry Baterii w Falowniku
-  description: Dwustopniowe potwierdzenie — zatwierdza nowe progi baterii (Min SOC / Shutdown SOC) i przesyła zaktualizowany harmonogram TOU do falownika Deye.
+  description: Dwustopniowe potwierdzenie — zatwierdza nowe progi baterii (Min SOC / Shutdown SOC) i przesyła zaktualizowany harmonogram TOU do falownika Deye z blokadą UI.
   sequence:
+    - action: script.set_ui_operation_pending
+      data:
+        operation: deye_battery_safety
     - action: shell_command.apply_deye_battery_safety_limits
     - action: script.sync_deye_inverter_tou
       data:
         tomorrow: false
         force: true
-    - action: homeassistant.update_entity
-      target:
-        entity_id: sensor.deye_inverter_status
+    - action: script.clear_ui_operation_pending
+      data:
+        operation: deye_battery_safety
     - action: persistent_notification.create
       data:
         title: "⚡ Deye: Zastosowano Nowe Progi Baterii"
@@ -1377,3 +1386,59 @@ restart_heating_controller:
         topic: "{{ target_controller }}/restart"
         payload: "restart"
   icon: mdi:restart
+
+set_ui_operation_pending:
+  alias: "Oznacz Operację UI jako Oczekującą"
+  description: "Dodaje identyfikator operacji do listy aktywnych operacji UI (input_text.pending_ui_operations), blokując powiązane komponenty w dashboardach."
+  fields:
+    operation:
+      description: "Unikalny identyfikator operacji/miejsca (np. 'deye_battery_safety', 'deye_tou_sync')"
+      required: true
+      example: "deye_battery_safety"
+  sequence:
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.pending_ui_operations
+      data:
+        value: >
+          {% set current = states('input_text.pending_ui_operations') %}
+          {% set op_list = current | from_json if (current and current.startswith('[')) else [] %}
+          {% if operation not in op_list %}
+            {% set op_list = op_list + [operation] %}
+          {% endif %}
+          {{ op_list | to_json }}
+  mode: queued
+  icon: mdi:progress-clock
+
+clear_ui_operation_pending:
+  alias: "Usuń Operację UI z Oczekujących"
+  description: "Usuwa identyfikator operacji z listy aktywnych operacji UI (input_text.pending_ui_operations), odblokowując komponenty w dashboardach."
+  fields:
+    operation:
+      description: "Unikalny identyfikator operacji/miejsca do usunięcia"
+      required: true
+      example: "deye_battery_safety"
+  sequence:
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.pending_ui_operations
+      data:
+        value: >
+          {% set current = states('input_text.pending_ui_operations') %}
+          {% set op_list = current | from_json if (current and current.startswith('[')) else [] %}
+          {% set new_list = op_list | reject('equalto', operation) | list %}
+          {{ new_list | to_json }}
+  mode: queued
+  icon: mdi:check-circle-outline
+
+clear_all_pending_ui_operations:
+  alias: "Odblokuj Wszystkie Operacje UI"
+  description: "Resetuje stan oczekujących operacji UI do pustej listy (awaryjne odblokowanie interfejsu)."
+  sequence:
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.pending_ui_operations
+      data:
+        value: "[]"
+  mode: single
+  icon: mdi:lock-open-variant-outline
