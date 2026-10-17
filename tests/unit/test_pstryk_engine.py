@@ -1030,12 +1030,13 @@ def test_powerbank_weekend_auto_duration_and_weekday_fixed():
 def test_proportional_charging_power_scaling_and_slot5_protection():
     """
     Verifies that charging slot power adapts to Delta-SOC and window duration,
-    while Slot 5 (Peak Evening Discharge) strictly retains full base power (5000W).
+    while Slot 5 (Peak Evening Discharge) strictly retains full base power (5120W at 100A * 51.2V).
     """
     pb_4h = {"start": "2026-10-17T09:00:00Z", "end": "2026-10-17T13:00:00Z", "duration_hours": 4, "is_consecutive": True}
     sell_win = {"start": "2026-10-17T15:00:00Z", "end": "2026-10-17T18:00:00Z"}
 
-    # Case A: Half-full battery (50% to 90%, 4h window) -> 1690W (~33A)
+    # Case A: Half-full battery (50% to 90%, 4h window) with 10% loss buffer:
+    # Delta SOC = 40% -> Delta E = 6.452 kWh * 1.10 = 7.0972 kWh. Over 4h: 7097.2 / 4 = 1774.3W -> 1770W (~35A)
     slots_50 = pstryk_engine.generate_deye_tou_schedule(
         current_soc=50,
         max_soc=90,
@@ -1046,15 +1047,16 @@ def test_proportional_charging_power_scaling_and_slot5_protection():
         max_charge_current=100.0,
     )
     charge_slot_50 = [s for s in slots_50 if s["grid_charge"] is True][0]
-    assert charge_slot_50["power_w"] == 1690
+    assert charge_slot_50["power_w"] == 1770
 
-    # Slot 5 (Peak Discharge) strictly full power (5000W)
+    # Slot 5 (Peak Discharge) strictly full base power (5120W)
     assert slots_50[4]["slot"] == 5
-    assert slots_50[4]["power_w"] == 5000
+    assert slots_50[4]["power_w"] == 5120
     assert slots_50[4]["grid_charge"] is False
     assert slots_50[4]["target_soc"] == 20
 
-    # Case B: Empty battery (20% to 90%, 4h window) -> 2960W (~58A)
+    # Case B: Empty battery (20% to 90%, 4h window) with 10% loss buffer:
+    # Delta SOC = 70% -> Delta E = 11.291 kWh * 1.10 = 12.4201 kWh. Over 4h: 12420.1 / 4 = 3105.0W -> 3110W (~61A)
     slots_20 = pstryk_engine.generate_deye_tou_schedule(
         current_soc=20,
         max_soc=90,
@@ -1065,7 +1067,7 @@ def test_proportional_charging_power_scaling_and_slot5_protection():
         max_charge_current=100.0,
     )
     charge_slot_20 = [s for s in slots_20 if s["grid_charge"] is True][0]
-    assert charge_slot_20["power_w"] == 2960
+    assert charge_slot_20["power_w"] == 3110
 
     # Case C: Nearly full (85% to 90%, 4h window) -> clamped to 1000W floor
     slots_85 = pstryk_engine.generate_deye_tou_schedule(
@@ -1083,13 +1085,13 @@ def test_proportional_charging_power_scaling_and_slot5_protection():
 
 def test_dynamic_inverter_max_charge_current_scaling():
     """
-    Verifies that base 100% power dynamically adapts when max_charge_current is 120A (6000W) or 200A (10000W),
-    scaling both charging ceiling and Peak Discharge (Slot 5).
+    Verifies that base 100% power dynamically adapts when max_charge_current is 100A (5120W),
+    120A (6140W), or 200A (10240W) at nominal 51.2V.
     """
     pb_2h = {"start": "2026-10-17T11:00:00Z", "end": "2026-10-17T13:00:00Z", "duration_hours": 2, "is_consecutive": True}
     sell_win = {"start": "2026-10-17T15:00:00Z", "end": "2026-10-17T18:00:00Z"}
 
-    # 100A: base = 5000W. Empty battery (20%) in 2h needs ~5930W -> clamped to 5000W
+    # 100A @ 51.2V: base = 5120W. Empty battery (20%) in 2h with 10% loss needs 6210W -> clamped to 5120W
     slots_100 = pstryk_engine.generate_deye_tou_schedule(
         current_soc=20,
         max_soc=90,
@@ -1099,10 +1101,10 @@ def test_dynamic_inverter_max_charge_current_scaling():
         max_charge_current=100.0,
     )
     charge_100 = [s for s in slots_100 if s["grid_charge"] is True][0]
-    assert charge_100["power_w"] == 5000
-    assert slots_100[4]["power_w"] == 5000
+    assert charge_100["power_w"] == 5120
+    assert slots_100[4]["power_w"] == 5120
 
-    # 120A: base = 6000W. 5930W fits under 6000W limit
+    # 120A @ 51.2V: base = 6140W. 6210W exceeds 6140W -> clamped to 6140W
     slots_120 = pstryk_engine.generate_deye_tou_schedule(
         current_soc=20,
         max_soc=90,
@@ -1112,10 +1114,10 @@ def test_dynamic_inverter_max_charge_current_scaling():
         max_charge_current=120.0,
     )
     charge_120 = [s for s in slots_120 if s["grid_charge"] is True][0]
-    assert charge_120["power_w"] == 5930
-    assert slots_120[4]["power_w"] == 6000
+    assert charge_120["power_w"] == 6140
+    assert slots_120[4]["power_w"] == 6140
 
-    # 200A: base = 10000W. Slot 5 Peak Discharge is 10000W
+    # 200A @ 51.2V: base = 10240W. 6210W fits under 10240W ceiling -> 6210W
     slots_200 = pstryk_engine.generate_deye_tou_schedule(
         current_soc=20,
         max_soc=90,
@@ -1125,8 +1127,8 @@ def test_dynamic_inverter_max_charge_current_scaling():
         max_charge_current=200.0,
     )
     charge_200 = [s for s in slots_200 if s["grid_charge"] is True][0]
-    assert charge_200["power_w"] == 5930
-    assert slots_200[4]["power_w"] == 10000
+    assert charge_200["power_w"] == 6210
+    assert slots_200[4]["power_w"] == 10240
 
 
 def test_powerbank_weekend_tolerance_expansion_user_example():
@@ -1190,8 +1192,8 @@ def test_save_last_tou_sync_result(tmp_path):
 
 def test_soc_delta_dynamic_charging_power_matrix():
     """
-    Verifies all 7 matrix test cases for Delta-SOC & duration-based power scaling:
-    C = 16.13 kWh, min_soc = 20%, max_soc = 90%, base_power_w = 5000W.
+    Verifies all 7 matrix test cases for Delta-SOC & duration-based power scaling with 10% loss buffer:
+    C = 16.13 kWh, min_soc = 20%, max_soc = 90%, base_power_w = 5120W (100A * 51.2V).
     """
     sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
     win_2h = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2, "is_consecutive": True}
@@ -1210,25 +1212,25 @@ def test_soc_delta_dynamic_charging_power_matrix():
         )
         return [slot for slot in s if slot["grid_charge"] is True][0]["power_w"]
 
-    # Case 1: Empty battery (20%), 2h window -> clamped to 5000W ceiling (100% speed, ~98A)
-    assert get_charge_power(20, win_2h) == 5000
+    # Case 1: Empty battery (20%), 2h window -> clamped to 5120W ceiling (100% speed, 100A)
+    assert get_charge_power(20, win_2h) == 5120
 
-    # Case 2: User Example (50%), 2h window -> 3390W (~66A, 68% speed)
-    assert get_charge_power(50, win_2h) == 3390
+    # Case 2: User Example (50%), 2h window -> 3550W (~69A)
+    assert get_charge_power(50, win_2h) == 3550
 
-    # Case 3: Sunny morning (70%), 2h window -> 1690W (~33A, 34% speed)
-    assert get_charge_power(70, win_2h) == 1690
+    # Case 3: Sunny morning (70%), 2h window -> 1770W (~35A)
+    assert get_charge_power(70, win_2h) == 1770
 
-    # Case 4: Weekend Empty (20%), 3h window -> 3950W (~77A, 79% speed)
-    assert get_charge_power(20, win_3h) == 3950
+    # Case 4: Weekend Empty (20%), 3h window -> 4140W (~81A)
+    assert get_charge_power(20, win_3h) == 4140
 
-    # Case 5: Weekend Half (50%), 3h window -> 2260W (~44A, 45% speed)
-    assert get_charge_power(50, win_3h) == 2260
+    # Case 5: Weekend Half (50%), 3h window -> 2370W (~46A)
+    assert get_charge_power(50, win_3h) == 2370
 
-    # Case 6: Weekend 4h (50%), 4h window -> 1690W (~33A, 34% speed)
-    assert get_charge_power(50, win_4h) == 1690
+    # Case 6: Weekend 4h (50%), 4h window -> 1770W (~35A)
+    assert get_charge_power(50, win_4h) == 1770
 
-    # Case 7: Nearly full (85%), 2h window -> clamped to 1000W floor (~20A, 20% speed)
+    # Case 7: Nearly full (85%), 2h window -> clamped to 1000W floor (~20A)
     assert get_charge_power(85, win_2h) == 1000
 
 
@@ -1438,6 +1440,148 @@ def test_fetch_consolidated_custom_soc_and_battery_model(tmp_path):
         assert tou_slots[3]["target_soc"] == 60  # Slot 4: pre_peak autokonsumpcja (max_soc - 20)
         assert tou_slots[4]["target_soc"] == 15  # Slot 5: evening peak discharge down to min_soc
         assert tou_slots[5]["target_soc"] == 25  # Slot 6: night standby reserve (15 + 10)
+
+
+def test_dynamic_capacity_scaling_custom_kwh():
+    """
+    Verifies that battery_capacity_kwh dynamically scales energy needed and charging power.
+    Compares 16.13 kWh with 32.26 kWh (e.g. 2 parallel SunDeposit packs).
+    """
+    pb_4h = {"start": "2026-10-17T11:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 4, "is_consecutive": True}
+    sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
+
+    # 1. Standard 16.13 kWh pack:
+    # Delta SOC = 40% (50% to 90%) -> Delta E = 6.452 kWh * 1.10 = 7.0972 kWh -> 7097.2 / 4 = 1774.3W -> 1770W
+    s_standard = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=50, max_soc=90, min_soc=20,
+        best_pb_window=pb_4h, best_sell_window=sell_win,
+        battery_capacity_kwh=16.13,
+        loss_buffer_pct=10.0,
+        max_charge_current=100.0,
+    )
+    charge_standard = [s for s in s_standard if s["grid_charge"] is True][0]
+    assert charge_standard["power_w"] == 1770
+
+    # 2. Doubled 32.26 kWh pack:
+    # Delta SOC = 40% -> Delta E = 12.904 kWh * 1.10 = 14.1944 kWh -> 14194.4 / 4 = 3548.6W -> 3550W (~69A)
+    s_doubled = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=50, max_soc=90, min_soc=20,
+        best_pb_window=pb_4h, best_sell_window=sell_win,
+        battery_capacity_kwh=32.26,
+        loss_buffer_pct=10.0,
+        max_charge_current=100.0,
+    )
+    charge_doubled = [s for s in s_doubled if s["grid_charge"] is True][0]
+    assert charge_doubled["power_w"] == 3550
+
+    # 3. Doubled 32.26 kWh pack in 2h window with 140A charging limit:
+    # Over 2h: 14194.4 / 2 = 7097.2W -> 7100W. Base power at 140A * 51.2V = 7170W -> 7100W fits under base ceiling!
+    pb_2h = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2, "is_consecutive": True}
+    s_doubled_2h = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=50, max_soc=90, min_soc=20,
+        best_pb_window=pb_2h, best_sell_window=sell_win,
+        battery_capacity_kwh=32.26,
+        loss_buffer_pct=10.0,
+        max_charge_current=140.0,
+    )
+    charge_doubled_2h = [s for s in s_doubled_2h if s["grid_charge"] is True][0]
+    assert charge_doubled_2h["power_w"] == 7100
+
+
+def test_loss_buffer_percentage_variations():
+    """
+    Verifies that loss_buffer_pct adds +10% (or other custom buffer) to cover energy losses during charging.
+    """
+    pb_3h = {"start": "2026-10-17T11:00:00Z", "end": "2026-10-17T14:00:00Z", "duration_hours": 3, "is_consecutive": True}
+    sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
+
+    # Delta SOC = 40% (50% to 90%) -> Delta E = 6.452 kWh
+    # 0% buffer: 6452 / 3 = 2150.67W -> 2150W
+    s_0 = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=50, max_soc=90, min_soc=20,
+        best_pb_window=pb_3h, best_sell_window=sell_win,
+        loss_buffer_pct=0.0,
+    )
+    assert [s for s in s_0 if s["grid_charge"] is True][0]["power_w"] == 2150
+
+    # 10% buffer: 6452 * 1.10 = 7097.2 -> 7097.2 / 3 = 2365.73W -> 2370W
+    s_10 = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=50, max_soc=90, min_soc=20,
+        best_pb_window=pb_3h, best_sell_window=sell_win,
+        loss_buffer_pct=10.0,
+    )
+    assert [s for s in s_10 if s["grid_charge"] is True][0]["power_w"] == 2370
+
+    # 15% buffer: 6452 * 1.15 = 7419.8 -> 7419.8 / 3 = 2473.27W -> 2470W
+    s_15 = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=50, max_soc=90, min_soc=20,
+        best_pb_window=pb_3h, best_sell_window=sell_win,
+        loss_buffer_pct=15.0,
+    )
+    assert [s for s in s_15 if s["grid_charge"] is True][0]["power_w"] == 2470
+
+
+def test_custom_morning_reserve_margin_and_clamping():
+    """
+    Verifies that morning_reserve_margin is dynamic and safely clamped:
+    morning_reserve_soc = min(safe_max_soc, safe_min_soc + max(0, margin)).
+    """
+    pb_win = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2, "is_consecutive": True}
+    sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
+
+    # 1. 5% margin with min_soc = 20 -> 25%
+    s_5 = pstryk_engine.generate_deye_tou_schedule(
+        min_soc=20, max_soc=90, morning_reserve_margin=5,
+        best_pb_window=pb_win, best_sell_window=sell_win,
+    )
+    assert s_5[0]["target_soc"] == 25
+    assert s_5[5]["target_soc"] == 25
+
+    # 2. 15% margin with min_soc = 20 -> 35%
+    s_15 = pstryk_engine.generate_deye_tou_schedule(
+        min_soc=20, max_soc=90, morning_reserve_margin=15,
+        best_pb_window=pb_win, best_sell_window=sell_win,
+    )
+    assert s_15[0]["target_soc"] == 35
+    assert s_15[5]["target_soc"] == 35
+
+    # 3. 25% margin with min_soc = 20 and max_soc = 40 (clamped to 50 max_soc lower bound in generate)
+    # min_soc + margin = 20 + 25 = 45 -> clamped to safe_max_soc (50)
+    s_clamp = pstryk_engine.generate_deye_tou_schedule(
+        min_soc=20, max_soc=50, morning_reserve_margin=35,
+        best_pb_window=pb_win, best_sell_window=sell_win,
+    )
+    assert s_clamp[0]["target_soc"] == 50
+    assert s_clamp[5]["target_soc"] == 50
+
+
+def test_custom_nominal_voltage_and_power_scaling():
+    """
+    Verifies that nominal_voltage scales base power:
+    P_base = min(12000, max(1000, round(I_charge * V_nom, -1))).
+    """
+    pb_win = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2, "is_consecutive": True}
+    sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
+
+    # 1. 48.0V nominal voltage at 100A -> 4800W
+    s_48 = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=20, max_soc=90, min_soc=20,
+        best_pb_window=pb_win, best_sell_window=sell_win,
+        nominal_voltage=48.0,
+        max_charge_current=100.0,
+    )
+    assert [s for s in s_48 if s["grid_charge"] is True][0]["power_w"] == 4800
+    assert s_48[4]["power_w"] == 4800  # Slot 5
+
+    # 2. 53.0V nominal voltage at 100A -> 5300W
+    s_53 = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=20, max_soc=90, min_soc=20,
+        best_pb_window=pb_win, best_sell_window=sell_win,
+        nominal_voltage=53.0,
+        max_charge_current=100.0,
+    )
+    assert [s for s in s_53 if s["grid_charge"] is True][0]["power_w"] == 5300
+    assert s_53[4]["power_w"] == 5300  # Slot 5
 
 
 if __name__ == "__main__":

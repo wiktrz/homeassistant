@@ -3130,12 +3130,17 @@
         tomorrow: false
   mode: single
 
-- id: deye_max_soc_change_sync
-  alias: "Deye: Synchronizacja Harmonogramu TOU przy Zmianie Max SOC"
-  description: "Automatycznie przelicza harmonogram TOU i wysyła do falownika Deye po zmianie suwaka Max SOC w Home Assistant."
+- id: deye_battery_parameters_change_sync
+  alias: "Deye: Synchronizacja Harmonogramu TOU przy Zmianie Parametrów Baterii"
+  description: "Automatycznie przelicza harmonogram TOU i wysyła do falownika Deye po zmianie parametrów magazynu (Max SOC, rezerwa poranna, pojemność, prąd ładowania, napięcie nominalne) w Home Assistant."
   triggers:
     - trigger: state
-      entity_id: input_number.deye_battery_max_charge_soc
+      entity_id:
+        - input_number.deye_battery_max_charge_soc
+        - input_number.deye_morning_reserve_margin_pct
+        - input_number.powerbank_total_capacity_kwh
+        - input_number.powerbank_charge_current_a
+        - input_number.powerbank_voltage_v
       for:
         seconds: 5
   conditions:

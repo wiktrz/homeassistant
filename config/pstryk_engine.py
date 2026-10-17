@@ -911,6 +911,11 @@ def generate_deye_tou_schedule(
     calibration_active: bool = False,
     default_power_w: int = 5000,
     max_charge_current: Optional[float] = None,
+    battery_capacity_kwh: float = 16.13,
+    morning_reserve_margin: int = 10,
+    pre_peak_margin: int = 20,
+    nominal_voltage: float = 51.2,
+    loss_buffer_pct: float = 10.0,
 ) -> List[Dict[str, Any]]:
     """
     Generates a 6-slot Time-of-Use (TOU) schedule for Deye Hybrid Inverter.
@@ -919,10 +924,10 @@ def generate_deye_tou_schedule(
     until the major peak, and discharging to 100% cover house load during the peak.
 
     Dynamic Power Scaling:
-    Base 100% power is dynamically derived from inverter max_charge_current (100A -> 5000W).
+    Base 100% power is dynamically derived from inverter max_charge_current and nominal voltage.
     When charging window exceeds 2h (e.g. 4h on weekends), charging power is proportionally
-    reduced (P_charge = P_100 * 2 / T, e.g. 4h -> 2500W / ~50A).
-    Slot 5 (Peak Evening Discharge) strictly retains full 5000W.
+    reduced based on Delta-SOC and energy needed, with +10% extra capacity buffer for charging losses.
+    Slot 5 (Peak Evening Discharge) strictly retains full base power.
     """
     def to_minutes(hhmm_str: Optional[str], default_m: int) -> int:
         if not hhmm_str or hhmm_str == "--:--":
@@ -938,16 +943,17 @@ def generate_deye_tou_schedule(
         mm = m % 60
         return f"{hh:02d}:{mm:02d}"
 
-    # Derive dynamic 100% base power from inverter max_charge_current (default 100A -> 5000W)
+    # Derive dynamic 100% base power from inverter max_charge_current and nominal voltage (default 100A @ 51.2V -> 5120W)
+    eff_volts = float(nominal_voltage) if nominal_voltage and float(nominal_voltage) > 0 else 51.2
     if max_charge_current is not None and float(max_charge_current) > 0:
-        base_power_w = min(12000, max(1000, int(round(float(max_charge_current) * 50.0))))
+        base_power_w = min(12000, max(1000, int(round(float(max_charge_current) * eff_volts, -1))))
     else:
         base_power_w = int(default_power_w)
 
     safe_max_soc = 100 if calibration_active else max(50, min(100, int(max_soc)))
     safe_min_soc = max(10, min(50, int(min_soc)))
-    morning_reserve_soc = min(safe_max_soc, safe_min_soc + 10)
-    pre_peak_soc = max(safe_min_soc + 20, safe_max_soc - 20)
+    morning_reserve_soc = min(safe_max_soc, safe_min_soc + max(0, int(morning_reserve_margin)))
+    pre_peak_soc = max(safe_min_soc + int(pre_peak_margin), safe_max_soc - int(pre_peak_margin))
 
     # Safeguard against uninstalled battery (0 or negative SOC) defaulting safely to safe_min_soc
     eff_current_soc = safe_min_soc if (current_soc is None or int(current_soc) <= 0) else int(current_soc)
@@ -990,13 +996,15 @@ def generate_deye_tou_schedule(
         except (ValueError, TypeError):
             pass
 
-    # Dynamic power calculation based on needed energy delta and window duration
+    # Dynamic power calculation based on needed energy delta, window duration, and 10% loss buffer
     if calibration_active:
         charge_power_w = max(3500, base_power_w)
     else:
         delta_soc = max(0, safe_max_soc - eff_current_soc)
-        needed_kwh = (delta_soc / 100.0) * 16.13
-        p_calc = (needed_kwh * 1050.0) / float(charging_duration_hours)
+        needed_kwh = (delta_soc / 100.0) * float(battery_capacity_kwh)
+        loss_multiplier = 1.0 + (float(loss_buffer_pct) / 100.0)
+        charge_energy_kwh = needed_kwh * loss_multiplier
+        p_calc = (charge_energy_kwh * 1000.0) / float(charging_duration_hours)
         charge_power_w = max(1000, min(base_power_w, int(round(p_calc, -1))))
 
     sell_start_m = 1020  # Default 17:00
@@ -1272,6 +1280,11 @@ def sync_deye_inverter_tou_schedule(
     for_tomorrow: bool = False,
     force: bool = False,
     max_charge_current: Optional[float] = None,
+    battery_capacity_kwh: Optional[float] = None,
+    morning_reserve_margin: Optional[int] = None,
+    nominal_voltage: Optional[float] = None,
+    pre_peak_margin: Optional[int] = None,
+    loss_buffer_pct: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Recalculates and uploads the 6-slot TOU schedule to the Deye hybrid inverter via Solarman V5 client.
@@ -1309,6 +1322,11 @@ def sync_deye_inverter_tou_schedule(
     eff_min_soc = min_soc if min_soc is not None else inv_cfg.get("min_discharge_soc", 20)
     eff_current_soc = current_soc if current_soc is not None else inv_tlm.get("battery_soc", 85)
     eff_max_charge_current = max_charge_current or inv_cfg.get("max_charge_current") or inv_tlm.get("max_charge_current") or 100.0
+    eff_capacity_kwh = float(battery_capacity_kwh) if battery_capacity_kwh is not None else 16.13
+    eff_morning_margin = int(morning_reserve_margin) if morning_reserve_margin is not None else 10
+    eff_nominal_voltage = float(nominal_voltage) if nominal_voltage is not None else 51.2
+    eff_pre_peak_margin = int(pre_peak_margin) if pre_peak_margin is not None else 20
+    eff_loss_buffer_pct = float(loss_buffer_pct) if loss_buffer_pct is not None else 10.0
 
     # Resolve pricing windows (from cache or API)
     cache_file = get_cache_file_path(installation, cache_dir)
@@ -1383,6 +1401,11 @@ def sync_deye_inverter_tou_schedule(
         best_sell_window=sell_window,
         calibration_active=calibration_active,
         max_charge_current=eff_max_charge_current,
+        battery_capacity_kwh=eff_capacity_kwh,
+        morning_reserve_margin=eff_morning_margin,
+        nominal_voltage=eff_nominal_voltage,
+        pre_peak_margin=eff_pre_peak_margin,
+        loss_buffer_pct=eff_loss_buffer_pct,
     )
 
     # Idempotent diff check: verify if active inverter slots already match newly calculated schedule
@@ -1403,6 +1426,10 @@ def sync_deye_inverter_tou_schedule(
                 "max_soc": eff_max_soc,
                 "min_soc": eff_min_soc,
                 "max_charge_current": eff_max_charge_current,
+                "battery_capacity_kwh": eff_capacity_kwh,
+                "morning_reserve_margin": eff_morning_margin,
+                "nominal_voltage": eff_nominal_voltage,
+                "loss_buffer_pct": eff_loss_buffer_pct,
             },
             "slots": slots,
         }
@@ -1442,6 +1469,10 @@ def sync_deye_inverter_tou_schedule(
             "max_soc": eff_max_soc,
             "min_soc": eff_min_soc,
             "max_charge_current": eff_max_charge_current,
+            "battery_capacity_kwh": eff_capacity_kwh,
+            "morning_reserve_margin": eff_morning_margin,
+            "nominal_voltage": eff_nominal_voltage,
+            "loss_buffer_pct": eff_loss_buffer_pct,
         },
         "slots": slots,
         "inverter_response": sync_result,
@@ -1824,6 +1855,11 @@ def fetch_consolidated_data(
     current_soc: Optional[int] = None,
     calibration_active: bool = False,
     max_charge_current: Optional[float] = None,
+    battery_capacity_kwh: Optional[float] = None,
+    morning_reserve_margin: Optional[int] = None,
+    nominal_voltage: Optional[float] = None,
+    pre_peak_margin: Optional[int] = None,
+    loss_buffer_pct: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Fetches all 5 datasets (latest, forward 48h, today, month, year),
@@ -1986,6 +2022,11 @@ def fetch_consolidated_data(
     eff_min_soc = min_soc if min_soc is not None else 20
     eff_current_soc = current_soc if current_soc is not None else 85
     eff_current = max_charge_current or 100.0
+    eff_capacity = float(battery_capacity_kwh) if battery_capacity_kwh is not None else 16.13
+    eff_morning_margin = int(morning_reserve_margin) if morning_reserve_margin is not None else 10
+    eff_voltage = float(nominal_voltage) if nominal_voltage is not None else 51.2
+    eff_pre_peak_margin = int(pre_peak_margin) if pre_peak_margin is not None else 20
+    eff_loss_buffer_pct = float(loss_buffer_pct) if loss_buffer_pct is not None else 10.0
 
     # Dispatch windows for TODAY (stable across all 24h of the current day)
     target_today_data = {"frames": frames_today} if frames_today else (forward_data if (isinstance(forward_data, dict) and forward_data.get("frames")) else today_data)
@@ -2000,6 +2041,11 @@ def fetch_consolidated_data(
         best_sell_window=sell_window_today,
         calibration_active=calibration_active,
         max_charge_current=eff_current,
+        battery_capacity_kwh=eff_capacity,
+        morning_reserve_margin=eff_morning_margin,
+        nominal_voltage=eff_voltage,
+        pre_peak_margin=eff_pre_peak_margin,
+        loss_buffer_pct=eff_loss_buffer_pct,
     )
 
     # Dispatch windows for TOMORROW (published ~12:00 Warsaw time)
@@ -2017,6 +2063,11 @@ def fetch_consolidated_data(
             best_sell_window=sell_window_tomorrow,
             calibration_active=calibration_active,
             max_charge_current=eff_current,
+            battery_capacity_kwh=eff_capacity,
+            morning_reserve_margin=eff_morning_margin,
+            nominal_voltage=eff_voltage,
+            pre_peak_margin=eff_pre_peak_margin,
+            loss_buffer_pct=eff_loss_buffer_pct,
         )
     else:
         pending_msg = "Oczekiwanie na publikację (ok. 12:00)"
@@ -2034,15 +2085,15 @@ def fetch_consolidated_data(
         }
         tou_tomorrow = []
 
-    # Battery model defaults for Deye 12kW + SunDeposit 16.13 kWh
+    # Battery model dynamically adopting capacity, voltage, and current settings
     battery_model = BatteryModel(
-        capacity_kwh=16.13,
+        capacity_kwh=eff_capacity,
         max_soc=float(eff_max_soc),
         min_soc=float(eff_min_soc),
         shutdown_soc=5.0,
         charge_current_a=float(eff_current),
         discharge_current_a=float(eff_current),
-        voltage_v=51.2,
+        voltage_v=eff_voltage,
     )
 
     # 6. Build rich structured sub-objects
@@ -2132,6 +2183,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--print-tou", action="store_true", help="Print human-readable ASCII TOU schedule table without writing to inverter")
     parser.add_argument("--force", action="store_true", help="Force TOU write even if schedule is identical to current inverter settings")
     parser.add_argument("--max-charge-current", type=float, default=None, help="Inverter max charge current override (Amperes)")
+    parser.add_argument("--battery-capacity", type=float, default=16.13, help="Battery total capacity in kWh (default: 16.13)")
+    parser.add_argument("--morning-reserve-margin", type=int, default=10, help="Morning reserve SOC margin above min_soc in percent (default: 10)")
+    parser.add_argument("--nominal-voltage", type=float, default=51.2, help="Nominal battery pack voltage in Volts (default: 51.2)")
+    parser.add_argument("--pre-peak-margin", type=int, default=20, help="Pre-peak daytime autokonsumpcja margin in percent (default: 20)")
+    parser.add_argument("--loss-buffer-pct", type=float, default=10.0, help="Charging energy loss buffer percentage (default: 10.0)")
 
     args = parser.parse_args(argv)
     resolved_key, key_source = resolve_api_key(args.installation, args.key)
@@ -2148,6 +2204,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             current_soc=args.current_soc,
             calibration_active=args.calibration,
             max_charge_current=args.max_charge_current,
+            battery_capacity_kwh=args.battery_capacity,
+            morning_reserve_margin=args.morning_reserve_margin,
+            nominal_voltage=args.nominal_voltage,
+            pre_peak_margin=args.pre_peak_margin,
+            loss_buffer_pct=args.loss_buffer_pct,
         )
         if not isinstance(data, dict) or "error" in data:
             print(f"Błąd pobierania danych: {data.get('error') if isinstance(data, dict) else data}")
@@ -2167,11 +2228,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         header = f"{'Slot':<5} | {'Godzina':<7} | {'Moc (W)':<8} | {'Prąd (~A)':<9} | {'SOC (%)':<8} | {'Sieć':<6} | {'Tryb Pracy'}"
         print(header)
         print("-" * len(header))
+        eff_v = args.nominal_voltage or 51.2
         for s in slots:
             slot_num = s.get("slot", 0)
             time_str = s.get("time", "--:--")
             pwr = s.get("power_w", 5000)
-            approx_a = round(pwr / 51.2)
+            approx_a = round(pwr / eff_v)
             soc = s.get("target_soc", 0)
             grid = "TAK" if s.get("grid_charge") else "NIE"
             label = s.get("label", "")
@@ -2191,6 +2253,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             for_tomorrow=args.tomorrow,
             force=args.force,
             max_charge_current=args.max_charge_current,
+            battery_capacity_kwh=args.battery_capacity,
+            morning_reserve_margin=args.morning_reserve_margin,
+            nominal_voltage=args.nominal_voltage,
+            pre_peak_margin=args.pre_peak_margin,
+            loss_buffer_pct=args.loss_buffer_pct,
         )
         print(json.dumps(sync_res, indent=2))
         return 0 if sync_res.get("success") else 1

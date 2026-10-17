@@ -743,7 +743,7 @@ views:
             icon: mdi:battery-arrow-down
 
       - type: heading
-        heading: Magazyn Energii SunDeposit 16.13 kWh & Falownik Deye 12 kW
+        heading: Magazyn Energii & Falownik Deye 12 kW
 
       - type: grid
         columns: 3
@@ -834,6 +834,18 @@ views:
           - entity: input_number.deye_battery_max_charge_soc
             name: Docelowy Max SOC Ładowania (Suwak)
             icon: mdi:battery-arrow-up
+          - entity: input_number.deye_morning_reserve_margin_pct
+            name: Margines Rezerwy Porannej (+%)
+            icon: mdi:battery-plus
+          - entity: input_number.powerbank_total_capacity_kwh
+            name: Pojemność Magazynu Energii (kWh)
+            icon: mdi:battery-high
+          - entity: input_number.powerbank_charge_current_a
+            name: Limit Prądu Ładowania (A)
+            icon: mdi:current-ac
+          - entity: input_number.powerbank_voltage_v
+            name: Napięcie Nominalne Magazynu (V)
+            icon: mdi:sine-wave
           - entity: input_select.ev_charging_target_hours
             name: Długość Okna Ładowania EV
             icon: mdi:car-electric
@@ -847,13 +859,14 @@ views:
       - type: markdown
         title: Aktywne Sloty Falownika Deye (Time-of-Use) — Dziś
         content: |-
+          {% set nom_v = states('input_number.powerbank_voltage_v') | default('51.2', true) | float(51.2) %}
           {% set active = state_attr('sensor.deye_inverter_status', 'active_tou') %}
           {% set slots = active['slots'] if active and active['slots'] is defined else (state_attr('sensor.deye_tou_active_schedule', 'slots') if state_attr('sensor.deye_tou_active_schedule', 'slots') is defined else []) %}
           {% if slots and slots | length == 6 -%}
           | Slot | Godzina | Moc / Prąd | SOC | Sieć | Tryb Pracy |
           |:---:|:---:|:---:|:---:|:---:|:---|
           {% for s in slots -%}
-          | **{{ s.slot }}** | `{{ s.time }}` | {{ s.power_w if s.power_w is defined else 5000 }} W (~{{ ((s.power_w if s.power_w is defined else 5000) / 51.2) | round(0) }} A) | {{ s.target_soc }}% | {{ '**⚡ TAK**' if s.grid_charge else 'NIE' }} | {{ s.label if s.label else ('Najtańsze Ładowanie' if s.grid_charge else ('Czuwanie Przed Szczytem' if s.target_soc >= 80 else 'Autokonsumpcja PV')) }} |
+          | **{{ s.slot }}** | `{{ s.time }}` | {{ s.power_w if s.power_w is defined else 5000 }} W (~{{ ((s.power_w if s.power_w is defined else 5000) / nom_v) | round(0) }} A) | {{ s.target_soc }}% | {{ '**⚡ TAK**' if s.grid_charge else 'NIE' }} | {{ s.label if s.label else ('Najtańsze Ładowanie' if s.grid_charge else ('Czuwanie Przed Szczytem' if s.target_soc >= 80 else 'Autokonsumpcja PV')) }} |
           {% endfor %}
 
           ---
@@ -881,6 +894,15 @@ views:
           >
           > ⚡ **Szczyt Cenowy (Sprzedaż / Bateria):**  
           > `{{ states('sensor.pstryk_best_sell_window_tomorrow_dol') }}`
+
+          {% set tom_slots = state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule_tomorrow') %}
+          {% if tom_slots and tom_slots | length == 6 -%}
+          | Slot | Godzina | Moc / Prąd | SOC | Sieć | Tryb Pracy |
+          |:---:|:---:|:---:|:---:|:---:|:---|
+          {% for st in tom_slots -%}
+          | **{{ st.slot }}** | `{{ st.time }}` | {{ st.power_w if st.power_w is defined else 5000 }} W (~{{ ((st.power_w if st.power_w is defined else 5000) / nom_v) | round(0) }} A) | {{ st.target_soc }}% | {{ '**⚡ TAK**' if st.grid_charge else 'NIE' }} | {{ st.label if st.label else ('Najtańsze Ładowanie' if st.grid_charge else 'Autokonsumpcja PV') }} |
+          {% endfor %}
+          {%- endif %}
           {%- else -%}
           > *⏳ Oczekiwanie na publikację cen na jutro przez TGE/Pstryk (ok. 12:00–14:00)...*
           {%- endif %}

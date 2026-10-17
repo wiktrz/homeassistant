@@ -544,7 +544,7 @@
         peak_discharge_window: "{{ states('sensor.pstryk_best_sell_window_dol') }}"
       icon: mdi:calendar-clock
 
-    # --- Deye 12kW & SunDeposit 16.13 kWh Battery Model ---
+    # --- Deye 12kW & Dynamic Battery Model ---
     - name: "Deye Battery Operating Capacity kWh"
       unique_id: deye_battery_operating_capacity_kwh
       unit_of_measurement: "kWh"
@@ -561,7 +561,8 @@
           {{ (((max_soc - min_soc) / 100.0) * cap) | round(2) }}
         {% endif %}
       attributes:
-        nominal_capacity_when_installed: 11.29
+        total_capacity_kwh: "{{ states('input_number.powerbank_total_capacity_kwh') | default('16.13', true) | float(16.13) }}"
+        operating_range_soc: "{{ (states('input_number.deye_battery_max_charge_soc') | default('90', true) | int(90)) }}% - {{ (state_attr('sensor.deye_inverter_status', 'config').min_discharge_soc if state_attr('sensor.deye_inverter_status', 'config') and state_attr('sensor.deye_inverter_status', 'config').min_discharge_soc is defined else (states('sensor.deye_inverter_min_discharge_soc') | default('20', true) | int(20))) }}%"
       icon: mdi:battery-heart
 
     - name: "Deye Battery Blackout Reserve kWh"
@@ -574,13 +575,14 @@
           0.0
         {% else %}
           {% set cfg = state_attr('sensor.deye_inverter_status', 'config') %}
-          {% set min_soc = cfg.min_discharge_soc if cfg and cfg.min_discharge_soc is defined else (states('input_number.deye_battery_min_discharge_soc') | default('20', true) | float(20)) %}
-          {% set shut_soc = cfg.shutdown_soc if cfg and cfg.shutdown_soc is defined else (states('input_number.deye_battery_shutdown_soc') | default('5', true) | float(5)) %}
+          {% set min_soc = cfg.min_discharge_soc if cfg and cfg.min_discharge_soc is defined else (states('sensor.deye_inverter_min_discharge_soc') | default(states('input_number.deye_battery_min_discharge_soc') | default('20', true), true) | float(20)) %}
+          {% set shut_soc = cfg.shutdown_soc if cfg and cfg.shutdown_soc is defined else (states('sensor.deye_inverter_shutdown_soc') | default(states('input_number.deye_battery_shutdown_soc') | default('5', true), true) | float(5)) %}
           {% set cap = states('input_number.powerbank_total_capacity_kwh') | default('16.13', true) | float(16.13) %}
           {{ (((min_soc - shut_soc) / 100.0) * cap) | round(2) }}
         {% endif %}
       attributes:
-        nominal_reserve_when_installed: 2.42
+        total_capacity_kwh: "{{ states('input_number.powerbank_total_capacity_kwh') | default('16.13', true) | float(16.13) }}"
+        blackout_range_soc: "{{ (state_attr('sensor.deye_inverter_status', 'config').min_discharge_soc if state_attr('sensor.deye_inverter_status', 'config') and state_attr('sensor.deye_inverter_status', 'config').min_discharge_soc is defined else (states('sensor.deye_inverter_min_discharge_soc') | default('20', true) | int(20))) }}% - {{ (state_attr('sensor.deye_inverter_status', 'config').shutdown_soc if state_attr('sensor.deye_inverter_status', 'config') and state_attr('sensor.deye_inverter_status', 'config').shutdown_soc is defined else (states('sensor.deye_inverter_shutdown_soc') | default('5', true) | int(5))) }}%"
       icon: mdi:battery-alert
 
     - name: "Deye Charge Power kW"
@@ -609,7 +611,7 @@
         {% set tlm = state_attr('sensor.deye_inverter_status', 'telemetry') %}
         {% set installed = is_state('input_boolean.deye_battery_installed', 'on') or (tlm and tlm.battery_installed) %}
         {% if not installed %}
-          Oczekuje na montaż (SunDeposit 16.13 kWh)
+          Oczekuje na montaż ({{ states('input_number.powerbank_total_capacity_kwh') | default('16.13', true) }} kWh)
         {% else %}
           {% set soc = states('sensor.deye_battery_soc') | float(0) %}
           {% set cap = states('input_number.powerbank_total_capacity_kwh') | default('16.13', true) | float(16.13) %}
