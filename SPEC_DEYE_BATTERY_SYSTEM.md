@@ -148,11 +148,18 @@ Triggered via `script.trigger_deye_battery_calibration`:
 | Min Discharge SOC (`deye_battery_min_discharge_soc`) | Safety Limit | Active Slider (10–50%, default 20%) | **YES (2-Step Process)** |
 | Shutdown SOC (`deye_battery_shutdown_soc`) | Safety Limit | Active Slider (0–30%, default 5%) | **YES (2-Step Process)** |
 
-### 5.2 2-Step Confirmation Flow
-1. When user adjusts `min_discharge_soc` or `shutdown_soc` in the UI, `automation.deye_battery_critical_parameters_changed` sets `binary_sensor.deye_battery_critical_parameters_pending` to `on`.
-2. Automatic synchronization is paused while pending.
+### 5.2 2-Step Confirmation Flow & Execution Sequence
+1. When user adjusts `min_discharge_soc` or `shutdown_soc` in the UI, `binary_sensor.deye_battery_critical_parameters_pending` detects mismatch against live inverter readings and turns `on`.
+2. Automatic background synchronization continues using active inverter thresholds while critical safety writes remain pending user approval.
 3. User must either:
-   - Click **"Zatwierdź i Zastosuj"** (`script.confirm_and_apply_deye_battery_settings`), triggering a confirmation dialog before syncing to Deye.
+   - Click **"Zatwierdź i Zastosuj"** (`script.confirm_and_apply_deye_battery_settings`), which executes:
+     1. `shell_command.apply_deye_battery_safety_limits`: invokes `solarman_v5_client.apply_confirmed_battery_safety_limits` via `pstryk_engine.py --apply-battery-safety-limits`.
+        - Writes Register 110 (Min SOC / Batt LOW) and Register 111 (Shutdown SOC) via Modbus RTU (Function 0x06).
+        - Falls back to Deye Cloud OpenAPI (`POST /v1.0/order/battery/parameter/update` with `battLowCapacity` & `battShutDownCapacity`) if local TCP socket is refused or timed out.
+        - Immediately updates local cache (`/config/.deye_inverter_cache.json`) via cache write-through.
+     2. `script.sync_deye_inverter_tou`: calculates and uploads the 6-slot TOU schedule aligned with the new Min SOC.
+     3. `homeassistant.update_entity(sensor.deye_inverter_status)`: immediately ingests the updated cache, synchronizing `sensor.deye_inverter_min_discharge_soc` and `sensor.deye_inverter_shutdown_soc` with the sliders, clearing `binary_sensor.deye_battery_critical_parameters_pending` to `off`.
+     4. `persistent_notification.create`: notifies the user with confirmation of the new thresholds.
    - Click **"Cofnij do Falownika"** (`script.revert_deye_battery_settings_from_inverter`), reverting the sliders to live inverter values.
 
 ---

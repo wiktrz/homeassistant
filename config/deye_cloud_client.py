@@ -666,6 +666,60 @@ def set_charge_current_cloud(current_a: Optional[int] = None, cfg: Optional[Dict
     }
 
 
+def set_battery_safety_limits_cloud(
+    min_soc: Optional[int] = None,
+    shutdown_soc: Optional[int] = None,
+    cfg: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Sets battery safety limits (Batt LOW / Min SOC and Shutdown SOC) via Deye Cloud OpenAPI.
+    Calls POST /v1.0/order/battery/parameter/update or /v1.0/order/sys/battery/update
+    """
+    cfg = cfg or get_deye_cloud_config()
+    target_sn = cfg.get("inverter_sn")
+    if not target_sn:
+        return {"success": False, "message": "Missing target inverter serial number (DEYE_INVERTER_SN)"}
+
+    eff_min = int(min_soc) if min_soc is not None else int(energy_defaults.DEFAULT_MIN_SOC)
+    eff_shut = int(shutdown_soc) if shutdown_soc is not None else int(energy_defaults.DEFAULT_SHUTDOWN_SOC)
+
+    clamped_shutdown = max(0, min(30, eff_shut))
+    clamped_min = max(10, min(50, eff_min))
+
+    if clamped_shutdown >= clamped_min:
+        return {
+            "success": False,
+            "message": f"Invalid safety limits: Shutdown SOC ({clamped_shutdown}%) must be strictly less than Min SOC ({clamped_min}%)",
+        }
+
+    payload = {
+        "deviceSn": target_sn,
+        "battLowCapacity": clamped_min,
+        "battShutDownCapacity": clamped_shutdown,
+    }
+    ok, res, msg = call_deye_api("/v1.0/order/battery/parameter/update", method="POST", data=payload, cfg=cfg)
+    if not ok:
+        ok, res, msg = call_deye_api("/v1.0/order/sys/battery/update", method="POST", data=payload, cfg=cfg)
+
+    app_success = False
+    if ok and isinstance(res, dict):
+        code = str(res.get("code", ""))
+        app_success = (code in ("1000000", "1106000") or res.get("success") is True)
+        if "msg" in res:
+            msg = res.get("msg")
+    elif ok:
+        app_success = True
+
+    return {
+        "success": app_success,
+        "source": "deye_cloud_openapi",
+        "min_soc": clamped_min,
+        "shutdown_soc": clamped_shutdown,
+        "response": res,
+        "message": msg,
+    }
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Deye Cloud OpenAPI Client for Home Assistant")
     parser.add_argument("--read-all", action="store_true", help="Read config, telemetry, and TOU settings via Cloud API")
@@ -675,6 +729,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--sync-tou", type=str, help="Synchronize 6 TOU slots (JSON string or file path)")
     parser.add_argument("--sync-pstryk-tou", action="store_true", help="Calculate optimal TOU from Pstryk prices and upload via Cloud API")
     parser.add_argument("--set-charge-current", type=int, help="Modulate Max Charge Current (Reg 108 in Amperes) via Cloud OpenAPI")
+    parser.add_argument("--set-safety-limits", action="store_true", help="Set battery safety limits (Min SOC and Shutdown SOC) via Cloud OpenAPI")
+    parser.add_argument("--min-soc", type=int, default=None, help="Batt LOW / Min SOC limit")
+    parser.add_argument("--shutdown-soc", type=int, default=None, help="Shutdown SOC limit")
     parser.add_argument("--device-sn", default=None, help="Inverter Serial Number (defaults to DEYE_INVERTER_SN)")
     parser.add_argument("--api-key", default=None, help="Direct Deye API key override")
 
@@ -687,6 +744,11 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.set_charge_current is not None:
         res = set_charge_current_cloud(current_a=args.set_charge_current, cfg=cfg)
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("success") else 1
+
+    if args.set_safety_limits:
+        res = set_battery_safety_limits_cloud(min_soc=args.min_soc, shutdown_soc=args.shutdown_soc, cfg=cfg)
         print(json.dumps(res, indent=2))
         return 0 if res.get("success") else 1
 

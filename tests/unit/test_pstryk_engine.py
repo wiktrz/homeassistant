@@ -736,6 +736,18 @@ def test_cli_sync_deye_tou_flag():
         assert ret == 0
 
 
+def test_cli_apply_battery_safety_limits_flag():
+    """Verifies CLI flag --apply-battery-safety-limits calls solarman_v5_client."""
+    with mock.patch("solarman_v5_client.apply_confirmed_battery_safety_limits") as mock_apply:
+        mock_apply.return_value = {"success": True, "min_soc": 15, "shutdown_soc": 5}
+        ret = pstryk_engine.main(["--apply-battery-safety-limits", "--min-soc", "15", "--shutdown-soc", "5"])
+        assert ret == 0
+        mock_apply.assert_called_once_with(
+            host=None, port=None, min_soc=15, shutdown_soc=5
+        )
+
+
+
 def test_resolve_api_key_from_env_installation_specific():
     """Verifies resolve_api_key reads installation-specific variable from .env."""
     with mock.patch.dict(os.environ, {"PSTRYK_API_KEY_DOL": "sk-dol-test-123"}, clear=False):

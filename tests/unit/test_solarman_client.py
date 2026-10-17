@@ -404,3 +404,99 @@ def test_deye_offline_fallback_to_cache(tmp_path):
         assert res["telemetry"]["battery_soc"] == 85
 
 
+def test_send_command_retries_on_failure():
+    """Verifies send_command retries on transient connection error before failing."""
+    with mock.patch("socket.socket") as mock_sock_cls, \
+         mock.patch("time.sleep") as mock_sleep:
+        mock_sock = mock.MagicMock()
+        mock_sock_cls.return_value.__enter__.return_value = mock_sock
+        # First 2 attempts raise OSError, 3rd succeeds
+        mock_sock.connect.side_effect = [OSError("Temporary failure"), OSError("Resource busy"), None]
+        mock_sock.recv.return_value = b"\xa5\x01\x15"
+
+        ok, resp, msg = solarman_v5_client.send_command("10.20.2.6", 8899, b"test_frame", retries=2)
+        assert ok is True
+        assert resp == b"\xa5\x01\x15"
+        assert mock_sleep.call_count == 2
+
+
+def test_apply_confirmed_battery_safety_limits_validation():
+    """Verifies apply_confirmed_battery_safety_limits rejects shutdown_soc >= min_soc."""
+    res = solarman_v5_client.apply_confirmed_battery_safety_limits(
+        host="10.20.2.6", port=8899, min_soc=15, shutdown_soc=20
+    )
+    assert res["success"] is False
+    assert "Invalid safety limits" in res["error"]
+
+
+def test_apply_confirmed_battery_safety_limits_modbus_success(tmp_path):
+    """Verifies successful Modbus write of Reg 110 & 111 with immediate cache write-through."""
+    cache_file = str(tmp_path / "cache_safety.json")
+    with mock.patch("solarman_v5_client.write_single_register") as mock_write, \
+         mock.patch("solarman_v5_client.load_deye_cache", return_value={"config": {"min_discharge_soc": 20, "shutdown_soc": 5}}), \
+         mock.patch("solarman_v5_client.save_deye_cache") as mock_save:
+        mock_write.return_value = {"success": True, "message": "OK"}
+
+        res = solarman_v5_client.apply_confirmed_battery_safety_limits(
+            host="10.20.2.6", port=8899, min_soc=15, shutdown_soc=5
+        )
+        assert res["success"] is True
+        assert res["source"] == "solarman_v5_modbus"
+        assert res["min_soc"] == 15
+        assert res["shutdown_soc"] == 5
+
+        # Check that both registers were written
+        assert mock_write.call_count == 2
+        calls = mock_write.call_args_list
+        assert calls[0][0][2] == solarman_v5_client.REG_MIN_DISCHARGE_SOC
+        assert calls[0][0][3] == 15
+        assert calls[1][0][2] == solarman_v5_client.REG_SHUTDOWN_SOC
+        assert calls[1][0][3] == 5
+
+        # Check cache write-through
+        mock_save.assert_called_once()
+        saved_cache = mock_save.call_args[0][0]
+        assert saved_cache["config"]["min_discharge_soc"] == 15
+        assert saved_cache["config"]["shutdown_soc"] == 5
+
+
+def test_apply_confirmed_battery_safety_limits_idempotent():
+    """Verifies that if limits already match cached values, write is skipped."""
+    with mock.patch("solarman_v5_client.load_deye_cache", return_value={"config": {"min_discharge_soc": 15, "shutdown_soc": 5}}), \
+         mock.patch("solarman_v5_client.write_single_register") as mock_write:
+        res = solarman_v5_client.apply_confirmed_battery_safety_limits(
+            host="10.20.2.6", port=8899, min_soc=15, shutdown_soc=5
+        )
+        assert res["success"] is True
+        assert res["unchanged"] is True
+        mock_write.assert_not_called()
+
+
+def test_apply_confirmed_battery_safety_limits_cloud_fallback():
+    """Verifies fallback to Deye Cloud OpenAPI when Modbus socket fails."""
+    with mock.patch("solarman_v5_client.write_single_register", return_value={"success": False, "message": "Connection refused"}), \
+         mock.patch("solarman_v5_client.load_deye_cache", return_value={"config": {"min_discharge_soc": 20, "shutdown_soc": 5}}), \
+         mock.patch("solarman_v5_client.save_deye_cache") as mock_save, \
+         mock.patch("deye_cloud_client.get_deye_cloud_config", return_value={"api_key": "dummy_key"}), \
+         mock.patch("deye_cloud_client.set_battery_safety_limits_cloud") as mock_cloud:
+        mock_cloud.return_value = {"success": True, "source": "deye_cloud_openapi"}
+
+        res = solarman_v5_client.apply_confirmed_battery_safety_limits(
+            host="10.20.2.6", port=8899, min_soc=15, shutdown_soc=5
+        )
+        assert res["success"] is True
+        assert res["source"] == "deye_cloud_openapi"
+        mock_cloud.assert_called_once()
+        mock_save.assert_called_once()
+
+
+def test_cli_apply_safety_limits_flag():
+    """Verifies CLI flag --apply-safety-limits calls apply_confirmed_battery_safety_limits."""
+    with mock.patch("solarman_v5_client.apply_confirmed_battery_safety_limits") as mock_apply:
+        mock_apply.return_value = {"success": True, "min_soc": 15, "shutdown_soc": 5}
+        ret = solarman_v5_client.main(["--apply-safety-limits", "--min-soc", "15", "--shutdown-soc", "5"])
+        assert ret == 0
+        mock_apply.assert_called_once_with(host="10.20.2.6", port=8899, min_soc=15, shutdown_soc=5)
+
+
+

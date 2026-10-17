@@ -121,23 +121,30 @@ def build_solarman_v5_frame(modbus_payload: bytes, serial_number: int = 0) -> by
     return full_body + struct.pack("BB", checksum, 0x15)
 
 
-def send_command(host: str, port: int, frame: bytes, timeout: float = DEFAULT_TIMEOUT) -> Tuple[bool, bytes, str]:
-    """Sends raw frame to inverter stick logger and awaits response."""
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(timeout)
-            s.connect((host, port))
-            s.sendall(frame)
-            response = s.recv(1024)
-            if not response:
-                return False, b"", f"Empty response received from {host}:{port}"
-            return True, response, "OK"
-    except socket.timeout:
-        return False, b"", f"Connection timed out ({timeout}s) to {host}:{port}"
-    except ConnectionRefusedError:
-        return False, b"", f"Connection refused by {host}:{port}"
-    except OSError as e:
-        return False, b"", f"Socket error connecting to {host}:{port}: {e}"
+def send_command(host: str, port: int, frame: bytes, timeout: float = DEFAULT_TIMEOUT, retries: int = 2) -> Tuple[bool, bytes, str]:
+    """Sends raw frame to inverter stick logger and awaits response with retries."""
+    last_err = ""
+    for attempt in range(retries + 1):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(timeout)
+                s.connect((host, port))
+                s.sendall(frame)
+                response = s.recv(1024)
+                if not response:
+                    last_err = f"Empty response received from {host}:{port}"
+                else:
+                    return True, response, "OK"
+        except socket.timeout:
+            last_err = f"Connection timed out ({timeout}s) to {host}:{port}"
+        except ConnectionRefusedError:
+            last_err = f"Connection refused by {host}:{port}"
+        except OSError as e:
+            last_err = f"Socket error connecting to {host}:{port}: {e}"
+
+        if attempt < retries:
+            time.sleep(0.3)
+    return False, b"", last_err
 
 
 def decode_modbus_rtu_response(solarman_resp: bytes) -> Tuple[bool, List[int], str]:
@@ -623,6 +630,7 @@ def sync_soc_limits(
     Registers 109..112 must be configured manually on the physical inverter screen.
     Home Assistant operates in Read-Only mode for these parameters.
     For Register 108 (Max Charge Current), use set_charge_current().
+    For user-confirmed battery safety limits (Reg 110 & 111), use apply_confirmed_battery_safety_limits().
     """
     host = get_configured_inverter_ip(host)
     port = get_configured_inverter_port(port)
@@ -633,6 +641,142 @@ def sync_soc_limits(
         "host": host,
         "port": port,
         "registers": {},
+    }
+
+
+def apply_confirmed_battery_safety_limits(
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    min_soc: Optional[int] = None,
+    shutdown_soc: Optional[int] = None,
+    serial: int = 0,
+) -> Dict[str, Any]:
+    """
+    Applies user-confirmed battery safety limits (Register 110: Min SOC / Batt LOW,
+    and Register 111: Shutdown SOC) to the Deye hybrid inverter.
+    Requires explicit two-step user confirmation from Home Assistant.
+
+    Safety constraints:
+    - 0 <= shutdown_soc <= 30
+    - 10 <= min_soc <= 50
+    - shutdown_soc < min_soc (essential safety invariant)
+
+    Behavior:
+    1. Validates inputs within safe bounds.
+    2. Checks cached/active values to skip write if unchanged (idempotent / EEPROM protection).
+    3. Writes via Modbus RTU (Solarman V5 Function 0x06).
+    4. Falls back to Deye Cloud OpenAPI if Modbus connection fails or port is closed.
+    5. Performs immediate cache write-through so HA sensor states update immediately.
+    """
+    host = get_configured_inverter_ip(host)
+    port = get_configured_inverter_port(port)
+
+    # 1. Fallback to defaults from energy_defaults / cache if not provided
+    cached = load_deye_cache(ignore_ttl=True) or {}
+    cfg = cached.get("config", {}) if isinstance(cached, dict) else {}
+
+    eff_min_soc = int(min_soc) if min_soc is not None else (
+        int(cfg.get("min_discharge_soc", energy_defaults.DEFAULT_MIN_SOC))
+    )
+    eff_shutdown_soc = int(shutdown_soc) if shutdown_soc is not None else (
+        int(cfg.get("shutdown_soc", energy_defaults.DEFAULT_SHUTDOWN_SOC))
+    )
+
+    # 2. Safety bounds clamping & invariant checks
+    clamped_shutdown = max(0, min(30, eff_shutdown_soc))
+    clamped_min = max(10, min(50, eff_min_soc))
+
+    if clamped_shutdown >= clamped_min:
+        return {
+            "success": False,
+            "error": f"Invalid safety limits: Shutdown SOC ({clamped_shutdown}%) must be strictly less than Min SOC ({clamped_min}%).",
+            "min_soc": clamped_min,
+            "shutdown_soc": clamped_shutdown,
+        }
+
+    # 3. Check if values already match active/cached settings (idempotent)
+    prev_min = cfg.get("min_discharge_soc")
+    prev_shutdown = cfg.get("shutdown_soc")
+    if prev_min is not None and prev_shutdown is not None:
+        try:
+            if int(prev_min) == clamped_min and int(prev_shutdown) == clamped_shutdown:
+                return {
+                    "success": True,
+                    "unchanged": True,
+                    "min_soc": clamped_min,
+                    "shutdown_soc": clamped_shutdown,
+                    "host": host,
+                    "port": port,
+                    "message": f"Safety limits already set to Min SOC={clamped_min}%, Shutdown SOC={clamped_shutdown}% (write skipped, idempotent)",
+                }
+        except (ValueError, TypeError):
+            pass
+
+    # 4. Modbus RTU / Solarman V5 write
+    modbus_ok = False
+    modbus_err = ""
+    try:
+        res_min = write_single_register(host, port, REG_MIN_DISCHARGE_SOC, clamped_min, serial=serial)
+        res_shut = write_single_register(host, port, REG_SHUTDOWN_SOC, clamped_shutdown, serial=serial)
+        if res_min.get("success") and res_shut.get("success"):
+            modbus_ok = True
+        else:
+            modbus_err = f"Reg 110: {res_min.get('message')}; Reg 111: {res_shut.get('message')}"
+    except Exception as e:
+        modbus_err = str(e)
+
+    if modbus_ok:
+        if isinstance(cached, dict):
+            cached.setdefault("config", {})["min_discharge_soc"] = clamped_min
+            cached.setdefault("config", {})["shutdown_soc"] = clamped_shutdown
+            save_deye_cache(cached)
+        return {
+            "success": True,
+            "unchanged": False,
+            "source": "solarman_v5_modbus",
+            "min_soc": clamped_min,
+            "shutdown_soc": clamped_shutdown,
+            "host": host,
+            "port": port,
+            "message": f"Successfully updated Deye battery safety limits via Modbus: Min SOC={clamped_min}%, Shutdown SOC={clamped_shutdown}%",
+        }
+
+    # 5. Deye Cloud OpenAPI fallback
+    cloud_res: Dict[str, Any] = {"success": False, "message": "Deye Cloud fallback not attempted"}
+    try:
+        import deye_cloud_client
+        cloud_cfg = deye_cloud_client.get_deye_cloud_config()
+        if cloud_cfg.get("api_key") or cloud_cfg.get("app_id") or cloud_cfg.get("email"):
+            cloud_res = deye_cloud_client.set_battery_safety_limits_cloud(
+                min_soc=clamped_min,
+                shutdown_soc=clamped_shutdown,
+                cfg=cloud_cfg,
+            )
+            if cloud_res.get("success"):
+                if isinstance(cached, dict):
+                    cached.setdefault("config", {})["min_discharge_soc"] = clamped_min
+                    cached.setdefault("config", {})["shutdown_soc"] = clamped_shutdown
+                    save_deye_cache(cached)
+                return {
+                    "success": True,
+                    "unchanged": False,
+                    "source": "deye_cloud_openapi",
+                    "min_soc": clamped_min,
+                    "shutdown_soc": clamped_shutdown,
+                    "local_fallback_reason": modbus_err,
+                    "message": f"Successfully updated Deye battery safety limits via Cloud OpenAPI fallback: Min SOC={clamped_min}%, Shutdown SOC={clamped_shutdown}%",
+                }
+    except Exception as e:
+        cloud_res = {"success": False, "message": f"Cloud exception: {e}"}
+
+    return {
+        "success": False,
+        "unchanged": False,
+        "min_soc": clamped_min,
+        "shutdown_soc": clamped_shutdown,
+        "host": host,
+        "port": port,
+        "error": f"Failed to apply safety limits via Modbus ({modbus_err}) and Cloud OpenAPI ({cloud_res.get('message')})",
     }
 
 
@@ -919,10 +1063,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--set-config", action="store_true", help="Persist specified --host and --port to configuration file")
     # Dynamic Charge Current Modulation
     parser.add_argument("--set-charge-current", type=int, help="Modulate Max Charge Current (Reg 108 in Amperes)")
+    # Confirmed Safety Limits
+    parser.add_argument("--apply-safety-limits", action="store_true", help="Apply confirmed battery safety limits (Reg 110 Min SOC & Reg 111 Shutdown SOC)")
     # Blocked write arguments
     parser.add_argument("--max-soc", type=int, help="Max Charge SOC (BLOCKED: read-only)")
-    parser.add_argument("--min-soc", type=int, help="Min Discharge SOC (BLOCKED: read-only)")
-    parser.add_argument("--shutdown-soc", type=int, help="Shutdown SOC (BLOCKED: read-only)")
+    parser.add_argument("--min-soc", type=int, help="Min Discharge SOC (requires confirmation)")
+    parser.add_argument("--shutdown-soc", type=int, help="Shutdown SOC (requires confirmation)")
     parser.add_argument("--charge-current", type=int, help="Max Charge Current (BLOCKED: use --set-charge-current)")
     parser.add_argument("--discharge-current", type=int, help="Max Discharge Current (BLOCKED: read-only)")
 
@@ -932,6 +1078,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         resolved_host = get_configured_inverter_ip(args.host)
         resolved_port = get_configured_inverter_port(args.port)
         res = set_charge_current(host=resolved_host, port=resolved_port, current_a=args.set_charge_current)
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("success") else 1
+
+    if args.apply_safety_limits:
+        resolved_host = get_configured_inverter_ip(args.host)
+        resolved_port = get_configured_inverter_port(args.port)
+        res = apply_confirmed_battery_safety_limits(
+            host=resolved_host,
+            port=resolved_port,
+            min_soc=args.min_soc,
+            shutdown_soc=args.shutdown_soc,
+        )
         print(json.dumps(res, indent=2))
         return 0 if res.get("success") else 1
 

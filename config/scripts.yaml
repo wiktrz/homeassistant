@@ -1216,10 +1216,14 @@ confirm_and_apply_deye_battery_settings:
   alias: Zatwierdź i Zastosuj Parametry Baterii w Falowniku
   description: Dwustopniowe potwierdzenie — zatwierdza nowe progi baterii (Min SOC / Shutdown SOC) i przesyła zaktualizowany harmonogram TOU do falownika Deye.
   sequence:
+    - action: shell_command.apply_deye_battery_safety_limits
     - action: script.sync_deye_inverter_tou
       data:
         tomorrow: false
         force: true
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.deye_inverter_status
     - action: persistent_notification.create
       data:
         title: "⚡ Deye: Zastosowano Nowe Progi Baterii"

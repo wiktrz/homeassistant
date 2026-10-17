@@ -329,3 +329,38 @@ def test_cli_sync_pstryk_tou_flag():
         ret = deye_cloud_client.main(["--sync-pstryk-tou"])
         assert ret == 0
 
+
+def test_set_battery_safety_limits_cloud_success():
+    """Verifies set_battery_safety_limits_cloud formats payload and calls OpenAPI."""
+    with mock.patch("deye_cloud_client.call_deye_api") as mock_api:
+        mock_api.return_value = (True, {"code": "1000000", "msg": "success"}, "OK")
+        cfg = {"inverter_sn": "2603160727", "api_key": "test_key"}
+        res = deye_cloud_client.set_battery_safety_limits_cloud(min_soc=15, shutdown_soc=5, cfg=cfg)
+
+        assert res["success"] is True
+        assert res["min_soc"] == 15
+        assert res["shutdown_soc"] == 5
+        mock_api.assert_called_once()
+        args, kwargs = mock_api.call_args
+        assert kwargs["data"]["deviceSn"] == "2603160727"
+        assert kwargs["data"]["battLowCapacity"] == 15
+        assert kwargs["data"]["battShutDownCapacity"] == 5
+
+
+def test_set_battery_safety_limits_cloud_validation():
+    """Verifies set_battery_safety_limits_cloud rejects shutdown_soc >= min_soc."""
+    cfg = {"inverter_sn": "2603160727", "api_key": "test_key"}
+    res = deye_cloud_client.set_battery_safety_limits_cloud(min_soc=15, shutdown_soc=20, cfg=cfg)
+    assert res["success"] is False
+    assert "Invalid safety limits" in res["message"]
+
+
+def test_cli_set_safety_limits_flag():
+    """Verifies CLI flag --set-safety-limits calls set_battery_safety_limits_cloud."""
+    with mock.patch("deye_cloud_client.set_battery_safety_limits_cloud") as mock_set:
+        mock_set.return_value = {"success": True, "min_soc": 15, "shutdown_soc": 5}
+        ret = deye_cloud_client.main(["--set-safety-limits", "--min-soc", "15", "--shutdown-soc", "5"])
+        assert ret == 0
+        mock_set.assert_called_once_with(min_soc=15, shutdown_soc=5, cfg=mock.ANY)
+
+

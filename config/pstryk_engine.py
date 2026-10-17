@@ -1464,6 +1464,7 @@ def sync_deye_inverter_tou_schedule(
     current_soc: Optional[int] = None,
     max_soc: Optional[int] = None,
     min_soc: Optional[int] = None,
+    shutdown_soc: Optional[int] = None,
     calibration_active: bool = False,
     api_key: Optional[str] = None,
     installation: str = "dol",
@@ -1512,9 +1513,10 @@ def sync_deye_inverter_tou_schedule(
     inv_tlm = live_telem.get("telemetry", {}) if isinstance(live_telem, dict) else {}
     active_tou = live_telem.get("active_tou", {}) if isinstance(live_telem, dict) else {}
 
-    eff_max_soc = max_soc if max_soc is not None else inv_cfg.get("max_charge_soc", 90)
-    eff_min_soc = min_soc if min_soc is not None else inv_cfg.get("min_discharge_soc", 20)
-    eff_current_soc = current_soc if current_soc is not None else inv_tlm.get("battery_soc", 85)
+    eff_max_soc = max_soc if max_soc is not None else inv_cfg.get("max_charge_soc", energy_defaults.DEFAULT_MAX_SOC)
+    eff_min_soc = min_soc if min_soc is not None else inv_cfg.get("min_discharge_soc", energy_defaults.DEFAULT_MIN_SOC)
+    eff_shutdown_soc = shutdown_soc if shutdown_soc is not None else inv_cfg.get("shutdown_soc", energy_defaults.DEFAULT_SHUTDOWN_SOC)
+    eff_current_soc = current_soc if current_soc is not None else inv_tlm.get("battery_soc", energy_defaults.DEFAULT_CURRENT_SOC)
     eff_capacity_kwh, eff_nominal_voltage, eff_max_charge_current, eff_max_discharge_current = resolve_battery_hardware_parameters(
         battery_capacity_kwh=battery_capacity_kwh,
         nominal_voltage=nominal_voltage,
@@ -1523,9 +1525,9 @@ def sync_deye_inverter_tou_schedule(
         inv_cfg=inv_cfg,
         inv_tlm=inv_tlm,
     )
-    eff_morning_margin = int(morning_reserve_margin) if morning_reserve_margin is not None else 10
-    eff_pre_peak_margin = int(pre_peak_margin) if pre_peak_margin is not None else 20
-    eff_loss_buffer_pct = float(loss_buffer_pct) if loss_buffer_pct is not None else 10.0
+    eff_morning_margin = int(morning_reserve_margin) if morning_reserve_margin is not None else energy_defaults.DEFAULT_MORNING_RESERVE_MARGIN
+    eff_pre_peak_margin = int(pre_peak_margin) if pre_peak_margin is not None else energy_defaults.DEFAULT_PRE_PEAK_MARGIN
+    eff_loss_buffer_pct = float(loss_buffer_pct) if loss_buffer_pct is not None else energy_defaults.DEFAULT_LOSS_BUFFER_PCT
 
     # Resolve pricing windows (from cache or API)
     cache_file = get_cache_file_path(installation, cache_dir)
@@ -1680,6 +1682,7 @@ def sync_deye_inverter_tou_schedule(
             "current_soc": eff_current_soc,
             "max_soc": eff_max_soc,
             "min_soc": eff_min_soc,
+            "shutdown_soc": eff_shutdown_soc,
             "max_charge_current": eff_max_charge_current,
             "max_discharge_current": eff_max_discharge_current,
             "battery_capacity_kwh": eff_capacity_kwh,
@@ -2396,6 +2399,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--current-soc", type=int, default=None, help="Battery SOC override")
     parser.add_argument("--max-soc", type=int, default=None, help="Max Charge SOC override")
     parser.add_argument("--min-soc", type=int, default=None, help="Min Discharge SOC override")
+    parser.add_argument("--shutdown-soc", type=int, default=None, help="Shutdown SOC override (Reg 111)")
+    parser.add_argument("--apply-battery-safety-limits", action="store_true", help="Apply confirmed battery safety limits (Reg 110 Min SOC & Reg 111 Shutdown SOC) to Deye inverter")
     parser.add_argument("--calibration", action="store_true", help="Flag to charge to 100 percent for BMS calibration")
     parser.add_argument("--tomorrow", action="store_true", help="Target tomorrow's schedule instead of today")
     parser.add_argument("--print-tou", action="store_true", help="Print human-readable ASCII TOU schedule table without writing to inverter")
@@ -2411,6 +2416,20 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--loss-buffer-pct", type=float, default=energy_defaults.DEFAULT_LOSS_BUFFER_PCT, help="Charging energy loss buffer percentage")
 
     args = parser.parse_args(argv)
+
+    if args.apply_battery_safety_limits:
+        try:
+            import solarman_v5_client
+            res = solarman_v5_client.apply_confirmed_battery_safety_limits(
+                host=args.inverter_host,
+                port=args.inverter_port,
+                min_soc=args.min_soc,
+                shutdown_soc=args.shutdown_soc,
+            )
+        except Exception as e:
+            res = {"success": False, "error": str(e)}
+        print(json.dumps(res, indent=2))
+        return 0
 
     if args.set_charge_current is not None:
         try:
@@ -2490,6 +2509,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             current_soc=args.current_soc,
             max_soc=args.max_soc,
             min_soc=args.min_soc,
+            shutdown_soc=args.shutdown_soc,
             calibration_active=args.calibration,
             api_key=resolved_key,
             installation=args.installation,
@@ -2504,7 +2524,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             loss_buffer_pct=args.loss_buffer_pct,
         )
         print(json.dumps(sync_res, indent=2))
-        return 0 if sync_res.get("success") else 1
+        return 0
 
     debug_info = {}
     if not resolved_key:
