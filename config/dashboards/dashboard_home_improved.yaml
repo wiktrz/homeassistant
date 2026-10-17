@@ -873,10 +873,27 @@ views:
           - entity: binary_sensor.ui_op_pending_deye_battery_safety
             state: "on"
         card:
-          type: markdown
-          content: |-
-            🔒 **Suwaki parametrów baterii są zablokowane:** Trwa zapisywanie danych do falownika Deye.
-
+          type: entities
+          title: Harmonogram Time-of-Use & Parametry Baterii (Zablokowane)
+          show_header_toggle: false
+          entities:
+            - entity: sensor.deye_tou_active_schedule
+              name: Status Harmonogramu TOU (Reg 248)
+              icon: mdi:calendar-clock
+            - entity: input_datetime.deye_tou_last_synced_date
+              name: Data Ostatniej Synchronizacji TOU
+              icon: mdi:calendar-sync
+            - type: section
+              label: ⏳ Trwa Zapis do Falownika (Edycja Zablokowana)
+            - entity: sensor.powerbank_total_capacity_kwh
+              name: Pojemność Magazynu (Specyfikacja)
+              icon: mdi:battery-high
+            - entity: sensor.deye_inverter_max_charge_current
+              name: Limit Prądu Ładowania (Falownik Reg 108)
+              icon: mdi:current-dc
+            - entity: sensor.powerbank_voltage_v
+              name: Napięcie Nominalne Magazynu (Specyfikacja)
+              icon: mdi:sine-wave
       - type: conditional
         conditions:
           - entity: binary_sensor.ui_op_pending_deye_battery_safety
@@ -885,49 +902,49 @@ views:
           type: entities
           title: Harmonogram Time-of-Use & Parametry Baterii
           show_header_toggle: false
-        entities:
-          - entity: sensor.deye_tou_active_schedule
-            name: Status Harmonogramu TOU (Reg 248)
-            icon: mdi:calendar-clock
-          - entity: input_datetime.deye_tou_last_synced_date
-            name: Data Ostatniej Synchronizacji TOU
-            icon: mdi:calendar-sync
-          - type: section
-            label: Parametry Dyspozycji (Suwaki Edytowalne)
-          - entity: input_number.deye_battery_max_charge_soc
-            name: Docelowy Max SOC Ładowania (Suwak)
-            icon: mdi:battery-arrow-up
-          - entity: input_number.deye_morning_reserve_margin_pct
-            name: Margines Rezerwy Porannej (+%)
-            icon: mdi:battery-plus
-          - entity: input_number.deye_battery_min_discharge_soc
-            name: Min SOC Praca w Sieci (Batt LOW)
-            icon: mdi:battery-arrow-down
-          - entity: input_number.deye_battery_shutdown_soc
-            name: Shutdown SOC (Blackout)
-            icon: mdi:battery-alert
-          - type: section
-            label: Parametry Sprzętowe (Tylko Odczyt)
-          - entity: sensor.powerbank_total_capacity_kwh
-            name: Pojemność Magazynu (Specyfikacja)
-            icon: mdi:battery-high
-          - entity: sensor.deye_inverter_max_charge_current
-            name: Limit Prądu Ładowania (Falownik Reg 108)
-            icon: mdi:current-dc
-          - entity: sensor.powerbank_voltage_v
-            name: Napięcie Nominalne Magazynu (Specyfikacja)
-            icon: mdi:sine-wave
-          - type: section
-            label: Sterowanie Ręczne
-          - entity: input_select.ev_charging_target_hours
-            name: Długość Okna Ładowania EV
-            icon: mdi:car-electric
-          - entity: input_select.battery_discharge_target_hours
-            name: Długość Szczytu Cenowego (Bateria)
-            icon: mdi:battery-arrow-up
-          - entity: input_button.sync_deye_inverter_soc
-            name: Wymuś Przeliczenie i Zapis TOU Teraz
-            icon: mdi:cloud-sync
+          entities:
+            - entity: sensor.deye_tou_active_schedule
+              name: Status Harmonogramu TOU (Reg 248)
+              icon: mdi:calendar-clock
+            - entity: input_datetime.deye_tou_last_synced_date
+              name: Data Ostatniej Synchronizacji TOU
+              icon: mdi:calendar-sync
+            - type: section
+              label: Parametry Dyspozycji (Suwaki Edytowalne)
+            - entity: input_number.deye_battery_max_charge_soc
+              name: Docelowy Max SOC Ładowania (Suwak)
+              icon: mdi:battery-arrow-up
+            - entity: input_number.deye_morning_reserve_margin_pct
+              name: Margines Rezerwy Porannej (+%)
+              icon: mdi:battery-plus
+            - entity: input_number.deye_battery_min_discharge_soc
+              name: Min SOC Praca w Sieci (Batt LOW)
+              icon: mdi:battery-arrow-down
+            - entity: input_number.deye_battery_shutdown_soc
+              name: Shutdown SOC (Blackout)
+              icon: mdi:battery-alert
+            - type: section
+              label: Parametry Sprzętowe (Tylko Odczyt)
+            - entity: sensor.powerbank_total_capacity_kwh
+              name: Pojemność Magazynu (Specyfikacja)
+              icon: mdi:battery-high
+            - entity: sensor.deye_inverter_max_charge_current
+              name: Limit Prądu Ładowania (Falownik Reg 108)
+              icon: mdi:current-dc
+            - entity: sensor.powerbank_voltage_v
+              name: Napięcie Nominalne Magazynu (Specyfikacja)
+              icon: mdi:sine-wave
+            - type: section
+              label: Sterowanie Ręczne
+            - entity: input_select.ev_charging_target_hours
+              name: Długość Okna Ładowania EV
+              icon: mdi:car-electric
+            - entity: input_select.battery_discharge_target_hours
+              name: Długość Szczytu Cenowego (Bateria)
+              icon: mdi:battery-arrow-up
+            - entity: input_button.sync_deye_inverter_soc
+              name: Wymuś Przeliczenie i Zapis TOU Teraz
+              icon: mdi:cloud-sync
 
       - type: markdown
         title: Aktywne Sloty Falownika Deye (Time-of-Use) — Dziś
