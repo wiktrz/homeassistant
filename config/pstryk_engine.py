@@ -531,17 +531,18 @@ def resolve_battery_hardware_parameters(
     battery_capacity_kwh: Optional[float] = None,
     nominal_voltage: Optional[float] = None,
     max_charge_current: Optional[float] = None,
+    max_discharge_current: Optional[float] = None,
     inv_cfg: Optional[Dict[str, Any]] = None,
     inv_tlm: Optional[Dict[str, Any]] = None,
-) -> Tuple[float, float, float]:
+) -> Tuple[float, float, float, float]:
     """
     Dynamically resolves physical battery capacity (kWh), nominal voltage (V),
-    and maximum charge current (A) without hardcoding static constants.
+    maximum charge current (A), and maximum discharge current (A) without hardcoding static constants.
     Priority:
     1. Explicit arguments (if provided and > 0)
     2. Inverter config / telemetry dictionary (if provided)
     3. Cached inverter readings (from solarman_v5_client cache)
-    4. Environment variables (BATTERY_CAPACITY_KWH, BATTERY_NOMINAL_VOLTAGE, BATTERY_MAX_CHARGE_CURRENT)
+    4. Environment variables (BATTERY_CAPACITY_KWH, BATTERY_NOMINAL_VOLTAGE, BATTERY_MAX_CHARGE_CURRENT, BATTERY_MAX_DISCHARGE_CURRENT)
     5. Fallback defaults from .env / energy_defaults ONLY if completely unconfigured anywhere
     """
     cfg = dict(inv_cfg) if inv_cfg else {}
@@ -581,7 +582,17 @@ def resolve_battery_hardware_parameters(
         env_c = os.getenv("BATTERY_MAX_CHARGE_CURRENT") or os.getenv("BATTERY_CHARGE_CURRENT_A")
         resolved_curr = float(env_c) if env_c else energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT
 
-    # 3. Resolve Battery Capacity (kWh)
+    # 3. Resolve Maximum Discharge Current (A)
+    resolved_dis_curr = None
+    if max_discharge_current is not None and float(max_discharge_current) > 0:
+        resolved_dis_curr = float(max_discharge_current)
+    elif cfg.get("max_discharge_current") and float(cfg["max_discharge_current"]) > 0:
+        resolved_dis_curr = float(cfg["max_discharge_current"])
+    else:
+        env_dc = os.getenv("BATTERY_MAX_DISCHARGE_CURRENT") or os.getenv("BATTERY_DISCHARGE_CURRENT_A")
+        resolved_dis_curr = float(env_dc) if env_dc else energy_defaults.FALLBACK_BATTERY_MAX_DISCHARGE_CURRENT
+
+    # 4. Resolve Battery Capacity (kWh)
     resolved_cap = None
     if battery_capacity_kwh is not None and float(battery_capacity_kwh) > 0:
         resolved_cap = float(battery_capacity_kwh)
@@ -593,7 +604,7 @@ def resolve_battery_hardware_parameters(
         env_cap = os.getenv("BATTERY_CAPACITY_KWH")
         resolved_cap = float(env_cap) if env_cap else energy_defaults.FALLBACK_BATTERY_CAPACITY_KWH
 
-    return resolved_cap, resolved_v, resolved_curr
+    return resolved_cap, resolved_v, resolved_curr, resolved_dis_curr
 
 
 class BatteryModel:
@@ -608,10 +619,11 @@ class BatteryModel:
         discharge_current_a: Optional[float] = None,
         voltage_v: Optional[float] = None,
     ):
-        def_cap, def_v, def_c = resolve_battery_hardware_parameters(
+        def_cap, def_v, def_c, def_dc = resolve_battery_hardware_parameters(
             battery_capacity_kwh=capacity_kwh,
             nominal_voltage=voltage_v,
             max_charge_current=charge_current_a,
+            max_discharge_current=discharge_current_a,
         )
         eff_max = max_soc if max_soc is not None else energy_defaults.DEFAULT_MAX_SOC
         eff_min = min_soc if min_soc is not None else energy_defaults.DEFAULT_MIN_SOC
@@ -622,7 +634,7 @@ class BatteryModel:
         self.min_soc = max(10.0, min(50.0, float(eff_min)))
         self.shutdown_soc = max(0.0, min(15.0, float(eff_shut)))
         self.charge_current_a = float(charge_current_a if charge_current_a is not None else def_c)
-        self.discharge_current_a = float(discharge_current_a if discharge_current_a is not None else self.charge_current_a)
+        self.discharge_current_a = float(discharge_current_a if discharge_current_a is not None else def_dc)
         self.voltage_v = float(voltage_v if voltage_v is not None else def_v)
 
 
@@ -1003,6 +1015,7 @@ def generate_deye_tou_schedule(
     calibration_active: bool = False,
     default_power_w: Optional[int] = None,
     max_charge_current: Optional[float] = None,
+    max_discharge_current: Optional[float] = None,
     battery_capacity_kwh: Optional[float] = None,
     morning_reserve_margin: Optional[int] = None,
     pre_peak_margin: Optional[int] = None,
@@ -1015,11 +1028,16 @@ def generate_deye_tou_schedule(
     (whether midday solar dip e.g. 11:00-15:00 or night e.g. 02:00-04:00), holding charge
     until the major peak, and discharging to 100% cover house load during the peak.
 
-    Dynamic Power Scaling:
-    Base 100% power is dynamically derived from inverter max_charge_current and nominal voltage.
-    When charging window exceeds 2h (e.g. 4h on weekends), charging power is proportionally
-    reduced based on Delta-SOC and energy needed, with +10% extra capacity buffer for charging losses.
-    Slot 5 (Peak Evening Discharge) strictly retains full base power.
+    TOU Power Hardware Semantics:
+    In Deye hybrid inverters, the Power(W) column in TOU registers 256..261 strictly defines
+    the MAXIMUM DISCHARGE POWER from the battery to load/grid. It does NOT limit grid charging speed.
+    Therefore, all 6 slots are set to the maximum base discharge power (derived dynamically from
+    inverter max_discharge_current e.g. 140A * 51.2V ≈ 7170W) so house load coverage is never throttled.
+
+    Dynamic Charge Current Modulation (Register 108):
+    Battery charging speed is governed by Modbus Holding Register 108 (Max A Charge).
+    When charging window exceeds 2h (e.g. 4h on weekends), charging current is proportionally
+    reduced (100A * 2 / T = 50A for 4h) and restored to baseline (100A) outside the charging window.
     """
     def to_minutes(hhmm_str: Optional[str], default_m: int) -> int:
         if not hhmm_str or hhmm_str == "--:--":
@@ -1035,18 +1053,19 @@ def generate_deye_tou_schedule(
         mm = m % 60
         return f"{hh:02d}:{mm:02d}"
 
-    # Derive dynamic 100% base power and capacity from inverter readings / env
-    eff_cap, eff_volts, eff_curr = resolve_battery_hardware_parameters(
+    # Derive dynamic 100% base discharge power and capacity from inverter readings / env
+    eff_cap, eff_volts, eff_charge_curr, eff_discharge_curr = resolve_battery_hardware_parameters(
         battery_capacity_kwh=battery_capacity_kwh,
         nominal_voltage=nominal_voltage,
         max_charge_current=max_charge_current,
+        max_discharge_current=max_discharge_current,
     )
-    if max_charge_current is not None and float(max_charge_current) > 0:
-        base_power_w = min(energy_defaults.INVERTER_MAX_POWER_W, max(energy_defaults.INVERTER_MIN_POWER_W, int(round(float(max_charge_current) * eff_volts, -1))))
+    if max_discharge_current is not None and float(max_discharge_current) > 0:
+        base_power_w = min(energy_defaults.INVERTER_MAX_POWER_W, max(energy_defaults.INVERTER_MIN_POWER_W, int(round(float(max_discharge_current) * eff_volts, -1))))
     elif default_power_w is not None and int(default_power_w) > 0:
         base_power_w = int(default_power_w)
-    elif eff_curr > 0 and eff_volts > 0:
-        base_power_w = min(energy_defaults.INVERTER_MAX_POWER_W, max(energy_defaults.INVERTER_MIN_POWER_W, int(round(eff_curr * eff_volts, -1))))
+    elif eff_discharge_curr > 0 and eff_volts > 0:
+        base_power_w = min(energy_defaults.INVERTER_MAX_POWER_W, max(energy_defaults.INVERTER_MIN_POWER_W, int(round(eff_discharge_curr * eff_volts, -1))))
     else:
         base_power_w = energy_defaults.DEFAULT_TRANSFER_POWER_W
 
@@ -1102,17 +1121,14 @@ def generate_deye_tou_schedule(
         except (ValueError, TypeError):
             pass
 
-    # Dynamic power calculation based on needed energy delta, window duration, and loss buffer
-    eff_loss_pct = loss_buffer_pct if loss_buffer_pct is not None else energy_defaults.DEFAULT_LOSS_BUFFER_PCT
+    # Dynamic charge current calculation for Register 108 (Max A Charge)
     if calibration_active:
-        charge_power_w = max(energy_defaults.CALIBRATION_MIN_POWER_W, base_power_w)
+        target_charge_current_a = int(round(eff_charge_curr))
+    elif charging_duration_hours > 2:
+        scaled_curr = eff_charge_curr * (2.0 / float(charging_duration_hours))
+        target_charge_current_a = max(20, min(int(round(eff_charge_curr)), int(round(scaled_curr))))
     else:
-        delta_soc = max(0, safe_max_soc - eff_current_soc)
-        needed_kwh = (delta_soc / 100.0) * float(eff_cap)
-        loss_multiplier = 1.0 + (float(eff_loss_pct) / 100.0)
-        charge_energy_kwh = needed_kwh * loss_multiplier
-        p_calc = (charge_energy_kwh * 1000.0) / float(charging_duration_hours)
-        charge_power_w = max(energy_defaults.INVERTER_MIN_POWER_W, min(base_power_w, int(round(p_calc, -1))))
+        target_charge_current_a = int(round(eff_charge_curr))
 
     sell_start_m = 1020  # Default 17:00
     sell_end_m = 1260    # Default 21:00
@@ -1142,9 +1158,11 @@ def generate_deye_tou_schedule(
             {
                 "slot": 1,
                 "time": to_time_str(times[0]),
-                "power_w": charge_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_max_soc,
                 "grid_charge": True,
+                "target_charge_current_a": target_charge_current_a,
+                "base_charge_current_a": int(round(eff_charge_curr)),
                 "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Ładowanie Nocne ({to_time_str(times[0])}-{to_time_str(times[1])})",
             },
             {
@@ -1158,9 +1176,11 @@ def generate_deye_tou_schedule(
             {
                 "slot": 3,
                 "time": to_time_str(times[2]),
-                "power_w": charge_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_max_soc,
                 "grid_charge": True,
+                "target_charge_current_a": target_charge_current_a,
+                "base_charge_current_a": int(round(eff_charge_curr)),
                 "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Tania Godzina Dzienna ({to_time_str(times[2])}-{to_time_str(times[3])})",
             },
             {
@@ -1221,9 +1241,11 @@ def generate_deye_tou_schedule(
             {
                 "slot": 3,
                 "time": to_time_str(times[2]),
-                "power_w": charge_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_max_soc,
                 "grid_charge": True,
+                "target_charge_current_a": target_charge_current_a,
+                "base_charge_current_a": int(round(eff_charge_curr)),
                 "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Najtańsze Ładowanie ({to_time_str(times[2])}-{to_time_str(times[3])})",
             },
             {
@@ -1268,9 +1290,11 @@ def generate_deye_tou_schedule(
             {
                 "slot": 1,
                 "time": to_time_str(times[0]),
-                "power_w": charge_power_w,
+                "power_w": base_power_w,
                 "target_soc": safe_max_soc,
                 "grid_charge": True,
+                "target_charge_current_a": target_charge_current_a,
+                "base_charge_current_a": int(round(eff_charge_curr)),
                 "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Najtańsze Ładowanie ({to_time_str(times[0])}-{to_time_str(times[1])})",
             },
             {
@@ -1374,6 +1398,66 @@ def are_tou_slots_identical(new_slots: List[Dict[str, Any]], active_slots: List[
     return True
 
 
+def check_and_apply_charge_current_modulation(
+    slots: List[Dict[str, Any]],
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    base_charge_current: Optional[float] = None,
+) -> Dict[str, Any]:
+    """
+    Checks if current time in Warsaw is within a scheduled charging window (grid_charge == True).
+    If in charging window: applies target_charge_current_a (e.g. 50A for a 4h window).
+    If outside charging window: restores Register 108 to base_charge_current (e.g. 100A).
+    Idempotent: writes to Register 108 only when changed, protecting inverter EEPROM.
+    """
+    now_warsaw = datetime.now(WARSAW_TZ)
+    now_m = now_warsaw.hour * 60 + now_warsaw.minute
+    base_curr = int(round(base_charge_current)) if base_charge_current else int(energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT)
+    in_charging_window = False
+    target_curr = base_curr
+
+    def _t2m(t_str: str) -> int:
+        try:
+            p = t_str.split(":")
+            return int(p[0]) * 60 + int(p[1])
+        except Exception:
+            return 0
+
+    for idx, s in enumerate(slots):
+        if s.get("grid_charge"):
+            s_target = s.get("target_charge_current_a")
+            if s_target is not None:
+                target_curr = int(s_target)
+            s_start = _t2m(s.get("time", "00:00"))
+            next_s = slots[(idx + 1) % len(slots)]
+            s_end = _t2m(next_s.get("time", "00:00"))
+            if s_end <= s_start:
+                if now_m >= s_start or now_m < s_end:
+                    in_charging_window = True
+                    break
+            else:
+                if s_start <= now_m < s_end:
+                    in_charging_window = True
+                    break
+
+    desired_a = target_curr if in_charging_window else base_curr
+
+    mod_res: Dict[str, Any] = {"success": False, "desired_a": desired_a, "in_charging_window": in_charging_window}
+    try:
+        import solarman_v5_client
+        mod_res = solarman_v5_client.set_charge_current(host=host, port=port, current_a=desired_a)
+    except Exception as e:
+        try:
+            import deye_cloud_client
+            mod_res = deye_cloud_client.set_charge_current_cloud(current_a=desired_a)
+        except Exception:
+            mod_res = {"success": False, "error": str(e)}
+
+    mod_res["in_charging_window"] = in_charging_window
+    mod_res["desired_a"] = desired_a
+    return mod_res
+
+
 def sync_deye_inverter_tou_schedule(
     host: Optional[str] = None,
     port: Optional[int] = None,
@@ -1387,6 +1471,7 @@ def sync_deye_inverter_tou_schedule(
     for_tomorrow: bool = False,
     force: bool = False,
     max_charge_current: Optional[float] = None,
+    max_discharge_current: Optional[float] = None,
     battery_capacity_kwh: Optional[float] = None,
     morning_reserve_margin: Optional[int] = None,
     nominal_voltage: Optional[float] = None,
@@ -1398,6 +1483,8 @@ def sync_deye_inverter_tou_schedule(
     Reads live inverter telemetry and config when available, and derives optimal windows from Pstryk pricing data.
     Applies idempotent diff check: if calculated slots match the active inverter schedule, write is skipped
     to protect flash memory (EEPROM) and avoid cloud rate limits. Use force=True to bypass diff check.
+    Also synchronizes Register 108 (Max A Charge) dynamically: reduced during extended charging windows,
+    restored to baseline outside charging windows.
     """
     global solarman_v5_client
     if solarman_v5_client is None:
@@ -1428,10 +1515,11 @@ def sync_deye_inverter_tou_schedule(
     eff_max_soc = max_soc if max_soc is not None else inv_cfg.get("max_charge_soc", 90)
     eff_min_soc = min_soc if min_soc is not None else inv_cfg.get("min_discharge_soc", 20)
     eff_current_soc = current_soc if current_soc is not None else inv_tlm.get("battery_soc", 85)
-    eff_capacity_kwh, eff_nominal_voltage, eff_max_charge_current = resolve_battery_hardware_parameters(
+    eff_capacity_kwh, eff_nominal_voltage, eff_max_charge_current, eff_max_discharge_current = resolve_battery_hardware_parameters(
         battery_capacity_kwh=battery_capacity_kwh,
         nominal_voltage=nominal_voltage,
         max_charge_current=max_charge_current,
+        max_discharge_current=max_discharge_current,
         inv_cfg=inv_cfg,
         inv_tlm=inv_tlm,
     )
@@ -1512,12 +1600,23 @@ def sync_deye_inverter_tou_schedule(
         best_sell_window=sell_window,
         calibration_active=calibration_active,
         max_charge_current=eff_max_charge_current,
+        max_discharge_current=eff_max_discharge_current,
         battery_capacity_kwh=eff_capacity_kwh,
         morning_reserve_margin=eff_morning_margin,
         nominal_voltage=eff_nominal_voltage,
         pre_peak_margin=eff_pre_peak_margin,
         loss_buffer_pct=eff_loss_buffer_pct,
     )
+
+    # Dynamic Charge Current Modulation check
+    charge_mod_res = None
+    if not for_tomorrow:
+        charge_mod_res = check_and_apply_charge_current_modulation(
+            slots=slots,
+            host=host,
+            port=port,
+            base_charge_current=eff_max_charge_current,
+        )
 
     # Idempotent diff check: verify if active inverter slots already match newly calculated schedule
     active_slots = active_tou.get("slots", []) if isinstance(active_tou, dict) else []
@@ -1537,11 +1636,13 @@ def sync_deye_inverter_tou_schedule(
                 "max_soc": eff_max_soc,
                 "min_soc": eff_min_soc,
                 "max_charge_current": eff_max_charge_current,
+                "max_discharge_current": eff_max_discharge_current,
                 "battery_capacity_kwh": eff_capacity_kwh,
                 "morning_reserve_margin": eff_morning_margin,
                 "nominal_voltage": eff_nominal_voltage,
                 "loss_buffer_pct": eff_loss_buffer_pct,
             },
+            "charge_current_modulation": charge_mod_res,
             "slots": slots,
         }
         save_last_tou_sync_result(unchanged_res)
@@ -1580,11 +1681,13 @@ def sync_deye_inverter_tou_schedule(
             "max_soc": eff_max_soc,
             "min_soc": eff_min_soc,
             "max_charge_current": eff_max_charge_current,
+            "max_discharge_current": eff_max_discharge_current,
             "battery_capacity_kwh": eff_capacity_kwh,
             "morning_reserve_margin": eff_morning_margin,
             "nominal_voltage": eff_nominal_voltage,
             "loss_buffer_pct": eff_loss_buffer_pct,
         },
+        "charge_current_modulation": charge_mod_res,
         "slots": slots,
         "inverter_response": sync_result,
     }
@@ -2132,7 +2235,7 @@ def fetch_consolidated_data(
     eff_max_soc = max_soc if max_soc is not None else energy_defaults.DEFAULT_MAX_SOC
     eff_min_soc = min_soc if min_soc is not None else energy_defaults.DEFAULT_MIN_SOC
     eff_current_soc = current_soc if current_soc is not None else energy_defaults.DEFAULT_CURRENT_SOC
-    eff_capacity, eff_voltage, eff_current = resolve_battery_hardware_parameters(
+    eff_capacity, eff_voltage, eff_charge_curr, eff_discharge_curr = resolve_battery_hardware_parameters(
         battery_capacity_kwh=battery_capacity_kwh,
         nominal_voltage=nominal_voltage,
         max_charge_current=max_charge_current,
@@ -2153,7 +2256,8 @@ def fetch_consolidated_data(
         best_pb_window=pb_window_today,
         best_sell_window=sell_window_today,
         calibration_active=calibration_active,
-        max_charge_current=eff_current,
+        max_charge_current=eff_charge_curr,
+        max_discharge_current=eff_discharge_curr,
         battery_capacity_kwh=eff_capacity,
         morning_reserve_margin=eff_morning_margin,
         nominal_voltage=eff_voltage,
@@ -2175,7 +2279,8 @@ def fetch_consolidated_data(
             best_pb_window=pb_window_tomorrow,
             best_sell_window=sell_window_tomorrow,
             calibration_active=calibration_active,
-            max_charge_current=eff_current,
+            max_charge_current=eff_charge_curr,
+            max_discharge_current=eff_discharge_curr,
             battery_capacity_kwh=eff_capacity,
             morning_reserve_margin=eff_morning_margin,
             nominal_voltage=eff_voltage,
@@ -2204,8 +2309,8 @@ def fetch_consolidated_data(
         max_soc=float(eff_max_soc),
         min_soc=float(eff_min_soc),
         shutdown_soc=float(energy_defaults.DEFAULT_SHUTDOWN_SOC),
-        charge_current_a=float(eff_current),
-        discharge_current_a=float(eff_current),
+        charge_current_a=float(eff_charge_curr),
+        discharge_current_a=float(eff_discharge_curr),
         voltage_v=eff_voltage,
     )
 
@@ -2296,6 +2401,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--print-tou", action="store_true", help="Print human-readable ASCII TOU schedule table without writing to inverter")
     parser.add_argument("--force", action="store_true", help="Force TOU write even if schedule is identical to current inverter settings")
     parser.add_argument("--max-charge-current", type=float, default=None, help="Inverter max charge current override (Amperes)")
+    parser.add_argument("--max-discharge-current", type=float, default=None, help="Inverter max discharge current override (Amperes)")
+    parser.add_argument("--set-charge-current", type=int, default=None, help="Modulate Max Charge Current (Reg 108 in Amperes)")
+    parser.add_argument("--restore-charge-current", action="store_true", help="Restore Max Charge Current (Reg 108) to baseline")
     parser.add_argument("--battery-capacity", type=float, default=None, help="Battery total capacity in kWh (dynamically resolved from Deye/env if omitted)")
     parser.add_argument("--morning-reserve-margin", type=int, default=energy_defaults.DEFAULT_MORNING_RESERVE_MARGIN, help="Morning reserve SOC margin above min_soc in percent")
     parser.add_argument("--nominal-voltage", type=float, default=None, help="Nominal battery pack voltage in Volts (dynamically resolved from Deye/env if omitted)")
@@ -2303,6 +2411,28 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--loss-buffer-pct", type=float, default=energy_defaults.DEFAULT_LOSS_BUFFER_PCT, help="Charging energy loss buffer percentage")
 
     args = parser.parse_args(argv)
+
+    if args.set_charge_current is not None:
+        try:
+            import solarman_v5_client
+            res = solarman_v5_client.set_charge_current(host=args.inverter_host, port=args.inverter_port, current_a=args.set_charge_current)
+        except Exception:
+            import deye_cloud_client
+            res = deye_cloud_client.set_charge_current_cloud(current_a=args.set_charge_current)
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("success") else 1
+
+    if args.restore_charge_current:
+        base_curr = int(energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT)
+        try:
+            import solarman_v5_client
+            res = solarman_v5_client.set_charge_current(host=args.inverter_host, port=args.inverter_port, current_a=base_curr)
+        except Exception:
+            import deye_cloud_client
+            res = deye_cloud_client.set_charge_current_cloud(current_a=base_curr)
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("success") else 1
+
     resolved_key, key_source = resolve_api_key(args.installation, args.key)
     api_key = resolved_key or DEFAULT_API_KEY
 
@@ -2341,7 +2471,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         header = f"{'Slot':<5} | {'Godzina':<7} | {'Moc (W)':<8} | {'Prąd (~A)':<9} | {'SOC (%)':<8} | {'Sieć':<6} | {'Tryb Pracy'}"
         print(header)
         print("-" * len(header))
-        _, eff_v, _ = resolve_battery_hardware_parameters(nominal_voltage=args.nominal_voltage)
+        _, eff_v, _, _ = resolve_battery_hardware_parameters(nominal_voltage=args.nominal_voltage)
         for s in slots:
             slot_num = s.get("slot", 0)
             time_str = s.get("time", "--:--")
@@ -2366,6 +2496,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             for_tomorrow=args.tomorrow,
             force=args.force,
             max_charge_current=args.max_charge_current,
+            max_discharge_current=args.max_discharge_current,
             battery_capacity_kwh=args.battery_capacity,
             morning_reserve_margin=args.morning_reserve_margin,
             nominal_voltage=args.nominal_voltage,

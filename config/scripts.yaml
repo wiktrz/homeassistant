@@ -1311,6 +1311,35 @@ scan_and_set_deye_inverter_ip:
   mode: single
   icon: mdi:radar
 
+set_deye_charge_current:
+  alias: Ustaw Prąd Ładowania Baterii Deye
+  description: Dynamicznie ustawia limit prądu ładowania (Rejestr 108 / Max A Charge) w falowniku Deye.
+  fields:
+    current_a:
+      description: Docelowy prąd ładowania w amperach
+      example: 50
+      required: true
+  sequence:
+    - action: shell_command.set_deye_charge_current
+      data:
+        current_a: "{{ current_a }}"
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.deye_inverter_status
+  mode: single
+  icon: mdi:current-dc
+
+restore_deye_charge_current:
+  alias: Przywróć Bazowy Prąd Ładowania Baterii Deye
+  description: Przywraca bazowy limit prądu ładowania (Rejestr 108 / Max A Charge) do wartości bazowej.
+  sequence:
+    - action: shell_command.restore_deye_charge_current
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.deye_inverter_status
+  mode: single
+  icon: mdi:restore
+
 restart_heating_controller:
   alias: "Restart Related Heating Controller"
   description: "Debounced restart trigger for the physical ESP32 heating controller associated with a flat"

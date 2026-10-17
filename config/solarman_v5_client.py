@@ -72,6 +72,7 @@ REG_MAX_DISCHARGE_CURRENT = 109  # 0x006D (A)
 REG_MIN_DISCHARGE_SOC = 110      # 0x006E (%) - Capacity Grid-tied lower bound
 REG_SHUTDOWN_SOC = 111           # 0x006F (%) - Critical Blackout cut-off
 REG_MAX_CHARGE_SOC = 112         # 0x0070 (%) - Upper charging limit
+BLOCK_DIRECT_SYSTEM_REGISTER_WRITES = True
 
 # 2. Live Telemetry Registers (Read-Only)
 REG_BATTERY_VOLTAGE = 587        # 0x024B (0.1 V)
@@ -518,6 +519,96 @@ def read_holding_registers(host: str, port: int, start_reg: int, qty: int, seria
     }
 
 
+def set_charge_current(
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    current_a: Optional[int] = None,
+    serial: int = 0,
+) -> Dict[str, Any]:
+    """
+    Dynamically modulates battery Max Charge Current (Modbus Holding Register 108 / 0x006C).
+    Safe controlled function:
+    - Clamps to [10A, hardware_baseline_A]
+    - Checks active value and skips write if unchanged (idempotent / protects EEPROM)
+    - Updates local cache upon successful write
+    - Falls back to Deye Cloud OpenAPI if local socket connection is refused/timed out
+    """
+    host = get_configured_inverter_ip(host)
+    port = get_configured_inverter_port(port)
+
+    # 1. Determine safe boundaries
+    base_max = int(energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT)
+    target_a = int(current_a) if current_a is not None else base_max
+    clamped_a = max(10, min(base_max, target_a))
+
+    # 2. Check active value in cache / inverter
+    cached = load_deye_cache(ignore_ttl=True)
+    prev_a = None
+    if cached and isinstance(cached, dict):
+        cfg = cached.get("config", {})
+        if cfg and cfg.get("max_charge_current"):
+            try:
+                prev_a = int(cfg["max_charge_current"])
+            except (ValueError, TypeError):
+                pass
+
+    if prev_a is not None and prev_a == clamped_a:
+        return {
+            "success": True,
+            "unchanged": True,
+            "current_a": clamped_a,
+            "host": host,
+            "port": port,
+            "message": f"Register 108 already set to {clamped_a}A (write skipped, idempotent)",
+        }
+
+    # 3. Write via Modbus RTU / Solarman V5
+    res = write_single_register(host, port, REG_MAX_CHARGE_CURRENT, clamped_a, serial=serial)
+    if res.get("success"):
+        # Update cache in memory and on disk
+        if cached and isinstance(cached, dict):
+            cached.setdefault("config", {})["max_charge_current"] = clamped_a
+            save_deye_cache(cached)
+        return {
+            "success": True,
+            "unchanged": False,
+            "current_a": clamped_a,
+            "previous_a": prev_a,
+            "host": host,
+            "port": port,
+            "message": f"Successfully updated Register 108 (Max Charge Current) to {clamped_a}A",
+        }
+
+    # 4. Fallback to Deye Cloud OpenAPI if local connection failed
+    try:
+        import deye_cloud_client
+        cloud_res = deye_cloud_client.set_charge_current_cloud(clamped_a)
+        if cloud_res.get("success"):
+            if cached and isinstance(cached, dict):
+                cached.setdefault("config", {})["max_charge_current"] = clamped_a
+                save_deye_cache(cached)
+            return {
+                "success": True,
+                "unchanged": False,
+                "current_a": clamped_a,
+                "previous_a": prev_a,
+                "source": "deye_cloud_openapi",
+                "message": f"Updated Max Charge Current to {clamped_a}A via Deye Cloud OpenAPI fallback",
+            }
+    except Exception:
+        pass
+
+    return {
+        "success": False,
+        "unchanged": False,
+        "current_a": clamped_a,
+        "previous_a": prev_a,
+        "host": host,
+        "port": port,
+        "error": res.get("error", "Failed to write register 108 via Modbus and Cloud fallback"),
+    }
+
+
 def sync_soc_limits(
     host: Optional[str] = None,
     port: Optional[int] = None,
@@ -528,16 +619,17 @@ def sync_soc_limits(
     discharge_current: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
-    STRICTLY BLOCKED: Direct write to registers 108..112 is disabled per policy.
-    Registers 108..112 must be configured manually on the physical inverter screen.
+    STRICTLY BLOCKED: Direct write to registers 109..112 is disabled per policy.
+    Registers 109..112 must be configured manually on the physical inverter screen.
     Home Assistant operates in Read-Only mode for these parameters.
+    For Register 108 (Max Charge Current), use set_charge_current().
     """
     host = get_configured_inverter_ip(host)
     port = get_configured_inverter_port(port)
     return {
         "success": False,
         "blocked": True,
-        "message": "BLOCKED: Direct writing to registers 108..112 is disabled. Set parameters on the inverter physical screen; Home Assistant reads them automatically.",
+        "message": "BLOCKED: Direct writing to safety registers 109..112 is disabled. Set parameters on the inverter physical screen; Home Assistant reads them automatically.",
         "host": host,
         "port": port,
         "registers": {},
@@ -572,10 +664,11 @@ def read_inverter_telemetry(
     env_cap_kwh = os.getenv("BATTERY_CAPACITY_KWH")
     env_nom_v = os.getenv("BATTERY_NOMINAL_VOLTAGE")
     env_max_curr = os.getenv("BATTERY_MAX_CHARGE_CURRENT")
+    env_max_dis_curr = os.getenv("BATTERY_MAX_DISCHARGE_CURRENT") or os.getenv("BATTERY_DISCHARGE_CURRENT_A")
 
     config = {
-        "max_charge_current": int(float(env_max_curr)) if env_max_curr else 0,
-        "max_discharge_current": int(float(env_max_curr)) if env_max_curr else 0,
+        "max_charge_current": int(float(env_max_curr)) if env_max_curr else int(energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT),
+        "max_discharge_current": int(float(env_max_dis_curr)) if env_max_dis_curr else int(energy_defaults.FALLBACK_BATTERY_MAX_DISCHARGE_CURRENT),
         "min_discharge_soc": energy_defaults.DEFAULT_MIN_SOC,
         "shutdown_soc": energy_defaults.DEFAULT_SHUTDOWN_SOC,
         "max_charge_soc": energy_defaults.DEFAULT_MAX_SOC,
@@ -824,14 +917,23 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--subnet", type=str, default=None, help="Subnet to scan (e.g. 10.20.2.0/24)")
     parser.add_argument("--save-discovered", action="store_true", help="Automatically save discovered inverter IP to persistent config")
     parser.add_argument("--set-config", action="store_true", help="Persist specified --host and --port to configuration file")
+    # Dynamic Charge Current Modulation
+    parser.add_argument("--set-charge-current", type=int, help="Modulate Max Charge Current (Reg 108 in Amperes)")
     # Blocked write arguments
     parser.add_argument("--max-soc", type=int, help="Max Charge SOC (BLOCKED: read-only)")
     parser.add_argument("--min-soc", type=int, help="Min Discharge SOC (BLOCKED: read-only)")
     parser.add_argument("--shutdown-soc", type=int, help="Shutdown SOC (BLOCKED: read-only)")
-    parser.add_argument("--charge-current", type=int, help="Max Charge Current (BLOCKED: read-only)")
+    parser.add_argument("--charge-current", type=int, help="Max Charge Current (BLOCKED: use --set-charge-current)")
     parser.add_argument("--discharge-current", type=int, help="Max Discharge Current (BLOCKED: read-only)")
 
     args = parser.parse_args(argv)
+
+    if args.set_charge_current is not None:
+        resolved_host = get_configured_inverter_ip(args.host)
+        resolved_port = get_configured_inverter_port(args.port)
+        res = set_charge_current(host=resolved_host, port=resolved_port, current_a=args.set_charge_current)
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("success") else 1
 
     if args.set_config:
         resolved_host = args.host or DEFAULT_INVERTER_IP

@@ -21,21 +21,27 @@ Hardware parameters of the battery storage system must **NEVER** be hardcoded an
 - **Battery Model String:** Must be dynamically composed from actual capacity and Ah (e.g. `Magazyn LiFePO4 {{ cap }} kWh ({{ ah }} Ah)`), never statically hardcoded.
 - **Continuous Enforcement:** Continuously verified and blocked by pytest invariant `tests/invariants/test_safety_rules.py::test_no_hardcoded_battery_parameters`.
 
-### 1.2 Read-Only Hardware Protection (Registers 108..112)
-Direct writes to critical system registers on the inverter are **strictly blocked** in software:
-- Register `108`: Max Charge Current (A)
-- Register `109`: Max Discharge Current (A)
-- Register `110`: Min Discharge SOC / Capacity Grid-tied lower bound (%)
-- Register `111`: Shutdown SOC / Critical Blackout cut-off (%)
-- Register `112`: Max Charge SOC (%)
+### 1.2 Hardware Register Safety & Control Policy
+- **Dynamic Register 108 Modulation:** Modbus Holding Register `108` (`REG_MAX_CHARGE_CURRENT`) is modulated dynamically by Home Assistant and `pstryk_engine.py` to control charging speed:
+  * Baseline outside charging windows: 100A (or hardware max).
+  * Reduced during extended charging windows ($T > 2\text{h}$): $I_{\text{target}} = \max(20\text{A}, \operatorname{round}(I_{\text{base}} \times (2 / T)))$ (e.g. 50A for a 4h window, 67A for 3h).
+  * Restored to 100A immediately after the charging window concludes.
+  * Writes are strictly idempotent: written only if the current inverter state differs from target, minimizing EEPROM flash cycles.
+- **Strictly Blocked Registers (109..112):** Direct writes to the following critical hardware safety registers remain **strictly blocked** in software:
+  * Register `109`: Max Discharge Current (A) — physical setting (140A) read from inverter/OpenAPI.
+  * Register `110`: Min Discharge SOC / Capacity Grid-tied lower bound (%) — configured on LCD.
+  * Register `111`: Shutdown SOC / Critical Blackout cut-off (%) — configured on LCD.
+  * Register `112`: Max Charge SOC (%) — configured on LCD.
 
-These limits represent physical hardware boundaries and must be set manually on the inverter physical LCD screen. Home Assistant ingests all parameters in **Read-Only** mode via `sensor.deye_inverter_status`.
+These limits represent physical hardware boundaries and are configured on the inverter LCD screen. Home Assistant ingests all parameters in **Read-Only** mode via `sensor.deye_inverter_status`.
 
 ### 1.3 Permitted Write Operations
-The only write operation permitted from Home Assistant / CLI is the **6-slot Time-of-Use (TOU) Schedule** (Modbus Holding Registers `248..273` or Deye Cloud OpenAPI `/v1.0/order/sys/tou/update`).
+The only write operations permitted from Home Assistant / CLI are:
+1. **6-slot Time-of-Use (TOU) Schedule** (Modbus Holding Registers `248..273` or Deye Cloud OpenAPI `/v1.0/order/sys/tou/update`).
+2. **Dynamic Charging Current Modulation** (Modbus Holding Register `108` / `/order/battery/parameter/update`) within safe bounds [20A, 100A].
 
 ### 1.4 Single Source of Truth & Pre-Check Protocol (Rule 10)
-- **Centralized Fallback Storage:** Fallback values (e.g. 16.13 kWh capacity, 51.2 V nominal voltage, 100.0 A max charge current, default IP `10.20.2.6`, port `8899`) reside in **EXACTLY ONE PLACE**: the environment configuration template (`.env.example` / `.env`).
+- **Centralized Fallback Storage:** Fallback values (e.g. 16.13 kWh capacity, 51.2 V nominal voltage, 100.0 A max charge current, 140.0 A max discharge current, default IP `10.20.2.6`, port `8899`) reside in **EXACTLY ONE PLACE**: the environment configuration template (`.env.example` / `.env`).
 - **Zero Hardcoded Literals in Python & YAML:** Python modules (`config/energy_defaults.py`, `config/pstryk_engine.py`, `config/solarman_v5_client.py`, `config/deye_cloud_client.py`) and YAML configurations must NEVER declare inline numeric fallback literals. All code must import and resolve defaults through `config/energy_defaults.py`, which dynamically parses `.env` / `.env.example`.
 - **Pre-Check Tool:** Before defining any new constant or helper, agents must run `python3 scripts/check_duplicate_variable.py --search "<term>"` to verify if a candidate already exists.
 - **Continuous Invariant Protection:** Enforced continuously by `scripts/check_duplicate_variable.py --validate` and `tests/invariants/test_no_duplicate_defaults.py`.
@@ -101,18 +107,22 @@ The 6 slots are partitioned across two daily energy price peaks:
 - **Slot 5 (17:00 – 21:00):** Peak Evening Discharge. Sets target SOC to `min_soc` at full base power $P_{\text{base}}$ to eliminate all grid imports during the highest spot prices.
 - **Slot 6 (21:00 – 24:00):** Night Standby. Holds `morning_reserve_soc` until midnight.
 
-### 4.2 Energy Delta Aware Power Scaling with +10% Loss Buffer
-When charging window duration $T$ extends beyond 2 hours (e.g. 3h–5h on weekends), charging power dynamically scales to match the exact energy required to reach `max_soc` from `current_soc`:
-1. $$\Delta SOC = \max(0, \text{max\_soc} - SOC_{\text{current}})$$
-2. $$\Delta E = \left(\frac{\Delta SOC}{100}\right) \times \text{Capacity}_{\text{kWh}}$$
-3. Incorporate **+10% loss buffer** to account for AC/DC inverter conversion, BMS overhead, and LiFePO4 cell heating:
-   $$E_{\text{charge}} = \Delta E \times 1.10$$
-4. Calculate required power:
-   $$P_{\text{calc}} = \frac{E_{\text{charge}} \times 1000}{T}$$
-5. Clamp charging power to safe bounds:
-   $$P_{\text{charge}} = \max\left(1000\text{ W}, \min(P_{\text{base}}, \operatorname{round}(P_{\text{calc}}, -1))\right)$$
-   where $P_{\text{base}} = \min(12000, \max(1000, \operatorname{round}(I_{\text{max\_charge}} \times V_{\text{nominal}}, -1)))$.
-6. **Slot 5 Protection:** Slot 5 (Peak Evening Discharge) strictly remains at full base power $P_{\text{base}}$ regardless of window duration.
+### 4.2 TOU Power Column Semantics & Register 108 Dynamic Modulation
+1. **TOU Power is Strictly Discharge Power:**
+   In Deye hybrid inverters (SUN-12K-SG05LP3), the `Power(W)` column in the TOU table (Registers 256–261) strictly defines the **maximum discharge power allowed from battery to household loads/grid**. It does **NOT** limit grid charging speed.
+   - Throttling `power_w` in TOU slots during daytime or night would throttle battery coverage for household loads, causing unnecessary peak grid imports.
+   - Therefore, **all 6 TOU slots maintain full maximum discharge power ($P_{\text{base}}$)**:
+     $$P_{\text{base}} = \min(12000\text{ W}, \max(1000\text{ W}, \operatorname{round}(I_{\text{max\_discharge}} \times V_{\text{nominal}}, -1)))$$
+     For the physical inverter setting $I_{\text{max\_discharge}} = 140\text{A}$ and $V_{\text{nominal}} = 51.2\text{V}$, $P_{\text{base}} \approx \mathbf{7170\text{ W}}$.
+
+2. **Charging Current Modulation via Register 108 (`Max A Charge`):**
+   Charging speed when grid charging is active is governed by Modbus Holding Register 108 (and OpenAPI `/order/battery/parameter/update`):
+   - When charging window duration $T$ extends beyond 2 hours (e.g. 4h on weekends), charging current is modulated down to distribute charging across the entire low-price window:
+     $$I_{\text{target}} = \max\left(20\text{ A}, \min\left(I_{\text{base}}, \operatorname{round}\left(I_{\text{base}} \times \frac{2}{T}\right)\right)\right)$$
+     (e.g., $100\text{A} \times (2 / 4) = \mathbf{50\text{ A}}$ for a 4h window; $100\text{A} \times (2 / 3) = \mathbf{67\text{ A}}$ for a 3h window; $100\text{A}$ for a 2h window).
+   - `check_and_apply_charge_current_modulation()` applies $I_{\text{target}}$ inside the window and automatically restores $I_{\text{base}}$ (100A) outside the charging window.
+   - Writes are strictly idempotent (executed only when the active register value differs from target), protecting EEPROM memory.
+3. **Slot 5 Protection:** Slot 5 (Peak Evening Discharge) strictly remains at full base power $P_{\text{base}}$ (7170W) down to `min_soc`.
 
 ### 4.3 BMS Calibration Routine (100% Equalization)
 Triggered via `script.trigger_deye_battery_calibration`:

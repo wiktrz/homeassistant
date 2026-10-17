@@ -254,10 +254,11 @@ def read_inverter_telemetry(
     env_cap_kwh = os.getenv("BATTERY_CAPACITY_KWH")
     env_nom_v = os.getenv("BATTERY_NOMINAL_VOLTAGE")
     env_max_curr = os.getenv("BATTERY_MAX_CHARGE_CURRENT")
+    env_max_dis_curr = os.getenv("BATTERY_MAX_DISCHARGE_CURRENT") or os.getenv("BATTERY_DISCHARGE_CURRENT_A")
 
     config_data = {
-        "max_charge_current": int(float(env_max_curr)) if env_max_curr else 0,
-        "max_discharge_current": int(float(env_max_curr)) if env_max_curr else 0,
+        "max_charge_current": int(float(env_max_curr)) if env_max_curr else int(energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT),
+        "max_discharge_current": int(float(env_max_dis_curr)) if env_max_dis_curr else int(energy_defaults.FALLBACK_BATTERY_MAX_DISCHARGE_CURRENT),
         "min_discharge_soc": energy_defaults.DEFAULT_MIN_SOC,
         "shutdown_soc": energy_defaults.DEFAULT_SHUTDOWN_SOC,
         "max_charge_soc": energy_defaults.DEFAULT_MAX_SOC,
@@ -625,6 +626,46 @@ def sync_tou_schedule(
     }
 
 
+def set_charge_current_cloud(current_a: Optional[int] = None, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Sets battery max charge current via Deye Cloud OpenAPI.
+    Calls POST /v1.0/order/battery/parameter/update or /v1.0/order/sys/battery/update
+    """
+    cfg = cfg or get_deye_cloud_config()
+    target_sn = cfg.get("inverter_sn")
+    if not target_sn:
+        return {"success": False, "message": "Missing target inverter serial number (DEYE_INVERTER_SN)"}
+
+    base_max = int(energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT)
+    target_a = int(current_a) if current_a is not None else base_max
+    clamped_a = max(10, min(base_max, target_a))
+
+    payload = {
+        "deviceSn": target_sn,
+        "maxChargeCurrent": clamped_a,
+    }
+    ok, res, msg = call_deye_api("/v1.0/order/battery/parameter/update", method="POST", data=payload, cfg=cfg)
+    if not ok:
+        ok, res, msg = call_deye_api("/v1.0/order/sys/battery/update", method="POST", data=payload, cfg=cfg)
+
+    app_success = False
+    if ok and isinstance(res, dict):
+        code = str(res.get("code", ""))
+        app_success = (code in ("1000000", "1106000") or res.get("success") is True)
+        if "msg" in res:
+            msg = res.get("msg")
+    elif ok:
+        app_success = True
+
+    return {
+        "success": app_success,
+        "source": "deye_cloud_openapi",
+        "current_a": clamped_a,
+        "response": res,
+        "message": msg,
+    }
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Deye Cloud OpenAPI Client for Home Assistant")
     parser.add_argument("--read-all", action="store_true", help="Read config, telemetry, and TOU settings via Cloud API")
@@ -633,6 +674,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--get-token", action="store_true", help="Fetch and output raw access token (exchanging AppId/Secret/Email/Password)")
     parser.add_argument("--sync-tou", type=str, help="Synchronize 6 TOU slots (JSON string or file path)")
     parser.add_argument("--sync-pstryk-tou", action="store_true", help="Calculate optimal TOU from Pstryk prices and upload via Cloud API")
+    parser.add_argument("--set-charge-current", type=int, help="Modulate Max Charge Current (Reg 108 in Amperes) via Cloud OpenAPI")
     parser.add_argument("--device-sn", default=None, help="Inverter Serial Number (defaults to DEYE_INVERTER_SN)")
     parser.add_argument("--api-key", default=None, help="Direct Deye API key override")
 
@@ -642,6 +684,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         cfg["inverter_sn"] = args.device_sn
     if args.api_key:
         cfg["api_key"] = args.api_key
+
+    if args.set_charge_current is not None:
+        res = set_charge_current_cloud(current_a=args.set_charge_current, cfg=cfg)
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("success") else 1
 
     if args.sync_pstryk_tou:
         try:

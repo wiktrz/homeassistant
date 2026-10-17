@@ -429,6 +429,36 @@
         {{ cfg.max_discharge_current if cfg and cfg.max_discharge_current is defined and cfg.max_discharge_current | float(0) > 0 else 0 }}
       icon: mdi:current-dc
 
+    - name: "Deye Inverter Recommended Charge Current"
+      unique_id: deye_inverter_recommended_charge_current
+      unit_of_measurement: "A"
+      state: >
+        {% set sched = state_attr('sensor.pstryk_unified_metrics_dol', 'deye_tou_schedule_today') %}
+        {% if sched %}
+          {% set chg = sched | selectattr('grid_charge', 'defined') | selectattr('grid_charge', 'equalto', true) | list %}
+          {% if chg | length > 0 and chg[0].target_charge_current_a is defined %}
+            {{ chg[0].target_charge_current_a | int }}
+          {% else %}
+            {{ states('sensor.deye_inverter_max_charge_current') | int(0) }}
+          {% endif %}
+        {% else %}
+          {{ states('sensor.deye_inverter_max_charge_current') | int(0) }}
+        {% endif %}
+      attributes:
+        is_throttled: >-
+          {% set sched = state_attr('sensor.pstryk_unified_metrics_dol', 'deye_tou_schedule_today') %}
+          {% if sched %}
+            {% set chg = sched | selectattr('grid_charge', 'defined') | selectattr('grid_charge', 'equalto', true) | list %}
+            {% if chg | length > 0 and chg[0].target_charge_current_a is defined %}
+              {{ (chg[0].target_charge_current_a | int) < (states('sensor.deye_inverter_max_charge_current') | int(0)) }}
+            {% else %}
+              false
+            {% endif %}
+          {% else %}
+            false
+          {% endif %}
+      icon: mdi:battery-charging-medium
+
     - name: "Deye Battery SOC"
       unique_id: deye_battery_soc
       unit_of_measurement: "%"

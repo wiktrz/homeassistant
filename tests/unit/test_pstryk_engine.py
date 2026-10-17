@@ -25,6 +25,7 @@ if CONFIG_DIR not in sys.path:
     sys.path.insert(0, CONFIG_DIR)
 
 import pstryk_engine
+import energy_defaults
 
 
 def load_fixture(name: str) -> dict:
@@ -1029,14 +1030,16 @@ def test_powerbank_weekend_auto_duration_and_weekday_fixed():
 
 def test_proportional_charging_power_scaling_and_slot5_protection():
     """
-    Verifies that charging slot power adapts to Delta-SOC and window duration,
-    while Slot 5 (Peak Evening Discharge) strictly retains full base power (5120W at 100A * 51.2V).
+    Verifies that TOU power_w across all slots strictly stays at base discharge power (7170W for 140A * 51.2V),
+    while the charging slot dynamically modulates target_charge_current_a (Register 108) based on window duration
+    (50A for 4h window, 100A for 2h window), and Slot 5 (Peak Evening Discharge) strictly retains full base power.
     """
     pb_4h = {"start": "2026-10-17T09:00:00Z", "end": "2026-10-17T13:00:00Z", "duration_hours": 4, "is_consecutive": True}
     sell_win = {"start": "2026-10-17T15:00:00Z", "end": "2026-10-17T18:00:00Z"}
 
-    # Case A: Half-full battery (50% to 90%, 4h window) with 10% loss buffer:
-    # Delta SOC = 40% -> Delta E = 6.452 kWh * 1.10 = 7.0972 kWh. Over 4h: 7097.2 / 4 = 1774.3W -> 1770W (~35A)
+    # Case A: Half-full battery (50% to 90%, 4h window):
+    # TOU power_w is strictly base discharge power (7170W for 140A * 51.2V)
+    # Register 108 target charging current is scaled for 4h: 100A * (2 / 4) = 50A
     slots_50 = pstryk_engine.generate_deye_tou_schedule(
         current_soc=50,
         max_soc=90,
@@ -1045,18 +1048,20 @@ def test_proportional_charging_power_scaling_and_slot5_protection():
         best_sell_window=sell_win,
         calibration_active=False,
         max_charge_current=100.0,
+        max_discharge_current=140.0,
     )
     charge_slot_50 = [s for s in slots_50 if s["grid_charge"] is True][0]
-    assert charge_slot_50["power_w"] == 1770
+    assert charge_slot_50["power_w"] == 7170
+    assert charge_slot_50["target_charge_current_a"] == 50
+    assert charge_slot_50["base_charge_current_a"] == 100
 
-    # Slot 5 (Peak Discharge) strictly full base power (5120W)
+    # Slot 5 (Peak Discharge) strictly full base power (7170W)
     assert slots_50[4]["slot"] == 5
-    assert slots_50[4]["power_w"] == 5120
+    assert slots_50[4]["power_w"] == 7170
     assert slots_50[4]["grid_charge"] is False
     assert slots_50[4]["target_soc"] == 20
 
-    # Case B: Empty battery (20% to 90%, 4h window) with 10% loss buffer:
-    # Delta SOC = 70% -> Delta E = 11.291 kWh * 1.10 = 12.4201 kWh. Over 4h: 12420.1 / 4 = 3105.0W -> 3110W (~61A)
+    # Case B: Empty battery (20% to 90%, 4h window):
     slots_20 = pstryk_engine.generate_deye_tou_schedule(
         current_soc=20,
         max_soc=90,
@@ -1065,69 +1070,64 @@ def test_proportional_charging_power_scaling_and_slot5_protection():
         best_sell_window=sell_win,
         calibration_active=False,
         max_charge_current=100.0,
+        max_discharge_current=140.0,
     )
     charge_slot_20 = [s for s in slots_20 if s["grid_charge"] is True][0]
-    assert charge_slot_20["power_w"] == 3110
+    assert charge_slot_20["power_w"] == 7170
+    assert charge_slot_20["target_charge_current_a"] == 50
 
-    # Case C: Nearly full (85% to 90%, 4h window) -> clamped to 1000W floor
-    slots_85 = pstryk_engine.generate_deye_tou_schedule(
-        current_soc=85,
+    # Case C: 2h window -> full 100A charging speed:
+    pb_2h = {"start": "2026-10-17T11:00:00Z", "end": "2026-10-17T13:00:00Z", "duration_hours": 2, "is_consecutive": True}
+    slots_2h = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=50,
         max_soc=90,
         min_soc=20,
-        best_pb_window=pb_4h,
+        best_pb_window=pb_2h,
         best_sell_window=sell_win,
         calibration_active=False,
         max_charge_current=100.0,
+        max_discharge_current=140.0,
     )
-    charge_slot_85 = [s for s in slots_85 if s["grid_charge"] is True][0]
-    assert charge_slot_85["power_w"] == 1000
+    charge_slot_2h = [s for s in slots_2h if s["grid_charge"] is True][0]
+    assert charge_slot_2h["power_w"] == 7170
+    assert charge_slot_2h["target_charge_current_a"] == 100
 
 
 def test_dynamic_inverter_max_charge_current_scaling():
     """
-    Verifies that base 100% power dynamically adapts when max_charge_current is 100A (5120W),
-    120A (6140W), or 200A (10240W) at nominal 51.2V.
+    Verifies that base discharge power dynamically adapts when max_discharge_current is 140A (7170W)
+    or 200A (10240W) at nominal 51.2V, while target_charge_current_a adapts to max_charge_current.
     """
     pb_2h = {"start": "2026-10-17T11:00:00Z", "end": "2026-10-17T13:00:00Z", "duration_hours": 2, "is_consecutive": True}
     sell_win = {"start": "2026-10-17T15:00:00Z", "end": "2026-10-17T18:00:00Z"}
 
-    # 100A @ 51.2V: base = 5120W. Empty battery (20%) in 2h with 10% loss needs 6210W -> clamped to 5120W
-    slots_100 = pstryk_engine.generate_deye_tou_schedule(
+    # 140A discharge @ 51.2V -> 7170W base power across all slots.
+    slots_140 = pstryk_engine.generate_deye_tou_schedule(
         current_soc=20,
         max_soc=90,
         min_soc=20,
         best_pb_window=pb_2h,
         best_sell_window=sell_win,
         max_charge_current=100.0,
+        max_discharge_current=140.0,
     )
-    charge_100 = [s for s in slots_100 if s["grid_charge"] is True][0]
-    assert charge_100["power_w"] == 5120
-    assert slots_100[4]["power_w"] == 5120
+    charge_140 = [s for s in slots_140 if s["grid_charge"] is True][0]
+    assert charge_140["power_w"] == 7170
+    assert charge_140["target_charge_current_a"] == 100
+    assert slots_140[4]["power_w"] == 7170
 
-    # 120A @ 51.2V: base = 6140W. 6210W exceeds 6140W -> clamped to 6140W
-    slots_120 = pstryk_engine.generate_deye_tou_schedule(
-        current_soc=20,
-        max_soc=90,
-        min_soc=20,
-        best_pb_window=pb_2h,
-        best_sell_window=sell_win,
-        max_charge_current=120.0,
-    )
-    charge_120 = [s for s in slots_120 if s["grid_charge"] is True][0]
-    assert charge_120["power_w"] == 6140
-    assert slots_120[4]["power_w"] == 6140
-
-    # 200A @ 51.2V: base = 10240W. 6210W fits under 10240W ceiling -> 6210W
+    # 200A discharge @ 51.2V -> 10240W base power.
     slots_200 = pstryk_engine.generate_deye_tou_schedule(
         current_soc=20,
         max_soc=90,
         min_soc=20,
         best_pb_window=pb_2h,
         best_sell_window=sell_win,
-        max_charge_current=200.0,
+        max_charge_current=100.0,
+        max_discharge_current=200.0,
     )
     charge_200 = [s for s in slots_200 if s["grid_charge"] is True][0]
-    assert charge_200["power_w"] == 6210
+    assert charge_200["power_w"] == 10240
     assert slots_200[4]["power_w"] == 10240
 
 
@@ -1192,16 +1192,19 @@ def test_save_last_tou_sync_result(tmp_path):
 
 def test_soc_delta_dynamic_charging_power_matrix():
     """
-    Verifies all 7 matrix test cases for Delta-SOC & duration-based power scaling with 10% loss buffer:
-    C = 16.13 kWh, min_soc = 20%, max_soc = 90%, base_power_w = 5120W (100A * 51.2V).
+    Verifies that TOU power_w across all slots stays at base discharge power (7170W for 140A * 51.2V),
+    while target_charge_current_a scales dynamically based on charging window duration (Register 108 modulation):
+    - 2h window -> 100A (100% speed)
+    - 3h window -> 67A (100 * 2 / 3)
+    - 4h window -> 50A (100 * 2 / 4, 50% speed)
     """
     sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
     win_2h = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2, "is_consecutive": True}
     win_3h = {"start": "2026-10-17T11:00:00Z", "end": "2026-10-17T14:00:00Z", "duration_hours": 3, "is_consecutive": True}
     win_4h = {"start": "2026-10-17T11:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 4, "is_consecutive": True}
 
-    def get_charge_power(curr_soc, win):
-        s = pstryk_engine.generate_deye_tou_schedule(
+    def get_schedule(curr_soc, win):
+        return pstryk_engine.generate_deye_tou_schedule(
             current_soc=curr_soc,
             max_soc=90,
             min_soc=20,
@@ -1209,29 +1212,26 @@ def test_soc_delta_dynamic_charging_power_matrix():
             best_sell_window=sell_win,
             calibration_active=False,
             max_charge_current=100.0,
+            max_discharge_current=140.0,
         )
-        return [slot for slot in s if slot["grid_charge"] is True][0]["power_w"]
 
-    # Case 1: Empty battery (20%), 2h window -> clamped to 5120W ceiling (100% speed, 100A)
-    assert get_charge_power(20, win_2h) == 5120
+    # Case 1: Empty battery (20%), 2h window -> 7170W discharge, 100A charge current
+    s_2h = get_schedule(20, win_2h)
+    charge_2h = [slot for slot in s_2h if slot["grid_charge"] is True][0]
+    assert charge_2h["power_w"] == 7170
+    assert charge_2h["target_charge_current_a"] == 100
 
-    # Case 2: User Example (50%), 2h window -> 3550W (~69A)
-    assert get_charge_power(50, win_2h) == 3550
+    # Case 2: 3h window -> 7170W discharge, 67A charge current (100 * 2 / 3)
+    s_3h = get_schedule(50, win_3h)
+    charge_3h = [slot for slot in s_3h if slot["grid_charge"] is True][0]
+    assert charge_3h["power_w"] == 7170
+    assert charge_3h["target_charge_current_a"] == 67
 
-    # Case 3: Sunny morning (70%), 2h window -> 1770W (~35A)
-    assert get_charge_power(70, win_2h) == 1770
-
-    # Case 4: Weekend Empty (20%), 3h window -> 4140W (~81A)
-    assert get_charge_power(20, win_3h) == 4140
-
-    # Case 5: Weekend Half (50%), 3h window -> 2370W (~46A)
-    assert get_charge_power(50, win_3h) == 2370
-
-    # Case 6: Weekend 4h (50%), 4h window -> 1770W (~35A)
-    assert get_charge_power(50, win_4h) == 1770
-
-    # Case 7: Nearly full (85%), 2h window -> clamped to 1000W floor (~20A)
-    assert get_charge_power(85, win_2h) == 1000
+    # Case 3: 4h window -> 7170W discharge, 50A charge current (100 * 2 / 4)
+    s_4h = get_schedule(50, win_4h)
+    charge_4h = [slot for slot in s_4h if slot["grid_charge"] is True][0]
+    assert charge_4h["power_w"] == 7170
+    assert charge_4h["target_charge_current_a"] == 50
 
 
 def test_dynamic_morning_reserve_adapting_to_min_soc():
@@ -1283,8 +1283,8 @@ def test_uninstalled_battery_zero_soc_safeguard():
         best_sell_window=sell_win,
     )
     charge_slot = [s for s in slots_zero if s["grid_charge"] is True][0]
-    # Treats as empty battery (20%) -> dynamic 5120W (100A * 51.2V)
-    assert charge_slot["power_w"] in (5000, 5120)
+    # Retains base discharge power (7170W for 140A * 51.2V)
+    assert charge_slot["power_w"] in (5000, 5120, 7170)
 
 
 def test_are_tou_slots_identical_matching_and_tolerance():
@@ -1450,32 +1450,35 @@ def test_dynamic_capacity_scaling_custom_kwh():
     pb_4h = {"start": "2026-10-17T11:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 4, "is_consecutive": True}
     sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
 
-    # 1. Standard 16.13 kWh pack:
-    # Delta SOC = 40% (50% to 90%) -> Delta E = 6.452 kWh * 1.10 = 7.0972 kWh -> 7097.2 / 4 = 1774.3W -> 1770W
+    # 1. Standard pack:
+    # TOU power_w is base discharge power (7170W for 140A * 51.2V)
+    # Register 108 target charging current scaled for 4h: 100A * (2 / 4) = 50A
     s_standard = pstryk_engine.generate_deye_tou_schedule(
         current_soc=50, max_soc=90, min_soc=20,
         best_pb_window=pb_4h, best_sell_window=sell_win,
         battery_capacity_kwh=16.13,
         loss_buffer_pct=10.0,
         max_charge_current=100.0,
+        max_discharge_current=140.0,
     )
     charge_standard = [s for s in s_standard if s["grid_charge"] is True][0]
-    assert charge_standard["power_w"] == 1770
+    assert charge_standard["power_w"] == 7170
+    assert charge_standard["target_charge_current_a"] == 50
 
-    # 2. Doubled 32.26 kWh pack:
-    # Delta SOC = 40% -> Delta E = 12.904 kWh * 1.10 = 14.1944 kWh -> 14194.4 / 4 = 3548.6W -> 3550W (~69A)
+    # 2. Doubled pack:
     s_doubled = pstryk_engine.generate_deye_tou_schedule(
         current_soc=50, max_soc=90, min_soc=20,
         best_pb_window=pb_4h, best_sell_window=sell_win,
         battery_capacity_kwh=32.26,
         loss_buffer_pct=10.0,
         max_charge_current=100.0,
+        max_discharge_current=140.0,
     )
     charge_doubled = [s for s in s_doubled if s["grid_charge"] is True][0]
-    assert charge_doubled["power_w"] == 3550
+    assert charge_doubled["power_w"] == 7170
+    assert charge_doubled["target_charge_current_a"] == 50
 
-    # 3. Doubled 32.26 kWh pack in 2h window with 140A charging limit:
-    # Over 2h: 14194.4 / 2 = 7097.2W -> 7100W. Base power at 140A * 51.2V = 7170W -> 7100W fits under base ceiling!
+    # 3. 2h window with 140A charge current:
     pb_2h = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2, "is_consecutive": True}
     s_doubled_2h = pstryk_engine.generate_deye_tou_schedule(
         current_soc=50, max_soc=90, min_soc=20,
@@ -1483,42 +1486,31 @@ def test_dynamic_capacity_scaling_custom_kwh():
         battery_capacity_kwh=32.26,
         loss_buffer_pct=10.0,
         max_charge_current=140.0,
+        max_discharge_current=140.0,
     )
     charge_doubled_2h = [s for s in s_doubled_2h if s["grid_charge"] is True][0]
-    assert charge_doubled_2h["power_w"] == 7100
+    assert charge_doubled_2h["power_w"] == 7170
+    assert charge_doubled_2h["target_charge_current_a"] == 140
 
 
 def test_loss_buffer_percentage_variations():
     """
-    Verifies that loss_buffer_pct adds +10% (or other custom buffer) to cover energy losses during charging.
+    Verifies that TOU discharge power remains at base (7170W) while 3h window scales
+    target_charge_current_a to 67A (100 * 2 / 3).
     """
     pb_3h = {"start": "2026-10-17T11:00:00Z", "end": "2026-10-17T14:00:00Z", "duration_hours": 3, "is_consecutive": True}
     sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
 
-    # Delta SOC = 40% (50% to 90%) -> Delta E = 6.452 kWh
-    # 0% buffer: 6452 / 3 = 2150.67W -> 2150W
-    s_0 = pstryk_engine.generate_deye_tou_schedule(
-        current_soc=50, max_soc=90, min_soc=20,
-        best_pb_window=pb_3h, best_sell_window=sell_win,
-        loss_buffer_pct=0.0,
-    )
-    assert [s for s in s_0 if s["grid_charge"] is True][0]["power_w"] == 2150
-
-    # 10% buffer: 6452 * 1.10 = 7097.2 -> 7097.2 / 3 = 2365.73W -> 2370W
-    s_10 = pstryk_engine.generate_deye_tou_schedule(
+    s_3h = pstryk_engine.generate_deye_tou_schedule(
         current_soc=50, max_soc=90, min_soc=20,
         best_pb_window=pb_3h, best_sell_window=sell_win,
         loss_buffer_pct=10.0,
+        max_charge_current=100.0,
+        max_discharge_current=140.0,
     )
-    assert [s for s in s_10 if s["grid_charge"] is True][0]["power_w"] == 2370
-
-    # 15% buffer: 6452 * 1.15 = 7419.8 -> 7419.8 / 3 = 2473.27W -> 2470W
-    s_15 = pstryk_engine.generate_deye_tou_schedule(
-        current_soc=50, max_soc=90, min_soc=20,
-        best_pb_window=pb_3h, best_sell_window=sell_win,
-        loss_buffer_pct=15.0,
-    )
-    assert [s for s in s_15 if s["grid_charge"] is True][0]["power_w"] == 2470
+    charge_3h = [s for s in s_3h if s["grid_charge"] is True][0]
+    assert charge_3h["power_w"] == 7170
+    assert charge_3h["target_charge_current_a"] == 67
 
 
 def test_custom_morning_reserve_margin_and_clamping():
@@ -1557,31 +1549,48 @@ def test_custom_morning_reserve_margin_and_clamping():
 
 def test_custom_nominal_voltage_and_power_scaling():
     """
-    Verifies that nominal_voltage scales base power:
-    P_base = min(12000, max(1000, round(I_charge * V_nom, -1))).
+    Verifies that nominal_voltage scales base discharge power:
+    P_base = min(12000, max(1000, round(I_discharge * V_nom, -1))).
     """
     pb_win = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2, "is_consecutive": True}
     sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
 
-    # 1. 48.0V nominal voltage at 100A -> 4800W
+    # 1. 48.0V nominal voltage at 140A discharge -> 6720W
     s_48 = pstryk_engine.generate_deye_tou_schedule(
         current_soc=20, max_soc=90, min_soc=20,
         best_pb_window=pb_win, best_sell_window=sell_win,
         nominal_voltage=48.0,
-        max_charge_current=100.0,
+        max_discharge_current=140.0,
     )
-    assert [s for s in s_48 if s["grid_charge"] is True][0]["power_w"] == 4800
-    assert s_48[4]["power_w"] == 4800  # Slot 5
+    assert [s for s in s_48 if s["grid_charge"] is True][0]["power_w"] == 6720
+    assert s_48[4]["power_w"] == 6720  # Slot 5
 
-    # 2. 53.0V nominal voltage at 100A -> 5300W
+    # 2. 53.0V nominal voltage at 140A discharge -> 7420W
     s_53 = pstryk_engine.generate_deye_tou_schedule(
         current_soc=20, max_soc=90, min_soc=20,
         best_pb_window=pb_win, best_sell_window=sell_win,
         nominal_voltage=53.0,
-        max_charge_current=100.0,
+        max_discharge_current=140.0,
     )
-    assert [s for s in s_53 if s["grid_charge"] is True][0]["power_w"] == 5300
-    assert s_53[4]["power_w"] == 5300  # Slot 5
+    assert [s for s in s_53 if s["grid_charge"] is True][0]["power_w"] == 7420
+    assert s_53[4]["power_w"] == 7420  # Slot 5
+
+
+def test_resolve_battery_hardware_parameters_4tuple():
+    """
+    Verifies resolve_battery_hardware_parameters returns a 4-tuple:
+    (capacity_kwh, nominal_voltage, max_charge_current, max_discharge_current).
+    """
+    cap, volts, charge_a, discharge_a = pstryk_engine.resolve_battery_hardware_parameters(
+        battery_capacity_kwh=None,
+        nominal_voltage=None,
+        max_charge_current=None,
+        max_discharge_current=None,
+    )
+    assert cap == energy_defaults.FALLBACK_BATTERY_CAPACITY_KWH
+    assert volts == energy_defaults.FALLBACK_BATTERY_NOMINAL_VOLTAGE
+    assert charge_a == energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT
+    assert discharge_a == energy_defaults.FALLBACK_BATTERY_MAX_DISCHARGE_CURRENT
 
 
 if __name__ == "__main__":

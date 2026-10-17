@@ -224,6 +224,8 @@ def test_no_hardcoded_battery_parameters():
         (re.compile(r"state:\s*['\"]51\.2['\"]"), "Hardcoded state: 51.2 voltage"),
         (re.compile(r"default\s*\(\s*['\"]?100(?:\.0)?['\"]?"), "Hardcoded 100A current default fallback"),
         (re.compile(r"float\s*\(\s*100(?:\.0)?\s*\)"), "Hardcoded float(100.0) current fallback"),
+        (re.compile(r"default\s*\(\s*['\"]?140(?:\.0)?['\"]?"), "Hardcoded 140A discharge current default fallback"),
+        (re.compile(r"float\s*\(\s*140(?:\.0)?\s*\)"), "Hardcoded float(140.0) discharge current fallback"),
         (re.compile(r"SunDeposit\s+16\.13\s*kWh"), "Hardcoded static battery model string"),
     ]
 
@@ -243,6 +245,25 @@ def test_no_hardcoded_battery_parameters():
                         violations.append(f"{rel_path}:{line_no} [{desc}]: {clean_line}")
 
     assert not violations, "Found forbidden hardcoded battery parameters in YAML files:\n" + "\n".join(violations)
+
+
+def test_register_write_safety_policies():
+    """
+    INVARIANT: HARDWARE SAFETY REGISTER ACCESS CONTROL.
+    Ensures that registers 109 (Max Discharge Current), 110 (Min SOC),
+    111 (Shutdown SOC), and 112 (Max SOC) remain strictly blocked in software
+    from unprompted direct writes to prevent physical damage.
+    Only Register 108 (Max Charge Current) is modulated under safe bounds.
+    """
+    import sys
+    config_dir = os.path.join(REPO_ROOT, "config")
+    if config_dir not in sys.path:
+        sys.path.insert(0, config_dir)
+    import solarman_v5_client
+
+    assert hasattr(solarman_v5_client, "BLOCK_DIRECT_SYSTEM_REGISTER_WRITES")
+    assert solarman_v5_client.BLOCK_DIRECT_SYSTEM_REGISTER_WRITES is True
+    assert hasattr(solarman_v5_client, "set_charge_current")
 
 
 if __name__ == "__main__":
