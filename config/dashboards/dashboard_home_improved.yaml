@@ -702,36 +702,21 @@ views:
       - type: heading
         heading: Harmonogram Dyspozytorski Pstryk
 
-      - type: grid
-        columns: 3
-        square: false
-        cards:
-          - type: tile
-            entity: sensor.pstryk_ev_best_window_dol
-            name: Okno Ładowania EV
-            icon: mdi:car-electric
-            color: green
-            tap_action:
-              action: more-info
-          - type: tile
-            entity: sensor.pstryk_powerbank_best_window_dol
-            name: Okno Magazynu Energii
-            icon: mdi:battery-charging
-            color: purple
-            tap_action:
-              action: more-info
-          - type: tile
-            entity: sensor.pstryk_best_sell_window_dol
-            name: Szczyt Cenowy (Zasilanie z Baterii)
-            icon: mdi:battery-arrow-down
-            color: amber
-            tap_action:
-              action: more-info
-
       - type: entities
-        title: Status Aktywnych Okien Dyspozytorskich
+        title: Rekomendowane Okna Dyspozytorskie & Status
         show_header_toggle: false
         entities:
+          - entity: sensor.pstryk_ev_best_window_dol
+            name: Okno Ładowania Samochodu (EV)
+            icon: mdi:car-electric
+          - entity: sensor.pstryk_powerbank_best_window_dol
+            name: Okno Ładowania Magazynu Energii
+            icon: mdi:battery-charging
+          - entity: sensor.pstryk_best_sell_window_dol
+            name: Szczyt Cenowy (Zasilanie z Baterii)
+            icon: mdi:battery-arrow-down
+          - type: section
+            label: Aktywny Stan Okien Dyspozytorskich
           - entity: binary_sensor.pstryk_in_ev_best_window_dol
             name: Trwa Okno Ładowania Samochodu (EV)
             icon: mdi:car-electric
@@ -746,7 +731,7 @@ views:
         heading: Magazyn Energii & Falownik Deye 12 kW
 
       - type: grid
-        columns: 3
+        columns: 2
         square: false
         cards:
           - type: tile
@@ -821,18 +806,6 @@ views:
             name: Wymuś Odczyt Telemetrii z Falownika
             icon: mdi:refresh
 
-      - type: conditional
-        conditions:
-          - entity: binary_sensor.ui_op_pending_deye_battery_safety
-            state: "on"
-        card:
-          type: markdown
-          title: ⏳ Trwa Zapisywanie Ustawień do Falownika Deye
-          content: |-
-            Trwa bezpieczne przesyłanie nowych progów bezpieczeństwa baterii (Min SOC / Shutdown SOC) oraz przeliczanie i synchronizacja harmonogramu TOU.
-
-            > 🔒 **Interfejs jest zablokowany na czas trwania operacji.**
-            > Proszę nie klikać innych przycisków ani nie odświeżać strony. Po zakończeniu interfejs odblokuje się automatycznie.
 
       - type: conditional
         conditions:
@@ -877,23 +850,14 @@ views:
           title: Harmonogram Time-of-Use & Parametry Baterii (Zablokowane)
           show_header_toggle: false
           entities:
+            - type: section
+              label: ⏳ Trwa Zapis do Falownika Deye (Edycja Zablokowana)
             - entity: sensor.deye_tou_active_schedule
               name: Status Harmonogramu TOU (Reg 248)
               icon: mdi:calendar-clock
             - entity: input_datetime.deye_tou_last_synced_date
               name: Data Ostatniej Synchronizacji TOU
               icon: mdi:calendar-sync
-            - type: section
-              label: ⏳ Trwa Zapis do Falownika (Edycja Zablokowana)
-            - entity: sensor.powerbank_total_capacity_kwh
-              name: Pojemność Magazynu (Specyfikacja)
-              icon: mdi:battery-high
-            - entity: sensor.deye_inverter_max_charge_current
-              name: Limit Prądu Ładowania (Falownik Reg 108)
-              icon: mdi:current-dc
-            - entity: sensor.powerbank_voltage_v
-              name: Napięcie Nominalne Magazynu (Specyfikacja)
-              icon: mdi:sine-wave
       - type: conditional
         conditions:
           - entity: binary_sensor.ui_op_pending_deye_battery_safety
@@ -924,17 +888,6 @@ views:
               name: Shutdown SOC (Blackout)
               icon: mdi:battery-alert
             - type: section
-              label: Parametry Sprzętowe (Tylko Odczyt)
-            - entity: sensor.powerbank_total_capacity_kwh
-              name: Pojemność Magazynu (Specyfikacja)
-              icon: mdi:battery-high
-            - entity: sensor.deye_inverter_max_charge_current
-              name: Limit Prądu Ładowania (Falownik Reg 108)
-              icon: mdi:current-dc
-            - entity: sensor.powerbank_voltage_v
-              name: Napięcie Nominalne Magazynu (Specyfikacja)
-              icon: mdi:sine-wave
-            - type: section
               label: Sterowanie Ręczne
             - entity: input_select.ev_charging_target_hours
               name: Długość Okna Ładowania EV
@@ -952,45 +905,32 @@ views:
           {% set nom_v = states('sensor.powerbank_voltage_v') | float(0.0) %}
           {% set active = state_attr('sensor.deye_inverter_status', 'active_tou') %}
           {% set slots = active['slots'] if active and active['slots'] is defined else (state_attr('sensor.deye_tou_active_schedule', 'slots') if state_attr('sensor.deye_tou_active_schedule', 'slots') is defined else []) %}
+          {% set planned_a = states('sensor.deye_inverter_recommended_charge_current') if states('sensor.deye_inverter_recommended_charge_current') not in ['unknown', 'unavailable', ''] else (states('sensor.deye_inverter_max_charge_current') if states('sensor.deye_inverter_max_charge_current') not in ['unknown', 'unavailable', ''] else '-') %}
+          {% set active_a = states('sensor.deye_inverter_max_charge_current') if states('sensor.deye_inverter_max_charge_current') not in ['unknown', 'unavailable', ''] else '-' %}
           {% if slots and slots | length == 6 -%}
-          | Slot | Godzina | Moc / Prąd | SOC | Sieć | Tryb Pracy |
-          |:---:|:---:|:---:|:---:|:---:|:---|
+          > ⚡ **Planowany Prąd Ładowania:** `{{ planned_a }}{% if planned_a != '-' %} A{% endif %}` &nbsp;|&nbsp; 🔌 **Deye Reg 108 (Aktualny w Falowniku):** `{{ active_a }}{% if active_a != '-' %} A{% endif %}`
+
+          | Slot | Godzina | Tryb / Prąd / Moc | Cel SOC | Sieć | Opis Działania |
+          |:---:|:---:|:---|:---:|:---:|:---|
           {% for s in slots -%}
-          | **{{ s.slot }}** | `{{ s.time }}` | {{ s.power_w if s.power_w is defined else 5000 }} W{% if nom_v > 0 %} (~{{ ((s.power_w if s.power_w is defined else 5000) / nom_v) | round(0) }} A){% endif %} | {{ s.target_soc }}% | {{ '**⚡ TAK**' if s.grid_charge else 'NIE' }} | {{ s.label if s.label else ('Najtańsze Ładowanie' if s.grid_charge else ('Czuwanie Przed Szczytem' if s.target_soc >= 80 else 'Autokonsumpcja PV')) }} |
+          | **{{ s.slot }}** | `{{ s.time }}` | {% if s.grid_charge %}**⚡ Ładowanie: {{ s.target_charge_current_a if s.target_charge_current_a is defined else planned_a }}{% if (s.target_charge_current_a if s.target_charge_current_a is defined else planned_a) != '-' %} A{% endif %}**{% else %}Oddawanie: {{ s.power_w if s.power_w is defined else 5000 }} W{% if nom_v > 0 %} (~{{ ((s.power_w if s.power_w is defined else 5000) / nom_v) | round(0) }} A){% endif %}{% endif %} | {{ s.target_soc }}% | {{ '**⚡ TAK**' if s.grid_charge else 'NIE' }} | {{ s.label if s.label else ('Najtańsze Ładowanie' if s.grid_charge else ('Czuwanie Przed Szczytem' if s.target_soc >= 80 else 'Autokonsumpcja PV')) }} |
           {% endfor %}
-
-          ---
-
-          ### ⚡ Okna Dyspozytorskie — Dziś
-
-          > ⚡ **Okno Ładowania Magazynu:**  
-          > `{{ states('sensor.pstryk_powerbank_best_window_dol') }}`
-          >
-          > 🔋 **Szczyt Cenowy (Bateria / Sprzedaż):**  
-          > `{{ states('sensor.pstryk_best_sell_window_dol') }}`
-          >
-          > 🕒 *Ostatnia synchronizacja TOU: {{ states('input_datetime.deye_tou_last_synced_date') }}*
 
           ---
 
           ### 🔮 Prognoza Dyspozytorska na Jutro *(publikacja ok. 12:00)*
 
           {% if is_state('binary_sensor.pstryk_has_tomorrow_pricing_dol', 'on') -%}
-          > 🚗 **Okno EV (Samochód):**  
-          > `{{ states('sensor.pstryk_ev_best_window_tomorrow_dol') }}`
-          >
-          > 🔋 **Magazyn Energii (Ładowanie):**  
-          > `{{ states('sensor.pstryk_powerbank_best_window_tomorrow_dol') }}`
-          >
-          > ⚡ **Szczyt Cenowy (Sprzedaż / Bateria):**  
-          > `{{ states('sensor.pstryk_best_sell_window_tomorrow_dol') }}`
+          > 🚗 **Okno EV (Samochód):** `{{ states('sensor.pstryk_ev_best_window_tomorrow_dol') }}`  
+          > 🔋 **Magazyn Energii (Ładowanie):** `{{ states('sensor.pstryk_powerbank_best_window_tomorrow_dol') }}`  
+          > ⚡ **Szczyt Cenowy (Sprzedaż / Bateria):** `{{ states('sensor.pstryk_best_sell_window_tomorrow_dol') }}`
 
           {% set tom_slots = state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule_tomorrow') %}
           {% if tom_slots and tom_slots | length == 6 -%}
-          | Slot | Godzina | Moc / Prąd | SOC | Sieć | Tryb Pracy |
-          |:---:|:---:|:---:|:---:|:---:|:---|
+          | Slot | Godzina | Tryb / Prąd / Moc | Cel SOC | Sieć | Opis Działania |
+          |:---:|:---:|:---|:---:|:---:|:---|
           {% for st in tom_slots -%}
-          | **{{ st.slot }}** | `{{ st.time }}` | {{ st.power_w if st.power_w is defined else 5000 }} W{% if nom_v > 0 %} (~{{ ((st.power_w if st.power_w is defined else 5000) / nom_v) | round(0) }} A){% endif %} | {{ st.target_soc }}% | {{ '**⚡ TAK**' if st.grid_charge else 'NIE' }} | {{ st.label if st.label else ('Najtańsze Ładowanie' if st.grid_charge else 'Autokonsumpcja PV') }} |
+          | **{{ st.slot }}** | `{{ st.time }}` | {% if st.grid_charge %}**⚡ Ładowanie: {{ st.target_charge_current_a if st.target_charge_current_a is defined else planned_a }}{% if (st.target_charge_current_a if st.target_charge_current_a is defined else planned_a) != '-' %} A{% endif %}**{% else %}Oddawanie: {{ st.power_w if st.power_w is defined else 5000 }} W{% if nom_v > 0 %} (~{{ ((st.power_w if st.power_w is defined else 5000) / nom_v) | round(0) }} A){% endif %}{% endif %} | {{ st.target_soc }}% | {{ '**⚡ TAK**' if st.grid_charge else 'NIE' }} | {{ st.label if st.label else ('Najtańsze Ładowanie' if st.grid_charge else 'Autokonsumpcja PV') }} |
           {% endfor %}
           {%- endif %}
           {%- else -%}
@@ -1025,12 +965,12 @@ views:
       - type: heading
         heading: Pstryk Energy — Instalacja Dół
       - type: grid
-        columns: 4
+        columns: 2
         square: false
         cards:
           - type: tile
             entity: sensor.pstryk_cena_kupno_dol
-            name: Kupno
+            name: Kupno Teraz
             icon: mdi:cash-plus
             color: amber
             tap_action:
@@ -1038,17 +978,9 @@ views:
               navigation_path: /dashboard-home/energia-raport
           - type: tile
             entity: sensor.pstryk_cena_sprzedaz_dol
-            name: Sprzedaż
+            name: Sprzedaż Teraz
             icon: mdi:cash-refund
             color: green
-            tap_action:
-              action: navigate
-              navigation_path: /dashboard-home/energia-raport
-          - type: tile
-            entity: sensor.pstryk_best_window_dol
-            name: Najlepsze Okno
-            icon: mdi:clock-check-outline
-            color: cyan
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
@@ -1084,23 +1016,15 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-          - type: tile
-            entity: sensor.pstryk_slad_weglowy_dol
-            name: Ślad Węglowy
-            icon: mdi:molecule-co2
-            color: teal
-            tap_action:
-              action: navigate
-              navigation_path: /dashboard-home/energia-raport
       - type: heading
         heading: Pstryk Energy — Instalacja Góra
       - type: grid
-        columns: 4
+        columns: 2
         square: false
         cards:
           - type: tile
             entity: sensor.pstryk_cena_kupno_gora
-            name: Kupno
+            name: Kupno Teraz
             icon: mdi:cash-plus
             color: amber
             tap_action:
@@ -1108,17 +1032,9 @@ views:
               navigation_path: /dashboard-home/energia-raport
           - type: tile
             entity: sensor.pstryk_cena_sprzedaz_gora
-            name: Sprzedaż
+            name: Sprzedaż Teraz
             icon: mdi:cash-refund
             color: green
-            tap_action:
-              action: navigate
-              navigation_path: /dashboard-home/energia-raport
-          - type: tile
-            entity: sensor.pstryk_best_window_gora
-            name: Najlepsze Okno
-            icon: mdi:clock-check-outline
-            color: cyan
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
@@ -1154,14 +1070,6 @@ views:
             tap_action:
               action: navigate
               navigation_path: /dashboard-home/energia-raport
-          - type: tile
-            entity: sensor.pstryk_slad_weglowy_gora
-            name: Ślad Węglowy
-            icon: mdi:molecule-co2
-            color: teal
-            tap_action:
-              action: navigate
-              navigation_path: /dashboard-home/energia-raport
 
       # --- POMIARY HISTORYCZNE (LEGACY) REMOVED ---
 
@@ -1178,7 +1086,7 @@ views:
         heading: Porównanie Instalacji (Dół vs Góra)
 
       - type: grid
-        columns: 4
+        columns: 2
         square: false
         cards:
           - type: tile
@@ -1225,10 +1133,10 @@ views:
       - type: markdown
         title: Podsumowanie Zbiorcze
         content: |
-          | Okres | Dół — Zużycie | Dół — Koszt | Góra — Zużycie | Góra — Koszt | Łącznie Zużycie | Łączny Koszt |
-          | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-          | **Dziś** | {{ states('sensor.pstryk_zuzycie_dzis_dol') }} kWh | {{ states('sensor.pstryk_koszt_dzis_dol') }} PLN | {{ states('sensor.pstryk_zuzycie_dzis_gora') }} kWh | {{ states('sensor.pstryk_koszt_dzis_gora') }} PLN | {{ ((states('sensor.pstryk_zuzycie_dzis_dol') | float(0)) + (states('sensor.pstryk_zuzycie_dzis_gora') | float(0))) | round(2) }} kWh | {{ ((states('sensor.pstryk_koszt_dzis_dol') | float(0)) + (states('sensor.pstryk_koszt_dzis_gora') | float(0))) | round(2) }} PLN |
-          | **Ten Miesiąc** | {{ states('sensor.pstryk_zuzycie_miesiac_dol') }} kWh | {{ states('sensor.pstryk_koszt_miesiac_dol') }} PLN | {{ states('sensor.pstryk_zuzycie_miesiac_gora') }} kWh | {{ states('sensor.pstryk_koszt_miesiac_gora') }} PLN | {{ ((states('sensor.pstryk_zuzycie_miesiac_dol') | float(0)) + (states('sensor.pstryk_zuzycie_miesiac_gora') | float(0))) | round(2) }} kWh | {{ ((states('sensor.pstryk_koszt_miesiac_dol') | float(0)) + (states('sensor.pstryk_koszt_miesiac_gora') | float(0))) | round(2) }} PLN |
+          | Okres | Instalacja Dół | Instalacja Góra | Łącznie (Dom) |
+          | :--- | :---: | :---: | :---: |
+          | **Dziś** | {{ states('sensor.pstryk_zuzycie_dzis_dol') }} kWh<br>({{ states('sensor.pstryk_koszt_dzis_dol') }} zł) | {{ states('sensor.pstryk_zuzycie_dzis_gora') }} kWh<br>({{ states('sensor.pstryk_koszt_dzis_gora') }} zł) | **{{ ((states('sensor.pstryk_zuzycie_dzis_dol') | float(0)) + (states('sensor.pstryk_zuzycie_dzis_gora') | float(0))) | round(2) }} kWh**<br>({{ ((states('sensor.pstryk_koszt_dzis_dol') | float(0)) + (states('sensor.pstryk_koszt_dzis_gora') | float(0))) | round(2) }} zł) |
+          | **Ten Miesiąc** | {{ states('sensor.pstryk_zuzycie_miesiac_dol') }} kWh<br>({{ states('sensor.pstryk_koszt_miesiac_dol') }} zł) | {{ states('sensor.pstryk_zuzycie_miesiac_gora') }} kWh<br>({{ states('sensor.pstryk_koszt_miesiac_gora') }} zł) | **{{ ((states('sensor.pstryk_zuzycie_miesiac_dol') | float(0)) + (states('sensor.pstryk_zuzycie_miesiac_gora') | float(0))) | round(2) }} kWh**<br>({{ ((states('sensor.pstryk_koszt_miesiac_dol') | float(0)) + (states('sensor.pstryk_koszt_miesiac_gora') | float(0))) | round(2) }} zł) |
 
       # --- DZIŚ: GODZINOWY ROZKŁAD ZUŻYCIA I KOSZTÓW ---
       - type: heading
@@ -1237,17 +1145,17 @@ views:
       - type: markdown
         title: Szczegółowy Rozkład Godzinowy
         content: |
-          | Godzina | Zużycie Dół (kWh) | Koszt Dół (PLN) | Stawka (PLN/kWh) | Zużycie Góra (kWh) | Koszt Góra (PLN) |
-          | :---: | :---: | :---: | :---: | :---: | :---: |
+          | Godzina | Stawka | Instalacja Dół | Instalacja Góra |
+          | :---: | :---: | :---: | :---: |
           {% set rows_dol = state_attr('sensor.pstryk_zuzycie_dzis_dol', 'hourly') %}
           {% set rows_gora = state_attr('sensor.pstryk_zuzycie_dzis_gora', 'hourly') %}
           {% if rows_dol and rows_dol | length > 0 %}
           {% for r in rows_dol %}
           {% set g = rows_gora[loop.index0] if rows_gora and loop.index0 < (rows_gora | length) else none %}
-          | {{ r.start }} - {{ r.end }} | {{ r.kwh }} | {{ r.cost_pln }} | {{ r.rate_gross }} | {{ g.kwh if g else '-' }} | {{ g.cost_pln if g else '-' }} |
+          | {{ r.start }} - {{ r.end }} | {{ r.rate_gross }} zł | {{ r.kwh }} kWh ({{ r.cost_pln }} zł) | {{ g.kwh if g else '-' }} kWh ({{ g.cost_pln if g else '-' }} zł) |
           {% endfor %}
           {% else %}
-          | - | Brak danych godzinowych | - | - | - | - |
+          | - | Brak danych godzinowych | - | - |
           {% endif %}
 
       # --- MIESIĄC: DZIENNY ROZKŁAD ZUŻYCIA I KOSZTÓW ---
@@ -1257,17 +1165,17 @@ views:
       - type: markdown
         title: Dzienny Rozkład Zużycia w Bieżącym Miesiącu
         content: |
-          | Data | Zużycie Dół (kWh) | Koszt Dół (PLN) | Śr. Stawka (PLN/kWh) | Zużycie Góra (kWh) | Koszt Góra (PLN) |
-          | :---: | :---: | :---: | :---: | :---: | :---: |
+          | Data | Śr. Stawka | Instalacja Dół | Instalacja Góra |
+          | :---: | :---: | :---: | :---: |
           {% set days_dol = state_attr('sensor.pstryk_zuzycie_miesiac_dol', 'daily') %}
           {% set days_gora = state_attr('sensor.pstryk_zuzycie_miesiac_gora', 'daily') %}
           {% if days_dol and days_dol | length > 0 %}
           {% for d in days_dol %}
           {% set dg = days_gora[loop.index0] if days_gora and loop.index0 < (days_gora | length) else none %}
-          | {{ d.date }} | {{ d.kwh }} | {{ d.cost_pln }} | {{ d.avg_rate }} | {{ dg.kwh if dg else '-' }} | {{ dg.cost_pln if dg else '-' }} |
+          | {{ d.date }} | {{ d.avg_rate }} zł | {{ d.kwh }} kWh ({{ d.cost_pln }} zł) | {{ dg.kwh if dg else '-' }} kWh ({{ dg.cost_pln if dg else '-' }} zł) |
           {% endfor %}
           {% else %}
-          | - | Brak danych dziennych | - | - | - | - |
+          | - | Brak danych dziennych | - | - |
           {% endif %}
 
       # --- ROK: MIESIĘCZNA HISTORIA ---
@@ -1277,18 +1185,18 @@ views:
       - type: markdown
         title: Miesięczna Historia Kosztów i Zużycia
         content: |
-          | Miesiąc | Dół — Zużycie (kWh) | Dół — Koszt (PLN) | Góra — Zużycie (kWh) | Góra — Koszt (PLN) | Łączny Koszt (PLN) |
-          | :---: | :---: | :---: | :---: | :---: | :---: |
+          | Miesiąc | Instalacja Dół | Instalacja Góra | Łącznie (Dom) |
+          | :---: | :---: | :---: | :---: |
           {% set months_dol = state_attr('sensor.pstryk_koszt_miesiac_dol', 'monthly') or state_attr('sensor.pstryk_koszt_miesiac_dol', 'monthly_history') %}
           {% set months_gora = state_attr('sensor.pstryk_koszt_miesiac_gora', 'monthly') or state_attr('sensor.pstryk_koszt_miesiac_gora', 'monthly_history') %}
           {% if months_dol and months_dol | length > 0 %}
           {% for m in months_dol %}
           {% set mg = months_gora[loop.index0] if months_gora and loop.index0 < (months_gora | length) else none %}
           {% set total_cost = ((m.cost_pln | float(0)) + (mg.cost_pln | float(0) if mg else 0)) | round(2) %}
-          | {{ m.month }} | {{ m.kwh }} | {{ m.cost_pln }} | {{ mg.kwh if mg else '-' }} | {{ mg.cost_pln if mg else '-' }} | {{ total_cost }} |
+          | {{ m.month }} | {{ m.kwh }} kWh ({{ m.cost_pln }} zł) | {{ mg.kwh if mg else '-' }} kWh ({{ mg.cost_pln if mg else '-' }} zł) | **{{ total_cost }} zł** |
           {% endfor %}
           {% else %}
-          | - | Brak danych miesięcznych | - | - | - | - |
+          | - | Brak danych miesięcznych | - | - |
           {% endif %}
 
       # --- WYKRESY I TRENDY CENOWE ---

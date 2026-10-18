@@ -293,9 +293,17 @@ The installation uses industrial BoneIO DIN rail hardware:
     - `python3 scripts/check_duplicate_variable.py --search <term>`: Inspects `.env.example`, `energy_defaults.py`, HA helpers (`configuration.yaml`), and template sensors (`templates.yaml`) to find and reuse existing definitions before creating new variables.
     - `python3 scripts/check_duplicate_variable.py --validate`: AST validator guaranteeing zero raw literals in Python assignments or parameter defaults.
   - Invariant tests in `tests/invariants/test_no_duplicate_defaults.py` continuously enforce Rule 10 across CI/test suites.
+- **Lovelace Dashboard Schema & Indentation Standards (Rule 11):**
+  - All cards in `config/dashboards/*.yaml` must adhere to strict structural constraints:
+    - In `type: conditional` cards wrapping other cards (e.g. `type: entities`), child card configuration keys (`entities:`, `cards:`) must be strictly indented under `card:`.
+    - Every `type: entities` card must define a non-empty `entities:` list.
+    - Container cards (`vertical-stack`, `horizontal-stack`, `grid`) must define a non-empty `cards:` list.
+  - Invariant tests in `tests/invariants/test_dashboard_schemas.py` continuously enforce Rule 11 across all dashboards.
 - **Active Editable Dispatch & Safety Parameters:**
   - Editable via HA sliders: `input_number.deye_battery_max_charge_soc` (50–100%), `input_number.deye_morning_reserve_margin_pct` (0–30%), `input_number.deye_battery_min_discharge_soc` (10–50%), `input_number.deye_battery_shutdown_soc` (0–30%).
 - **Automations & Scripts:**
+  - `deye_sync_sliders_from_inverter`: Automatically synchronizes `input_number.deye_battery_min_discharge_soc` and `shutdown_soc` when fresh telemetry is read from physical Deye hardware, preventing false "pending slider change" alerts when parameters are modified directly on the inverter screen.
+  - `deye_modulate_charge_current_on_window`: Automatically triggers `script.set_deye_charge_current` with `sensor.deye_inverter_recommended_charge_current` when `binary_sensor.pstryk_in_powerbank_best_window_dol` turns `on` (e.g. reducing Reg 108 to 66A for a 3h charging window), and triggers `script.restore_deye_charge_current` (100A) when the window turns `off`.
   - `deye_battery_parameters_change_sync`: Automatically recalculates TOU schedule and updates the Deye inverter upon changes to non-critical dispatch helpers (`input_number.deye_battery_max_charge_soc`, `input_number.deye_morning_reserve_margin_pct`), debounced with 5s delay. Pauses automatically if critical parameters are pending (`condition: binary_sensor.deye_battery_critical_parameters_pending == 'off'`).
   - `confirm_and_apply_deye_battery_settings`: 2-step confirmation script applying pending critical battery safety parameters (`min_discharge_soc`, `shutdown_soc`) with UI blocking (`script.set_ui_operation_pending`), calling `shell_command.apply_deye_battery_safety_limits` (writing Register 110 & 111 via Solarman V5 Modbus Function 0x06 with Deye Cloud OpenAPI fallback, immediate cache write-through, and `homeassistant.update_entity` state synchronization to clear `binary_sensor.deye_battery_critical_parameters_pending`), followed by `script.sync_deye_inverter_tou` with `force: true`, and unlocking UI (`script.clear_ui_operation_pending`).
   - `revert_deye_battery_settings_from_inverter`: Reverts critical sliders back to live inverter hardware telemetry (`sensor.deye_inverter_min_discharge_soc` and `sensor.deye_inverter_shutdown_soc`).

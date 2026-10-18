@@ -1440,7 +1440,9 @@ def check_and_apply_charge_current_modulation(
                     in_charging_window = True
                     break
 
-    desired_a = target_curr if in_charging_window else base_curr
+    # Pre-configure Register 108 to planned target charge current for today's TOU charging window
+    # Ensures inverter is set ahead of time (e.g. 66A for 3h window, 50A for 4h)
+    desired_a = target_curr if (in_charging_window or target_curr < base_curr) else base_curr
 
     mod_res: Dict[str, Any] = {"success": False, "desired_a": desired_a, "in_charging_window": in_charging_window}
     try:

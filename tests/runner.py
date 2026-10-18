@@ -100,7 +100,7 @@ def run_unit_tests() -> bool:
 
 def run_tier1() -> bool:
     print("\n🛡️  === [TIER 1A: Hardware Safety Invariant Audits] ===")
-    cmd = [sys.executable, "-m", "pytest", os.path.join(TESTS_DIR, "invariants", "test_safety_rules.py"), "-v"]
+    cmd = [sys.executable, "-m", "pytest", os.path.join(TESTS_DIR, "invariants"), "-v"]
     res = subprocess.run(cmd, capture_output=True, text=True)
     for line in res.stdout.splitlines():
         if "PASSED" in line or "FAILED" in line:

@@ -3173,6 +3173,86 @@
         level: warning
   mode: single
 
+- id: deye_sync_sliders_from_inverter
+  alias: "Deye: Automatyczna Synchronizacja Suwaków z Rejestrów Falownika"
+  description: "Synchronizuje wartości pomocników input_number (Min SOC, Shutdown SOC) po odebraniu świeżej telemetrii z falownika Deye, eliminując rozbieżności zmiennych lokalnych."
+  triggers:
+    - trigger: state
+      entity_id:
+        - sensor.deye_inverter_min_discharge_soc
+        - sensor.deye_inverter_shutdown_soc
+  conditions:
+    - condition: state
+      entity_id: binary_sensor.ui_any_operation_pending
+      state: "off"
+    - condition: template
+      value_template: >-
+        {{ trigger.to_state.state not in ['unknown', 'unavailable', 'None', ''] and (trigger.to_state.state | int(0)) > 0 }}
+  actions:
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.entity_id == 'sensor.deye_inverter_min_discharge_soc' and (states('input_number.deye_battery_min_discharge_soc') | int(0)) != (trigger.to_state.state | int) }}"
+          sequence:
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.deye_battery_min_discharge_soc
+              data:
+                value: "{{ trigger.to_state.state | int }}"
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.entity_id == 'sensor.deye_inverter_shutdown_soc' and (states('input_number.deye_battery_shutdown_soc') | int(0)) != (trigger.to_state.state | int) }}"
+          sequence:
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.deye_battery_shutdown_soc
+              data:
+                value: "{{ trigger.to_state.state | int }}"
+  mode: single
+
+- id: deye_modulate_charge_current_on_window
+  alias: "Deye: Dynamiczna Modulacja Prądu Ładowania w Oknie Magazynu (Reg 108)"
+  description: "W momencie rozpoczęcia najtańszego okna ładowania magazynu energii ustawia wyliczony limit prądu (np. 66A dla okna 3h), a po zakończeniu okna przywraca prąd bazowy 100A."
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.pstryk_in_powerbank_best_window_dol
+      to: "on"
+      id: window_start
+    - trigger: state
+      entity_id: binary_sensor.pstryk_in_powerbank_best_window_dol
+      to: "off"
+      id: window_end
+  conditions:
+    - condition: state
+      entity_id: input_boolean.deye_battery_installed
+      state: "on"
+  actions:
+    - choose:
+        - conditions:
+            - condition: trigger
+              id: window_start
+          sequence:
+            - action: script.set_deye_charge_current
+              data:
+                current_a: "{{ states('sensor.deye_inverter_recommended_charge_current') | int(100) }}"
+            - action: persistent_notification.create
+              data:
+                title: "⚡ Deye: Zastosowano Modulację Prądu Ładowania"
+                message: "Rozpoczęto okno ładowania magazynu. Ustawiono limit prądu w falowniku (Reg 108) na {{ states('sensor.deye_inverter_recommended_charge_current') }} A."
+                notification_id: deye_charge_modulation_active
+        - conditions:
+            - condition: trigger
+              id: window_end
+          sequence:
+            - action: script.restore_deye_charge_current
+            - action: persistent_notification.create
+              data:
+                title: "⚡ Deye: Przywrócono Bazowy Prąd Ładowania"
+                message: "Zakończono okno ładowania magazynu. Przywrócono bazowy limit prądu w falowniku (100 A)."
+                notification_id: deye_charge_modulation_active
+  mode: restart
+
+
 
 
 

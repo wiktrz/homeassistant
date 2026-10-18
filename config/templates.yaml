@@ -433,24 +433,34 @@
       unique_id: deye_inverter_recommended_charge_current
       unit_of_measurement: "A"
       state: >
-        {% set sched = state_attr('sensor.pstryk_unified_metrics_dol', 'deye_tou_schedule_today') %}
+        {% set sched = state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule_today') or state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule') %}
         {% if sched %}
           {% set chg = sched | selectattr('grid_charge', 'defined') | selectattr('grid_charge', 'equalto', true) | list %}
           {% if chg | length > 0 and chg[0].target_charge_current_a is defined %}
             {{ chg[0].target_charge_current_a | int }}
           {% else %}
-            {{ states('sensor.deye_inverter_max_charge_current') | int(0) }}
+            {{ states('sensor.deye_inverter_max_charge_current') | int(100) }}
           {% endif %}
         {% else %}
-          {{ states('sensor.deye_inverter_max_charge_current') | int(0) }}
+          {{ states('sensor.deye_inverter_max_charge_current') | int(100) }}
         {% endif %}
       attributes:
+        planned_window_hours: >-
+          {% set pb = state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window') %}
+          {{ pb.duration_hours if pb and pb.duration_hours is defined else 2 }}
+        planned_speed_display: >-
+          {% set sched = state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule_today') or state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule') %}
+          {% set pb = state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window') %}
+          {% set dur = pb.duration_hours if pb and pb.duration_hours is defined else 2 %}
+          {% set chg = sched | selectattr('grid_charge', 'defined') | selectattr('grid_charge', 'equalto', true) | list if sched else [] %}
+          {% set curr = chg[0].target_charge_current_a if chg | length > 0 and chg[0].target_charge_current_a is defined else states('sensor.deye_inverter_max_charge_current') | int(100) %}
+          {{ curr }} A (okno {{ dur }}h)
         is_throttled: >-
-          {% set sched = state_attr('sensor.pstryk_unified_metrics_dol', 'deye_tou_schedule_today') %}
+          {% set sched = state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule_today') or state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule') %}
           {% if sched %}
             {% set chg = sched | selectattr('grid_charge', 'defined') | selectattr('grid_charge', 'equalto', true) | list %}
             {% if chg | length > 0 and chg[0].target_charge_current_a is defined %}
-              {{ (chg[0].target_charge_current_a | int) < (states('sensor.deye_inverter_max_charge_current') | int(0)) }}
+              {{ (chg[0].target_charge_current_a | int) < (states('sensor.deye_inverter_max_charge_current') | int(100)) }}
             {% else %}
               false
             {% endif %}
@@ -641,13 +651,20 @@
         {% if not installed or cap <= 0 %}
           0.0
         {% else %}
-          {% set max_soc = states('input_number.deye_battery_max_charge_soc') | default('90', true) | float(90) %}
-          {% set min_soc = states('input_number.deye_battery_min_discharge_soc') | default(states('sensor.deye_inverter_min_discharge_soc') | default('20', true), true) | float(20) %}
+          {% set inv_max = states('sensor.deye_inverter_max_charge_soc') | float(0) %}
+          {% set max_soc = inv_max if inv_max > 0 else (states('input_number.deye_battery_max_charge_soc') | default('90', true) | float(90)) %}
+          {% set inv_min = states('sensor.deye_inverter_min_discharge_soc') | float(0) %}
+          {% set min_soc = inv_min if inv_min > 0 else (states('input_number.deye_battery_min_discharge_soc') | default('20', true) | float(20)) %}
           {{ (((max_soc - min_soc) / 100.0) * cap) | round(2) }}
         {% endif %}
       attributes:
         total_capacity_kwh: "{{ states('sensor.powerbank_total_capacity_kwh') | float(0.0) }}"
-        operating_range_soc: "{{ (states('input_number.deye_battery_max_charge_soc') | default('90', true) | int(90)) }}% - {{ (states('input_number.deye_battery_min_discharge_soc') | default(states('sensor.deye_inverter_min_discharge_soc') | default('20', true), true) | int(20)) }}%"
+        operating_range_soc: >-
+          {% set inv_max = states('sensor.deye_inverter_max_charge_soc') | float(0) %}
+          {% set max_soc = inv_max if inv_max > 0 else (states('input_number.deye_battery_max_charge_soc') | default('90', true) | float(90)) %}
+          {% set inv_min = states('sensor.deye_inverter_min_discharge_soc') | float(0) %}
+          {% set min_soc = inv_min if inv_min > 0 else (states('input_number.deye_battery_min_discharge_soc') | default('20', true) | float(20)) %}
+          {{ max_soc | int }}% - {{ min_soc | int }}%
       icon: mdi:battery-heart
 
     - name: "Deye Battery Blackout Reserve kWh"
@@ -660,13 +677,20 @@
         {% if not installed or cap <= 0 %}
           0.0
         {% else %}
-          {% set min_soc = states('input_number.deye_battery_min_discharge_soc') | default(states('sensor.deye_inverter_min_discharge_soc') | default('20', true), true) | float(20) %}
-          {% set shut_soc = states('input_number.deye_battery_shutdown_soc') | default(states('sensor.deye_inverter_shutdown_soc') | default('5', true), true) | float(5) %}
+          {% set inv_min = states('sensor.deye_inverter_min_discharge_soc') | float(0) %}
+          {% set min_soc = inv_min if inv_min > 0 else (states('input_number.deye_battery_min_discharge_soc') | default('20', true) | float(20)) %}
+          {% set inv_shut = states('sensor.deye_inverter_shutdown_soc') | float(0) %}
+          {% set shut_soc = inv_shut if inv_shut > 0 else (states('input_number.deye_battery_shutdown_soc') | default('5', true) | float(5)) %}
           {{ (((min_soc - shut_soc) / 100.0) * cap) | round(2) }}
         {% endif %}
       attributes:
         total_capacity_kwh: "{{ states('sensor.powerbank_total_capacity_kwh') | float(0.0) }}"
-        blackout_range_soc: "{{ (states('input_number.deye_battery_min_discharge_soc') | default(states('sensor.deye_inverter_min_discharge_soc') | default('20', true), true) | int(20)) }}% - {{ (states('input_number.deye_battery_shutdown_soc') | default(states('sensor.deye_inverter_shutdown_soc') | default('5', true), true) | int(5)) }}%"
+        blackout_range_soc: >-
+          {% set inv_min = states('sensor.deye_inverter_min_discharge_soc') | float(0) %}
+          {% set min_soc = inv_min if inv_min > 0 else (states('input_number.deye_battery_min_discharge_soc') | default('20', true) | float(20)) %}
+          {% set inv_shut = states('sensor.deye_inverter_shutdown_soc') | float(0) %}
+          {% set shut_soc = inv_shut if inv_shut > 0 else (states('input_number.deye_battery_shutdown_soc') | default('5', true) | float(5)) %}
+          {{ min_soc | int }}% - {{ shut_soc | int }}%
       icon: mdi:battery-alert
 
     - name: "Deye Charge Power kW"
@@ -806,11 +830,17 @@
     - name: "Deye Battery Critical Parameters Pending"
       unique_id: deye_battery_critical_parameters_pending
       state: >
-        {% set min_slider = states('input_number.deye_battery_min_discharge_soc') | default('20', true) | int(20) %}
-        {% set min_inv = states('sensor.deye_inverter_min_discharge_soc') | default('20', true) | int(20) %}
-        {% set shut_slider = states('input_number.deye_battery_shutdown_soc') | default('5', true) | int(5) %}
-        {% set shut_inv = states('sensor.deye_inverter_shutdown_soc') | default('5', true) | int(5) %}
-        {{ min_slider != min_inv or shut_slider != shut_inv }}
+        {% set min_inv_raw = states('sensor.deye_inverter_min_discharge_soc') %}
+        {% set shut_inv_raw = states('sensor.deye_inverter_shutdown_soc') %}
+        {% if min_inv_raw in ['unknown', 'unavailable', 'None', ''] or shut_inv_raw in ['unknown', 'unavailable', 'None', ''] or is_state('binary_sensor.ui_any_operation_pending', 'on') %}
+          false
+        {% else %}
+          {% set min_slider = states('input_number.deye_battery_min_discharge_soc') | default('20', true) | int(20) %}
+          {% set min_inv = min_inv_raw | int(20) %}
+          {% set shut_slider = states('input_number.deye_battery_shutdown_soc') | default('5', true) | int(5) %}
+          {% set shut_inv = shut_inv_raw | int(5) %}
+          {{ min_slider != min_inv or shut_slider != shut_inv }}
+        {% endif %}
       attributes:
         pending_min_soc: "{{ states('input_number.deye_battery_min_discharge_soc') }}%"
         inverter_min_soc: "{{ states('sensor.deye_inverter_min_discharge_soc') }}%"

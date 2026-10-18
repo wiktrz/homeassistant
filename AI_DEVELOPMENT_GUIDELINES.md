@@ -75,6 +75,12 @@
   If an existing variable, helper, or constant already serves the intended purpose, it **MUST BE REUSED**. Creating duplicate or parallel variables is strictly prohibited.
 - **Continuous Invariant Protection:** Enforced continuously by `scripts/check_duplicate_variable.py --validate` and `tests/invariants/test_no_duplicate_defaults.py`.
 
+### Rule 11: Lovelace Dashboard YAML Schema Integrity & Indentation Standards
+- **Strict Indentation Under `card:` in Conditional Cards:** When using `type: conditional` cards to wrap inner cards (such as `type: entities`), child card configuration keys (especially `entities:` or `cards:`) must be strictly indented under `card:`. Never place `entities:` or `cards:` at the same indentation level as `card:` (sibling indentation). Sibling indentation produces syntactically valid YAML that passes basic linters but triggers Home Assistant frontend runtime failure: *"Błąd konfiguracji (No entities specified)"*.
+- **Mandatory Non-Empty Lists:** Every `type: entities` card must define a non-empty `entities:` list. Every container card (`vertical-stack`, `horizontal-stack`, `grid`) must define a non-empty `cards:` list.
+- **Conditional Rows vs Conditional Cards:** Conditional rows inside `type: entities` must define `conditions:` and `row:`, while conditional cards must define `conditions:` and `card:`.
+- **Automated Regression Protection:** Continuously enforced by `tests/invariants/test_dashboard_schemas.py` across all dashboard files in `config/dashboards/*.yaml`.
+
 ---
 
 ## 2. Hardware Safety & Architectural Invariants
