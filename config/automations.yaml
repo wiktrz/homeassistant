@@ -3138,6 +3138,7 @@
       entity_id:
         - input_number.deye_battery_max_charge_soc
         - input_number.deye_morning_reserve_margin_pct
+        - input_number.deye_pre_peak_margin_pct
         - sensor.deye_inverter_max_charge_current
       for:
         seconds: 5
@@ -3175,10 +3176,11 @@
 
 - id: deye_sync_sliders_from_inverter
   alias: "Deye: Automatyczna Synchronizacja Suwaków z Rejestrów Falownika"
-  description: "Synchronizuje wartości pomocników input_number (Min SOC, Shutdown SOC) po odebraniu świeżej telemetrii z falownika Deye, eliminując rozbieżności zmiennych lokalnych."
+  description: "Synchronizuje wartości pomocników input_number (Max SOC, Min SOC, Shutdown SOC) po odebraniu świeżej telemetrii z falownika Deye, eliminując rozbieżności zmiennych lokalnych."
   triggers:
     - trigger: state
       entity_id:
+        - sensor.deye_inverter_max_charge_soc
         - sensor.deye_inverter_min_discharge_soc
         - sensor.deye_inverter_shutdown_soc
   conditions:
@@ -3190,6 +3192,15 @@
         {{ trigger.to_state.state not in ['unknown', 'unavailable', 'None', ''] and (trigger.to_state.state | int(0)) > 0 }}
   actions:
     - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.entity_id == 'sensor.deye_inverter_max_charge_soc' and (states('input_number.deye_battery_max_charge_soc') | int(0)) != (trigger.to_state.state | int) }}"
+          sequence:
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.deye_battery_max_charge_soc
+              data:
+                value: "{{ trigger.to_state.state | int }}"
         - conditions:
             - condition: template
               value_template: "{{ trigger.entity_id == 'sensor.deye_inverter_min_discharge_soc' and (states('input_number.deye_battery_min_discharge_soc') | int(0)) != (trigger.to_state.state | int) }}"

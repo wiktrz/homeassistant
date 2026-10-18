@@ -607,6 +607,109 @@ def resolve_battery_hardware_parameters(
     return resolved_cap, resolved_v, resolved_curr, resolved_dis_curr
 
 
+# Module-level in-memory cache for resolved dispatch parameters (0ms overhead across same process)
+_DISPATCH_CACHE: Optional[Dict[str, Any]] = None
+_DISPATCH_CACHE_TIME: float = 0.0
+_DISPATCH_CACHE_TTL: float = 10.0
+
+
+def resolve_battery_dispatch_parameters(
+    max_soc: Optional[int] = None,
+    min_soc: Optional[int] = None,
+    shutdown_soc: Optional[int] = None,
+    current_soc: Optional[int] = None,
+    morning_reserve_margin: Optional[int] = None,
+    pre_peak_margin: Optional[int] = None,
+    loss_buffer_pct: Optional[float] = None,
+    inv_cfg: Optional[Dict[str, Any]] = None,
+    inv_tlm: Optional[Dict[str, Any]] = None,
+) -> Tuple[int, int, int, int, int, int, float]:
+    """
+    Dynamically resolves SOC dispatch limits and reserve margins with zero-network cache-first policy.
+    Never initiates network requests to the Deye inverter. Reuses existing local JSON cache
+    (/config/.deye_inverter_cache.json) maintained by the central polling sensor.
+
+    Priority:
+    1. Explicit arguments (from CLI / HA sliders)
+    2. In-Memory process cache (if recent within 10s)
+    3. Inverter config/telemetry dictionary (if provided)
+    4. Cached inverter readings (from solarman_v5_client cache, ignore_ttl=True)
+    5. Fallback defaults from .env / energy_defaults ONLY if completely unconfigured anywhere
+
+    Returns:
+    (safe_max_soc, safe_min_soc, safe_shutdown_soc, safe_current_soc,
+     eff_morning_margin, eff_pre_peak_margin, eff_loss_buffer_pct)
+    """
+    global _DISPATCH_CACHE, _DISPATCH_CACHE_TIME
+    now = time.time()
+
+    cfg = dict(inv_cfg) if inv_cfg else {}
+    tlm = dict(inv_tlm) if inv_tlm else {}
+
+    if not cfg:
+        if _DISPATCH_CACHE is not None and (now - _DISPATCH_CACHE_TIME) < _DISPATCH_CACHE_TTL:
+            cfg = _DISPATCH_CACHE.get("config", {}) or {}
+            tlm = _DISPATCH_CACHE.get("telemetry", {}) or {}
+        else:
+            try:
+                import solarman_v5_client
+                cached = solarman_v5_client.load_deye_cache(ignore_ttl=True)
+                if cached and isinstance(cached, dict):
+                    cfg = cached.get("config", {}) or {}
+                    tlm = cached.get("telemetry", {}) or {}
+                    _DISPATCH_CACHE = {"config": cfg, "telemetry": tlm}
+                    _DISPATCH_CACHE_TIME = now
+            except Exception:
+                pass
+
+    # 1. Resolve Min SOC (Reg 110: Min Discharge SOC)
+    eff_min = min_soc
+    if eff_min is None and cfg.get("min_discharge_soc") is not None and int(cfg["min_discharge_soc"]) > 0:
+        eff_min = int(cfg["min_discharge_soc"])
+    if eff_min is None:
+        eff_min = energy_defaults.DEFAULT_MIN_SOC
+    safe_min_soc = max(10, min(50, int(eff_min)))
+
+    # 2. Resolve Max SOC (Reg 112: Max Charge SOC)
+    eff_max = max_soc
+    if eff_max is None and cfg.get("max_charge_soc") is not None and int(cfg["max_charge_soc"]) > 0:
+        eff_max = int(cfg["max_charge_soc"])
+    if eff_max is None:
+        eff_max = energy_defaults.DEFAULT_MAX_SOC
+    safe_max_soc = max(50, min(100, int(eff_max)))
+
+    # 3. Resolve Shutdown SOC (Reg 111: Shutdown SOC)
+    eff_shut = shutdown_soc
+    if eff_shut is None and cfg.get("shutdown_soc") is not None and int(cfg["shutdown_soc"]) >= 0:
+        eff_shut = int(cfg["shutdown_soc"])
+    if eff_shut is None:
+        eff_shut = energy_defaults.DEFAULT_SHUTDOWN_SOC
+    safe_shutdown_soc = max(0, min(15, int(eff_shut)))
+
+    # 4. Resolve Current SOC (Reg 588: Battery SOC)
+    eff_curr = current_soc
+    if eff_curr is None and tlm.get("battery_soc") is not None and int(tlm["battery_soc"]) > 0:
+        eff_curr = int(tlm["battery_soc"])
+    if eff_curr is None:
+        eff_curr = energy_defaults.DEFAULT_CURRENT_SOC
+    safe_current_soc = max(safe_min_soc, min(safe_max_soc, int(eff_curr)))
+
+    # 5. Margins
+    eff_morning = int(morning_reserve_margin) if morning_reserve_margin is not None else energy_defaults.DEFAULT_MORNING_RESERVE_MARGIN
+    eff_pre_peak = int(pre_peak_margin) if pre_peak_margin is not None else energy_defaults.DEFAULT_PRE_PEAK_MARGIN
+    eff_loss = float(loss_buffer_pct) if loss_buffer_pct is not None else energy_defaults.DEFAULT_LOSS_BUFFER_PCT
+
+    return (
+        safe_max_soc,
+        safe_min_soc,
+        safe_shutdown_soc,
+        safe_current_soc,
+        eff_morning,
+        eff_pre_peak,
+        eff_loss,
+    )
+
+
 class BatteryModel:
     """Mathematical and physical model of battery pack with configurable SOC bounds."""
     def __init__(
@@ -1069,19 +1172,19 @@ def generate_deye_tou_schedule(
     else:
         base_power_w = energy_defaults.DEFAULT_TRANSFER_POWER_W
 
-    eff_max = max_soc if max_soc is not None else energy_defaults.DEFAULT_MAX_SOC
-    eff_min = min_soc if min_soc is not None else energy_defaults.DEFAULT_MIN_SOC
-    eff_morning_margin = morning_reserve_margin if morning_reserve_margin is not None else energy_defaults.DEFAULT_MORNING_RESERVE_MARGIN
-    eff_pre_peak = pre_peak_margin if pre_peak_margin is not None else energy_defaults.DEFAULT_PRE_PEAK_MARGIN
+    safe_max_soc, safe_min_soc, safe_shutdown_soc, eff_current_soc, eff_morning_margin, eff_pre_peak, eff_loss = resolve_battery_dispatch_parameters(
+        max_soc=max_soc,
+        min_soc=min_soc,
+        current_soc=current_soc,
+        morning_reserve_margin=morning_reserve_margin,
+        pre_peak_margin=pre_peak_margin,
+        loss_buffer_pct=loss_buffer_pct,
+    )
+    if calibration_active:
+        safe_max_soc = 100
 
-    safe_max_soc = 100 if calibration_active else max(50, min(100, int(eff_max)))
-    safe_min_soc = max(10, min(50, int(eff_min)))
     morning_reserve_soc = min(safe_max_soc, safe_min_soc + max(0, int(eff_morning_margin)))
-
-    pre_peak_soc = max(safe_min_soc + int(eff_pre_peak), safe_max_soc - int(eff_pre_peak))
-
-    # Safeguard against uninstalled battery (0 or negative SOC) defaulting safely to safe_min_soc
-    eff_current_soc = safe_min_soc if (current_soc is None or int(current_soc) <= 0) else int(current_soc)
+    pre_peak_soc = min(safe_max_soc, safe_min_soc + max(0, int(eff_pre_peak)))
 
     pb_start_m = 120  # Default 02:00 (safe night charge fallback if no pricing data)
     pb_end_m = 240    # Default 04:00
@@ -1309,9 +1412,9 @@ def generate_deye_tou_schedule(
                 "slot": 3,
                 "time": to_time_str(times[2]),
                 "power_w": base_power_w,
-                "target_soc": safe_min_soc,
+                "target_soc": pre_peak_soc,
                 "grid_charge": False,
-                "label": "Szczyt Poranny (Autokonsumpcja)",
+                "label": "Szczyt Poranny (Rezerwa Przed Szczytem)",
             },
             {
                 "slot": 4,
@@ -1319,7 +1422,7 @@ def generate_deye_tou_schedule(
                 "power_w": base_power_w,
                 "target_soc": pre_peak_soc,
                 "grid_charge": False,
-                "label": "Autokonsumpcja PV",
+                "label": "Autokonsumpcja PV / Rezerwa Przed Szczytem",
             },
             {
                 "slot": 5,
@@ -1515,10 +1618,25 @@ def sync_deye_inverter_tou_schedule(
     inv_tlm = live_telem.get("telemetry", {}) if isinstance(live_telem, dict) else {}
     active_tou = live_telem.get("active_tou", {}) if isinstance(live_telem, dict) else {}
 
-    eff_max_soc = max_soc if max_soc is not None else inv_cfg.get("max_charge_soc", energy_defaults.DEFAULT_MAX_SOC)
-    eff_min_soc = min_soc if min_soc is not None else inv_cfg.get("min_discharge_soc", energy_defaults.DEFAULT_MIN_SOC)
-    eff_shutdown_soc = shutdown_soc if shutdown_soc is not None else inv_cfg.get("shutdown_soc", energy_defaults.DEFAULT_SHUTDOWN_SOC)
-    eff_current_soc = current_soc if current_soc is not None else inv_tlm.get("battery_soc", energy_defaults.DEFAULT_CURRENT_SOC)
+    (
+        eff_max_soc,
+        eff_min_soc,
+        eff_shutdown_soc,
+        eff_current_soc,
+        eff_morning_margin,
+        eff_pre_peak_margin,
+        eff_loss_buffer_pct,
+    ) = resolve_battery_dispatch_parameters(
+        max_soc=max_soc,
+        min_soc=min_soc,
+        shutdown_soc=shutdown_soc,
+        current_soc=current_soc,
+        morning_reserve_margin=morning_reserve_margin,
+        pre_peak_margin=pre_peak_margin,
+        loss_buffer_pct=loss_buffer_pct,
+        inv_cfg=inv_cfg,
+        inv_tlm=inv_tlm,
+    )
     eff_capacity_kwh, eff_nominal_voltage, eff_max_charge_current, eff_max_discharge_current = resolve_battery_hardware_parameters(
         battery_capacity_kwh=battery_capacity_kwh,
         nominal_voltage=nominal_voltage,
@@ -1527,9 +1645,6 @@ def sync_deye_inverter_tou_schedule(
         inv_cfg=inv_cfg,
         inv_tlm=inv_tlm,
     )
-    eff_morning_margin = int(morning_reserve_margin) if morning_reserve_margin is not None else energy_defaults.DEFAULT_MORNING_RESERVE_MARGIN
-    eff_pre_peak_margin = int(pre_peak_margin) if pre_peak_margin is not None else energy_defaults.DEFAULT_PRE_PEAK_MARGIN
-    eff_loss_buffer_pct = float(loss_buffer_pct) if loss_buffer_pct is not None else energy_defaults.DEFAULT_LOSS_BUFFER_PCT
 
     # Resolve pricing windows (from cache or API)
     cache_file = get_cache_file_path(installation, cache_dir)
@@ -2105,6 +2220,83 @@ def fetch_consolidated_data(
             and "today" in cached
             and "all_prices" in cached
         ):
+            # Resolve latest dispatch parameters (zero network overhead, cache-first)
+            (
+                c_max_soc,
+                c_min_soc,
+                c_shutdown_soc,
+                c_current_soc,
+                c_morning_margin,
+                c_pre_peak_margin,
+                c_loss_buffer_pct,
+            ) = resolve_battery_dispatch_parameters(
+                max_soc=max_soc,
+                min_soc=min_soc,
+                current_soc=current_soc,
+                morning_reserve_margin=morning_reserve_margin,
+                pre_peak_margin=pre_peak_margin,
+                loss_buffer_pct=loss_buffer_pct,
+            )
+            c_capacity, c_voltage, c_charge_curr, c_discharge_curr = resolve_battery_hardware_parameters(
+                battery_capacity_kwh=battery_capacity_kwh,
+                nominal_voltage=nominal_voltage,
+                max_charge_current=max_charge_current,
+            )
+
+            # Re-evaluate TOU schedule today with latest dispatch settings
+            pb_w_today = cached.get("powerbank_best_window")
+            sell_w_today = cached.get("best_sell_window")
+            if pb_w_today and sell_w_today:
+                cached["deye_tou_schedule_today"] = generate_deye_tou_schedule(
+                    current_soc=c_current_soc,
+                    max_soc=c_max_soc,
+                    min_soc=c_min_soc,
+                    best_pb_window=pb_w_today,
+                    best_sell_window=sell_w_today,
+                    calibration_active=calibration_active,
+                    max_charge_current=c_charge_curr,
+                    max_discharge_current=c_discharge_curr,
+                    battery_capacity_kwh=c_capacity,
+                    morning_reserve_margin=c_morning_margin,
+                    nominal_voltage=c_voltage,
+                    pre_peak_margin=c_pre_peak_margin,
+                    loss_buffer_pct=c_loss_buffer_pct,
+                )
+                cached["deye_tou_schedule"] = cached["deye_tou_schedule_today"]
+
+            # Re-evaluate TOU schedule tomorrow if available
+            if cached.get("has_tomorrow_pricing"):
+                pb_w_tom = cached.get("powerbank_best_window_tomorrow")
+                sell_w_tom = cached.get("best_sell_window_tomorrow")
+                if pb_w_tom and sell_w_tom:
+                    cached["deye_tou_schedule_tomorrow"] = generate_deye_tou_schedule(
+                        current_soc=c_current_soc,
+                        max_soc=c_max_soc,
+                        min_soc=c_min_soc,
+                        best_pb_window=pb_w_tom,
+                        best_sell_window=sell_w_tom,
+                        calibration_active=calibration_active,
+                        max_charge_current=c_charge_curr,
+                        max_discharge_current=c_discharge_curr,
+                        battery_capacity_kwh=c_capacity,
+                        morning_reserve_margin=c_morning_margin,
+                        nominal_voltage=c_voltage,
+                        pre_peak_margin=c_pre_peak_margin,
+                        loss_buffer_pct=c_loss_buffer_pct,
+                    )
+
+            # Re-evaluate battery model
+            b_model = BatteryModel(
+                capacity_kwh=c_capacity,
+                max_soc=float(c_max_soc),
+                min_soc=float(c_min_soc),
+                shutdown_soc=float(c_shutdown_soc),
+                charge_current_a=float(c_charge_curr),
+                discharge_current_a=float(c_discharge_curr),
+                voltage_v=c_voltage,
+            )
+            cached["battery_model"] = b_model.to_dict()
+
             cached["_cache_hit"] = True
             return cached
 
@@ -2237,17 +2429,27 @@ def fetch_consolidated_data(
     has_tomorrow_pricing = len(frames_tomorrow) >= 12
 
     # Resolve effective SOC parameters
-    eff_max_soc = max_soc if max_soc is not None else energy_defaults.DEFAULT_MAX_SOC
-    eff_min_soc = min_soc if min_soc is not None else energy_defaults.DEFAULT_MIN_SOC
-    eff_current_soc = current_soc if current_soc is not None else energy_defaults.DEFAULT_CURRENT_SOC
+    (
+        eff_max_soc,
+        eff_min_soc,
+        eff_shutdown_soc,
+        eff_current_soc,
+        eff_morning_margin,
+        eff_pre_peak_margin,
+        eff_loss_buffer_pct,
+    ) = resolve_battery_dispatch_parameters(
+        max_soc=max_soc,
+        min_soc=min_soc,
+        current_soc=current_soc,
+        morning_reserve_margin=morning_reserve_margin,
+        pre_peak_margin=pre_peak_margin,
+        loss_buffer_pct=loss_buffer_pct,
+    )
     eff_capacity, eff_voltage, eff_charge_curr, eff_discharge_curr = resolve_battery_hardware_parameters(
         battery_capacity_kwh=battery_capacity_kwh,
         nominal_voltage=nominal_voltage,
         max_charge_current=max_charge_current,
     )
-    eff_morning_margin = int(morning_reserve_margin) if morning_reserve_margin is not None else energy_defaults.DEFAULT_MORNING_RESERVE_MARGIN
-    eff_pre_peak_margin = int(pre_peak_margin) if pre_peak_margin is not None else energy_defaults.DEFAULT_PRE_PEAK_MARGIN
-    eff_loss_buffer_pct = float(loss_buffer_pct) if loss_buffer_pct is not None else energy_defaults.DEFAULT_LOSS_BUFFER_PCT
 
     # Dispatch windows for TODAY (stable across all 24h of the current day)
     target_today_data = {"frames": frames_today} if frames_today else (forward_data if (isinstance(forward_data, dict) and forward_data.get("frames")) else today_data)
@@ -2313,7 +2515,7 @@ def fetch_consolidated_data(
         capacity_kwh=eff_capacity,
         max_soc=float(eff_max_soc),
         min_soc=float(eff_min_soc),
-        shutdown_soc=float(energy_defaults.DEFAULT_SHUTDOWN_SOC),
+        shutdown_soc=float(eff_shutdown_soc),
         charge_current_a=float(eff_charge_curr),
         discharge_current_a=float(eff_discharge_curr),
         voltage_v=eff_voltage,
@@ -2548,6 +2750,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         installation=args.installation,
         hours_ahead=args.hours,
         use_cache=not args.no_cache,
+        max_soc=args.max_soc,
+        min_soc=args.min_soc,
+        current_soc=args.current_soc,
+        calibration_active=args.calibration,
+        max_charge_current=args.max_charge_current,
+        battery_capacity_kwh=args.battery_capacity,
+        morning_reserve_margin=args.morning_reserve_margin,
+        nominal_voltage=args.nominal_voltage,
+        pre_peak_margin=args.pre_peak_margin,
+        loss_buffer_pct=args.loss_buffer_pct,
     )
 
     if isinstance(result, dict):

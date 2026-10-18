@@ -663,6 +663,9 @@ views:
             - entity: input_number.deye_morning_reserve_margin_pct
               name: Margines Rezerwy Porannej (+%)
               icon: mdi:battery-plus
+            - entity: input_number.deye_pre_peak_margin_pct
+              name: Margines Rezerwy Przed Szczytem (+%)
+              icon: mdi:battery-clock
             - entity: input_number.deye_battery_min_discharge_soc
               name: Min SOC Praca w Sieci (Batt LOW)
               icon: mdi:battery-arrow-down

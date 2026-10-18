@@ -843,11 +843,11 @@ def test_generate_deye_tou_schedule_midday_charge_13_15():
     assert slots[2]["target_soc"] == 90
     assert "Najtańsze Ładowanie" in slots[2]["label"]
 
-    # Slot 4: Pre-peak daytime autokonsumpcja (70%)
+    # Slot 4: Pre-peak daytime autokonsumpcja (min_soc + 20 = 40%)
     assert slots[3]["slot"] == 4
     assert slots[3]["time"] == "15:00"
     assert slots[3]["grid_charge"] is False
-    assert slots[3]["target_soc"] == 70
+    assert slots[3]["target_soc"] == 40
     assert "Autokonsumpcja PV" in slots[3]["label"]
 
     # Slot 5: 100% peak coverage down to 20%
@@ -1449,7 +1449,7 @@ def test_fetch_consolidated_custom_soc_and_battery_model(tmp_path):
         assert tou_slots[0]["target_soc"] == 25  # Slot 1: morning reserve (15 + 10)
         assert tou_slots[1]["target_soc"] == 15  # Slot 2: min_soc
         assert tou_slots[2]["target_soc"] == 80  # Slot 3: max_soc
-        assert tou_slots[3]["target_soc"] == 60  # Slot 4: pre_peak autokonsumpcja (max_soc - 20)
+        assert tou_slots[3]["target_soc"] == 35  # Slot 4: pre_peak autokonsumpcja (min_soc 15 + 20)
         assert tou_slots[4]["target_soc"] == 15  # Slot 5: evening peak discharge down to min_soc
         assert tou_slots[5]["target_soc"] == 25  # Slot 6: night standby reserve (15 + 10)
 
@@ -1605,7 +1605,184 @@ def test_resolve_battery_hardware_parameters_4tuple():
     assert discharge_a == energy_defaults.FALLBACK_BATTERY_MAX_DISCHARGE_CURRENT
 
 
+def test_resolve_battery_dispatch_parameters_priority():
+    """
+    Verifies that resolve_battery_dispatch_parameters:
+    1. Honors explicit arguments.
+    2. Falls back to inverter config/telemetry cache.
+    3. Falls back to energy_defaults.
+    4. Clamps within safe operating ranges.
+    """
+    # 1. Explicit arguments
+    res = pstryk_engine.resolve_battery_dispatch_parameters(
+        max_soc=85,
+        min_soc=18,
+        shutdown_soc=8,
+        current_soc=55,
+        morning_reserve_margin=7,
+        pre_peak_margin=25,
+        loss_buffer_pct=12.0,
+    )
+    assert res == (85, 18, 8, 55, 7, 25, 12.0)
+
+    # 2. Clamping bounds
+    res_clamped = pstryk_engine.resolve_battery_dispatch_parameters(
+        max_soc=120,
+        min_soc=5,
+        shutdown_soc=25,
+        current_soc=150,
+    )
+    assert res_clamped[0] == 100  # max clamped to 100
+    assert res_clamped[1] == 10   # min clamped to 10
+    assert res_clamped[2] == 15   # shutdown clamped to 15
+    assert res_clamped[3] == 100  # current clamped to max_soc
+
+    # 3. Fallback to inv_cfg
+    mock_cfg = {"max_charge_soc": 88, "min_discharge_soc": 16, "shutdown_soc": 6}
+    mock_tlm = {"battery_soc": 72}
+    res_cfg = pstryk_engine.resolve_battery_dispatch_parameters(
+        inv_cfg=mock_cfg,
+        inv_tlm=mock_tlm,
+    )
+    assert res_cfg[0] == 88
+    assert res_cfg[1] == 16
+    assert res_cfg[2] == 6
+    assert res_cfg[3] == 72
+    assert res_cfg[4] == energy_defaults.DEFAULT_MORNING_RESERVE_MARGIN
+    assert res_cfg[5] == energy_defaults.DEFAULT_PRE_PEAK_MARGIN
+
+
+def test_generate_deye_tou_schedule_variant_b_night_branch():
+    """
+    Verifies Variant B calculation for Night charging branch (01:00-03:00):
+    - min_soc = 16%
+    - morning_margin = 5% -> morning_reserve_soc = 21%
+    - pre_peak_margin = 20% -> pre_peak_soc = 36%
+    - max_soc = 90%
+    """
+    pb_win = {
+        "start": "2026-10-18T23:00:00Z",  # 01:00 Warsaw
+        "end": "2026-10-19T01:00:00Z",    # 03:00 Warsaw
+        "is_consecutive": True,
+    }
+    sell_win = {
+        "start": "2026-10-19T15:00:00Z",  # 17:00 Warsaw
+        "end": "2026-10-19T18:00:00Z",    # 20:00 Warsaw
+    }
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=50,
+        max_soc=90,
+        min_soc=16,
+        morning_reserve_margin=5,
+        pre_peak_margin=20,
+        best_pb_window=pb_win,
+        best_sell_window=sell_win,
+    )
+
+    assert len(slots) == 6
+    # Slot 1: 01:00 Cheapest Night Charge (90%, grid=True)
+    assert slots[0]["slot"] == 1
+    assert slots[0]["time"] == "01:00"
+    assert slots[0]["grid_charge"] is True
+    assert slots[0]["target_soc"] == 90
+
+    # Slot 2: 03:00 Morning Hold (90%, grid=False)
+    assert slots[1]["slot"] == 2
+    assert slots[1]["time"] == "03:00"
+    assert slots[1]["grid_charge"] is False
+    assert slots[1]["target_soc"] == 90
+
+    # Slot 3: 06:00 Morning Peak Self-Consumption down to Pre-Peak Reserve (16 + 20 = 36%)
+    assert slots[2]["slot"] == 3
+    assert slots[2]["time"] == "06:00"
+    assert slots[2]["grid_charge"] is False
+    assert slots[2]["target_soc"] == 36
+    assert "Rezerwa Przed Szczytem" in slots[2]["label"]
+
+    # Slot 4: 12:00 Pre-Peak PV Self-Consumption (36%)
+    assert slots[3]["slot"] == 4
+    assert slots[3]["time"] == "12:00"
+    assert slots[3]["grid_charge"] is False
+    assert slots[3]["target_soc"] == 36
+    assert "Rezerwa Przed Szczytem" in slots[3]["label"]
+
+    # Slot 5: 17:00 Evening Peak 100% discharge down to safe_min_soc (16%)
+    assert slots[4]["slot"] == 5
+    assert slots[4]["time"] == "17:00"
+    assert slots[4]["grid_charge"] is False
+    assert slots[4]["target_soc"] == 16
+    assert "Szczyt Wieczorny" in slots[4]["label"]
+
+    # Slot 6: 20:00 Night Standby on Morning Reserve (16 + 5 = 21%)
+    assert slots[5]["slot"] == 6
+    assert slots[5]["time"] == "20:00"
+    assert slots[5]["grid_charge"] is False
+    assert slots[5]["target_soc"] == 21
+
+
+def test_fetch_consolidated_cache_hit_reevaluates_tou(tmp_path):
+    """
+    Verifies that cache hit in fetch_consolidated_data immediately re-evaluates
+    TOU schedule and BatteryModel when dispatch sliders change, without waiting for TTL.
+    """
+    cache_dir = str(tmp_path / "cache_reeval")
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_file = os.path.join(cache_dir, "pstryk_cache_dol.json")
+
+    mock_cached = {
+        "current": {"price_gross": 0.85},
+        "today": {"hourly": []},
+        "all_prices": [{"price_gross": 0.85}],
+        "powerbank_best_window": {
+            "start": "2026-10-18T23:00:00Z",  # 01:00 Warsaw
+            "end": "2026-10-19T01:00:00Z",    # 03:00 Warsaw
+            "is_consecutive": True,
+        },
+        "best_sell_window": {
+            "start": "2026-10-19T15:00:00Z",  # 17:00 Warsaw
+            "end": "2026-10-19T18:00:00Z",    # 20:00 Warsaw
+        },
+        "deye_tou_schedule_today": [],
+        "_timestamp": time.time(),
+    }
+    with open(cache_file, "w", encoding="utf-8") as f:
+        json.dump(mock_cached, f)
+
+    # Initial call with pre_peak_margin = 20 (min_soc 16 + 20 = 36)
+    res1 = pstryk_engine.fetch_consolidated_data(
+        api_key="test_key",
+        installation="dol",
+        cache_dir=cache_dir,
+        min_soc=16,
+        max_soc=90,
+        morning_reserve_margin=5,
+        pre_peak_margin=20,
+    )
+    assert res1.get("_cache_hit") is True
+    sched1 = res1.get("deye_tou_schedule_today", [])
+    assert len(sched1) == 6
+    assert sched1[2]["target_soc"] == 36  # Slot 3
+    assert sched1[3]["target_soc"] == 36  # Slot 4
+
+    # Subsequent call with changed slider pre_peak_margin = 50 (min_soc 16 + 50 = 66)
+    res2 = pstryk_engine.fetch_consolidated_data(
+        api_key="test_key",
+        installation="dol",
+        cache_dir=cache_dir,
+        min_soc=16,
+        max_soc=90,
+        morning_reserve_margin=5,
+        pre_peak_margin=50,
+    )
+    assert res2.get("_cache_hit") is True
+    sched2 = res2.get("deye_tou_schedule_today", [])
+    assert len(sched2) == 6
+    assert sched2[2]["target_soc"] == 66  # Slot 3 updated immediately
+    assert sched2[3]["target_soc"] == 66  # Slot 4 updated immediately
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
 
 
