@@ -407,7 +407,7 @@ def test_cloud_tou_non_charging_mid_soc_slot_and_no_charge_current():
          mock.patch("deye_cloud_client.get_deye_cloud_token", return_value="t", create=True):
         res = deye_cloud_client.read_inverter_telemetry(cfg=cfg, force_refresh=True, cache_path=os.devnull)
     slots = res["active_tou"]["slots"]
-    assert slots[0]["label"] == "Autokonsumpcja PV"
+    assert slots[0]["label"] == "Rezerwa Przed Szczytem"
     assert all(s["charge_current_a"] is None for s in slots)
 
 
@@ -489,3 +489,12 @@ def test_solarman_failures_report_cloud_attempted():
          mock.patch("deye_cloud_client.get_deye_cloud_config", return_value={}):
         assert solarman_v5_client.sync_tou_schedule(slots)["cloud_attempted"] is False
     assert solarman_v5_client.sync_tou_schedule([])["cloud_attempted"] is False
+
+
+def test_tou_slot_label_relative_to_min_max_soc():
+    lbl = lambda charge, soc: deye_cloud_client.tou_slot_label(charge, soc, 10, 90)
+    assert lbl(True, 90) == "Najtańsze Ładowanie"
+    assert lbl(False, 90) == "Czuwanie Przed Szczytem (Hold)"
+    assert lbl(False, 10) == "Szczyt Cenowy (Autokonsumpcja)"
+    assert lbl(False, 20) == "Rezerwa Przed Szczytem"
+    assert deye_cloud_client.tou_slot_label(False, 25, None, None) == "Szczyt Cenowy (Autokonsumpcja)"

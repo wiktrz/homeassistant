@@ -45,6 +45,8 @@ AREA_KEYWORDS = {
     "termostaty": ["termostat", "thermostat", "routine", "heating", "local01", "local02", "local03"],
     "bezpieczenstwo": ["zasilanie", "rygiel", "door_strike", "alarm", "power_supply"],
     "pstryk": ["pstryk", "energy", "price", "charging", "best_window", "pstryk_engine"],
+    # ponytail: plain substring match, "tou" also hits words like "touch"; only over-selects tests
+    "deye": ["deye", "solarman", "tou", "inverter"],
 }
 
 
@@ -139,7 +141,7 @@ def ensure_ha_running(timeout: int = 30) -> HomeAssistantClient:
     return client
 
 
-def run_tier2(area_filter: Optional[str] = None) -> bool:
+def run_tier2(area_filter: Optional[Set[str]] = None) -> bool:
     print("\n⚡ === [TIER 2: Dynamic Home Assistant State & Integration] ===")
     try:
         client = ensure_ha_running()
@@ -151,8 +153,8 @@ def run_tier2(area_filter: Optional[str] = None) -> bool:
     tests = registry.get("tests", [])
 
     if area_filter:
-        tests = [t for t in tests if t.get("area") == area_filter]
-        print(f"Filtering tests for area: '{area_filter}' ({len(tests)} test(s))")
+        tests = [t for t in tests if t.get("area") in area_filter]
+        print(f"Filtering tests for area(s): {sorted(area_filter)} ({len(tests)} test(s))")
 
     if not tests:
         print("No test scenarios found matching filter.")
@@ -160,12 +162,14 @@ def run_tier2(area_filter: Optional[str] = None) -> bool:
 
     all_passed = True
     passed_count = 0
+    scenario_count = 0
 
     for test in tests:
         rel_path = test.get("file", "")
         if not rel_path or not rel_path.endswith((".yaml", ".yml")):
             # Skip non-declarative scenario entries (e.g. unit test suites)
             continue
+        scenario_count += 1
         scenario_file = os.path.join(TESTS_DIR, rel_path)
         if not os.path.exists(scenario_file):
             print(f"⚠️  Missing scenario file: {scenario_file}")
@@ -184,7 +188,7 @@ def run_tier2(area_filter: Optional[str] = None) -> bool:
         print()
 
     save_registry(registry)
-    print(f"📊 Tier 2 Results: {passed_count}/{len(tests)} passed.")
+    print(f"📊 Tier 2 Results: {passed_count}/{scenario_count} scenarios passed.")
     return all_passed
 
 
@@ -316,12 +320,12 @@ def main():
         print("\n🎉 === UNIT TESTS COMPLETED SUCCESSFULLY! ===")
         sys.exit(0)
 
-    target_area = args.area
+    target_areas = {args.area} if args.area else None
     if args.auto:
         impacted = detect_git_impacted_areas()
         print(f"🔍 Git Diff Impact Detection: Identified areas -> {impacted or 'None (running all)'}")
         if impacted:
-            target_area = list(impacted)[0]  # Focus on primary area
+            target_areas = impacted  # Tier 2 runs every impacted area
 
     success = True
 
@@ -334,7 +338,7 @@ def main():
             sys.exit(1)
 
     if args.tier in ("2", "all"):
-        if not run_tier2(area_filter=target_area):
+        if not run_tier2(area_filter=target_areas):
             success = False
 
     if args.tier in ("3", "all"):

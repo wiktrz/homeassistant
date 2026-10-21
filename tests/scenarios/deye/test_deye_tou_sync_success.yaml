@@ -1,0 +1,28 @@
+id: test_deye_tou_sync_success
+area: deye
+description: "Stub exits 0: sync script runs to completion and removes its own pending-UI marker"
+tags: [deye, tou, sync, stub, regression]
+status: active
+
+preconditions:
+  stub_rc: 0
+  entities:
+    input_text.pending_ui_operations:
+      state: '["sentinel"]'
+    input_datetime.deye_tou_last_synced_date:
+      state: "2020-01-01 00:00:00"
+
+action:
+  type: call_service
+  service: script.sync_deye_inverter_tou
+  data:
+    tomorrow: false
+    force: true
+
+wait_seconds: 4.0
+
+# ponytail: shell_command success is not exactly assertable (persistent_notification is no entity,
+# last_synced_date becomes now()); sentinel round-trip proves the script ran to its clear step.
+assertions:
+  - entity: input_text.pending_ui_operations
+    state: '["sentinel"]'

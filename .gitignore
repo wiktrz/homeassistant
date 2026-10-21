@@ -61,3 +61,7 @@ config/.env
 
 # Deye runtime state written by engine/clients (TOU sync result, inverter cache)
 config/.deye_*
+
+# Claude Code per-machine state (hooks runner-pass record, local settings)
+.claude/state/
+.claude/settings.local.json

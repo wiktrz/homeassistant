@@ -93,6 +93,25 @@ def search_existing_definitions(term: str) -> None:
         print(f"\n💡 Found {matches_found} existing candidate(s). REUSE existing definitions where possible!\n")
 
 
+def find_get_literal_fallbacks(fpath: str) -> List[str]:
+    """Flag `.get(<key>, <non-zero int/float literal>)`: fallbacks must come from energy_defaults."""
+    rel_path = os.path.relpath(fpath, REPO_ROOT)
+    with open(fpath, "r", encoding="utf-8") as f:
+        src = f.read()
+    try:
+        tree = ast.parse(src, filename=fpath)
+    except Exception:
+        return []  # parse errors are reported by the AST check in validate_no_duplicate_defaults
+    out = []
+    for n in ast.walk(tree):
+        if (isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "get"
+                and len(n.args) == 2 and isinstance(n.args[1], ast.Constant)
+                and isinstance(n.args[1].value, (int, float)) and not isinstance(n.args[1].value, bool)
+                and n.args[1].value != 0):
+            out.append(f"{rel_path}:{n.lineno} [GET FALLBACK LITERAL: {n.args[1].value}]: {ast.unparse(n)}")
+    return out
+
+
 def validate_no_duplicate_defaults() -> List[str]:
     violations: List[str] = []
 
@@ -112,6 +131,7 @@ def validate_no_duplicate_defaults() -> List[str]:
     for fpath in files_to_check:
         if not os.path.exists(fpath):
             continue
+        violations.extend(find_get_literal_fallbacks(fpath))
         rel_path = os.path.relpath(fpath, REPO_ROOT)
 
         # 1. Text check for raw forbidden literals in assignments or fallbacks

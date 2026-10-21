@@ -22,19 +22,16 @@ Hardware parameters of the battery storage system must **NEVER** be hardcoded an
 - **Continuous Enforcement:** Continuously verified and blocked by pytest invariant `tests/invariants/test_safety_rules.py::test_no_hardcoded_battery_parameters`.
 
 ### 1.2 Hardware Register Safety & Control Policy
-- **Dynamic Register 108 Modulation:** Modbus Holding Register `108` (`REG_MAX_CHARGE_CURRENT`) is modulated dynamically by Home Assistant and `pstryk_engine.py` to control charging speed:
-  * Baseline outside charging windows: 100A (or hardware max).
-  * Reduced during extended charging windows ($T > 2\text{h}$): $I_{\text{target}} = \max(20\text{A}, \operatorname{round}(I_{\text{base}} \times (2 / T)))$ (e.g. 50A for a 4h window, 67A for 3h).
-  * Restored to 100A immediately after the charging window concludes.
-  * Writes are strictly idempotent: written only if the current inverter state differs from target, minimizing EEPROM flash cycles.
-- **Strictly Blocked Registers (109..112):** Direct writes to the following critical hardware safety registers remain **strictly blocked** in software:
-  * Register `109`: Max Discharge Current (A) — physical setting (140A) read from inverter/OpenAPI.
-  * Register `110`: Min Discharge SOC / Capacity Grid-tied lower bound (%) — configured on LCD.
-  * Register `111`: Shutdown SOC / Critical Blackout cut-off (%) — configured on LCD.
-  * Register `112`: Max Charge SOC (%) — configured on LCD.
+- **Dynamic Register 108 Modulation:** Modbus Holding Register `108` (`REG_MAX_CHARGE_CURRENT`) is written by `pstryk_engine.py` (`check_and_apply_charge_current_modulation`) to control charging speed. The base is always the 100A ceiling (hard cap `min(100, env)`), never the live register value:
+  * Inside a grid-charge window: $I_{\text{target}} = \max(20\text{A}, \operatorname{round}(I_{\text{base}} \times (2 / T)))$ (e.g. 50A for a 4h window, 67A for 3h, 100A for 2h).
+  * Outside a window, 05:00-19:00 (`REG108_DAYTIME_START_HOUR`..`REG108_EVENING_PRESET_HOUR`): 100A (PV charges at full rate).
+  * After today's window and before 19:00: 100A; from 19:00 the next cycle's target is pre-set.
+  * Between 00:00 and the start of today's window: today's window target.
+  * `--restore-charge-current` restores 100A. Writes are idempotent (only when the value differs), minimizing EEPROM cycles.
+- **Registers 109 and 112 Never Written:** Reg `109` (Max Discharge Current, 140A) and Reg `112` (Max Charge SOC; the HA slider `input_number.deye_battery_max_charge_soc` is the source of truth) are never written by software.
+- **Registers 110 and 111 Confirm-Only:** Reg `110` (Min Discharge SOC) and Reg `111` (Shutdown SOC) are written only via the 2-step Confirm button (`script.confirm_and_apply_deye_battery_settings`).
 
-These limits represent physical hardware boundaries and are configured on the inverter LCD screen. Home Assistant ingests all parameters in **Read-Only** mode via `sensor.deye_inverter_status`.
-
+Home Assistant otherwise ingests all parameters in **Read-Only** mode via `sensor.deye_inverter_status`; the hardware limits themselves are configured on the inverter LCD.
 ### 1.3 Permitted Write Operations
 The only write operations permitted from Home Assistant / CLI are:
 1. **6-slot Time-of-Use (TOU) Schedule** (Modbus Holding Registers `248..273` or Deye Cloud OpenAPI `/v1.0/order/sys/tou/update`).
@@ -58,10 +55,10 @@ The only write operations permitted from Home Assistant / CLI are:
 | Register | Address (Hex) | Description | Unit / Format | Access |
 |:---:|:---:|:---|:---:|:---:|
 | `102` | `0x0066` | Battery Capacity | Ah (integer) | Read-Only |
-| `108` | `0x006C` | Max Charge Current | A (integer) | Read-Only |
+| `108` | `0x006C` | Max Charge Current | A (integer) | Read / Write (engine modulation only, 100A ceiling) |
 | `109` | `0x006D` | Max Discharge Current | A (integer) | Read-Only |
-| `110` | `0x006E` | Min Discharge SOC (Grid Cutoff) | % (integer) | Read-Only |
-| `111` | `0x006F` | Shutdown SOC (Blackout Cutoff) | % (integer) | Read-Only |
+| `110` | `0x006E` | Min Discharge SOC (Grid Cutoff) | % (integer) | Read / Write (Confirm button only) |
+| `111` | `0x006F` | Shutdown SOC (Blackout Cutoff) | % (integer) | Read / Write (Confirm button only) |
 | `112` | `0x0070` | Max Charge SOC | % (integer) | Read-Only |
 | `248` | `0x00F8` | TOU Master Enable | 1 = Enabled, 0 = Disabled | Read / Write |
 | `250..255` | `0x00FA..FF` | Slot 1..6 Start Time | `HH * 100 + MM` | Read / Write |
@@ -96,16 +93,28 @@ To protect the Deye Wi-Fi logger and SD card / flash storage, all Deye reads imp
 
 ## 4. Dynamic Time-of-Use (TOU) Dispatch Algorithm
 
-### 4.1 Two Dynamic Peaks Strategy
-The 6 slots are partitioned across two daily energy price peaks:
-- **Slot 1 (00:00 – 06:00):** Holds dynamic morning reserve:
-  $$\text{morning\_reserve\_soc} = \min(\text{max\_soc}, \text{min\_soc} + \text{margin})$$
-  Default margin: +10% (`input_number.deye_morning_reserve_margin_pct`).
-- **Slot 2 (06:00 – 10:00):** Morning Peak Autoconsumption. Sets target SOC to `min_soc`, powering household loads from battery during the morning price spike without buying peak grid energy.
-- **Slot 3 (Cheapest Spot Dip, e.g. 11:00 – 15:00):** Grid / Solar Charging Window. Sets target SOC to `max_soc` with `grid_charge = True`.
-- **Slot 4 (Pre-Peak Afternoon):** Daytime Autoconsumption. Sets target SOC to partial reserve $\max(\text{min\_soc} + 20, \text{max\_soc} - 20)$, preventing excessive battery drain before the evening peak while avoiding frozen hold.
-- **Slot 5 (17:00 – 21:00):** Peak Evening Discharge. Sets target SOC to `min_soc` at full base power $P_{\text{base}}$ to eliminate all grid imports during the highest spot prices.
-- **Slot 6 (21:00 – 24:00):** Night Standby. Holds `morning_reserve_soc` until midnight.
+### 4.1 Role-Based TOU Slots
+`generate_deye_tou_schedule()` always emits exactly 6 slots with strictly increasing, minute-based start times in [00:00, 24:00). Each slot has a role: `charge` (grid-charge window, Max SOC, `grid_charge = True`), `peak` (discharge boundary: sell window, morning/evening peak, Min SOC), `reserve` (branch-defined reserve) or `other`. Labels are display-only. The window placement (night, midday, evening/late charge; morning/evening sell) selects the branch; breakpoints are then finalized into 6 slots (missing slots split the longest gap, surplus reserve/other slots with the shortest span are merged).
+
+**Stretch rule** for `reserve`/`other` slots, based on the nearest charge/peak before and after:
+- between a charge and the next peak: hold Max SOC;
+- between a peak and the next charge: Min SOC;
+- between two peaks: keep the branch reserve (morning reserve $\min(\text{max\_soc}, \text{min\_soc} + \text{margin})$, default +10%, or pre-peak $\min(\text{max\_soc}, \text{min\_soc} + \text{pre\_peak\_margin})$).
+- "Previous" does not wrap past 00:00; "next" may wrap to today's first events.
+
+**Morning boundaries:** `MORNING_PEAK_START_HOUR = 6` and `PRE_PEAK_RESERVE_START_HOUR = 10`. Evening/late charge windows (ending after 17:00) hold Max SOC overnight until 06:00, then the morning reserve, then pre-peak from 10:00, so PV can refill the battery.
+
+Reference schedules (min 10, max 90, margins 10; `G` = grid charge):
+
+| Charge / Sell window | Schedule |
+|:---|:---|
+| 13-15 / 06-09 | `00:00 20 \| 06:00 10 \| 09:00 10 \| 13:00 90G \| 15:00 90 \| 17:00 10` |
+| 13-15 / 17-20 | `00:00 20 \| 06:00 10 \| 13:00 90G \| 15:00 90 \| 17:00 10 \| 20:00 20` |
+| 19-21 / 17-19 | `00:00 90 \| 06:00 20 \| 10:00 20 \| 17:00 10 \| 19:00 90G \| 21:00 90` |
+
+**Price coverage:** TOU is neither written nor cached unless the Europe/Warsaw day is covered (`warsaw_day_covered()`: first frame at/before 00:00, last end at/after the next 00:00, at most 1h (`PRICE_COVERAGE_MAX_MISSING_HOURS`) missing in total; handles DST days returned as 24 frames). The cache stores `_warsaw_date` and target hours and is reused only on a match.
+
+**Inverter I/O:** the local Modbus 25s budget starts at the first failed attempt (a healthy run is never cut short); if it is already active, local TOU writes are skipped and the cloud is used (at most once, `cloud_attempted`); the sync aborts on the first failed register write; cloud slots carry the nominal voltage. Read-back labels (`tou_slot_label`) are relative to min/max SOC (±`TOU_LABEL_SOC_TOLERANCE`): `Najtańsze Ładowanie` / `Czuwanie Przed Szczytem (Hold)` / `Szczyt Cenowy (Autokonsumpcja)` / `Rezerwa Przed Szczytem`, fallback thresholds 30/80.
 
 ### 4.2 TOU Power Column Semantics & Register 108 Dynamic Modulation
 1. **TOU Power is Strictly Discharge Power:**
@@ -120,16 +129,15 @@ The 6 slots are partitioned across two daily energy price peaks:
    - When charging window duration $T$ extends beyond 2 hours (e.g. 4h on weekends), charging current is modulated down to distribute charging across the entire low-price window:
      $$I_{\text{target}} = \max\left(20\text{ A}, \min\left(I_{\text{base}}, \operatorname{round}\left(I_{\text{base}} \times \frac{2}{T}\right)\right)\right)$$
      (e.g., $100\text{A} \times (2 / 4) = \mathbf{50\text{ A}}$ for a 4h window; $100\text{A} \times (2 / 3) = \mathbf{67\text{ A}}$ for a 3h window; $100\text{A}$ for a 2h window).
-   - `check_and_apply_charge_current_modulation()` applies $I_{\text{target}}$ inside the window and automatically restores $I_{\text{base}}$ (100A) outside the charging window.
+   - `check_and_apply_charge_current_modulation()` applies $I_{\text{target}}$ inside the window, keeps $I_{\text{base}}$ (100A) during 05:00-19:00 outside the window, and from 19:00 (after today's window) pre-sets the next cycle's target; between 00:00 and the window start it holds today's window target.
    - Writes are strictly idempotent (executed only when the active register value differs from target), protecting EEPROM memory.
-3. **Slot 5 Protection:** Slot 5 (Peak Evening Discharge) strictly remains at full base power $P_{\text{base}}$ (7170W) down to `min_soc`.
+3. **Peak Slot Power:** peak slots stay at full base power $P_{\text{base}}$ (7170W) down to `min_soc`.
 
 ### 4.3 BMS Calibration Routine (100% Equalization)
-Triggered via `script.trigger_deye_battery_calibration`:
-- Overrides `max_soc` to strictly `100%`.
-- Sets charging power to $\max(3500\text{ W}, P_{\text{base}})$.
-- Activates `binary_sensor.deye_battery_calibration_active`.
-- Allows LiFePO4 cells to reach absorption voltage (56.8V – 57.6V) and balance passive shunt bleeders. Automatically cleared after the charging window ends.
+Triggered via `script.start_deye_battery_calibration` (flag `input_boolean.deye_battery_calibration_in_progress`):
+- The engine (`calibration_active`) raises the Max SOC target of the charge/hold slots to `100%` and does not scale the charge current.
+- Allows LiFePO4 cells to reach absorption voltage and balance passive shunt bleeders.
+- When `sensor.deye_battery_soc` > 99.5, `script.finish_deye_battery_calibration` clears the flag, stores the calibration date and re-syncs the TOU table with the normal Max SOC target. Reg 112 is never written.
 
 ---
 
@@ -141,7 +149,7 @@ Triggered via `script.trigger_deye_battery_calibration`:
 |:---|:---:|:---:|:---:|
 | Total Battery Capacity (`batt_capacity`) | Hardware Spec | Read-Only (`sensor.powerbank_total_capacity_kwh`) | N/A (writes blocked) |
 | Nominal Voltage (`nominal_voltage`) | Hardware Spec | Read-Only (`sensor.powerbank_voltage_v`) | N/A (writes blocked) |
-| Max Charge Current (`max_charge_current`) | Hardware Spec | Read-Only (`sensor.deye_inverter_max_charge_current`) | N/A (writes blocked) |
+| Max Charge Current (`max_charge_current`) | Hardware Spec | Read-Only sensor (`sensor.deye_inverter_max_charge_current`); Reg 108 written only by engine modulation (100A ceiling) | N/A (not user-editable) |
 | Max Discharge Current (`max_discharge_current`) | Hardware Spec | Read-Only (`sensor.deye_inverter_max_discharge_current`) | N/A (writes blocked) |
 | Max Charge Level (`deye_battery_max_charge_soc`) | TOU Dispatch | Active Slider (50–100%, default 90%) | No (safe operational dispatch) |
 | Morning Reserve Margin (`deye_morning_reserve_margin_pct`) | TOU Dispatch | Active Slider (0–30%, default 10%) | No (safe operational dispatch) |

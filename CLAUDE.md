@@ -2,19 +2,46 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Key Documentation:**
-> - [`AI_DEVELOPMENT_GUIDELINES.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AI_DEVELOPMENT_GUIDELINES.md) — Mandatory AI development rules, planning gates, and documentation update protocols.
-> - [`llms.txt`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/llms.txt) — Standard LLM & human project index and architecture map.
-> - [`PLACES_AND_BEHAVIORS.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/PLACES_AND_BEHAVIORS.md) — Exhaustive place-by-place matrix, entity mapping, and automation rules.
-> - [`AGENT.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AGENT.md) — Unified Home Assistant & ESP32/Node.js ecosystem bridge.
-> - [`AGENTS.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AGENTS.md) — Primary developer instructions & operating guidelines.
+Mandatory rules (single source of truth, imported):
+@AI_DEVELOPMENT_GUIDELINES.md
+
+Project index & architecture map (imported):
+@llms.txt
+
+> **MUST read first** for any documentation or implementation task (not imported, 51 KB): `AGENT.md` (unified HA & ESP32/Node.js ecosystem bridge).
+> Also consult `PLACES_AND_BEHAVIORS.md` (room-by-room entity/behavior matrix) before touching entities, and `AGENTS.md` (Codex instructions, kept in sync with AGENT.md).
 
 ## Core AI Operating Rules
 
-1. **Strict Planning Mode Gate (Read-Only Gate):** When in `/plan`, design mode, or preparing artifacts, AI agents must remain strictly read-only. NEVER modify, create, or delete workspace files without explicit conversational user approval. Automated stop-hook approvals do NOT grant permission to execute.
-2. **Mandatory Documentation Self-Update:** Any modification to code, configuration, YAML, automations, scripts, entities, or hardware MUST trigger an automatic update to documentation (`PLACES_AND_BEHAVIORS.md`, `AGENT.md`, `AGENTS.md`, `llms.txt`) before completing the task.
-3. **Git Commit & Push Safety:** NEVER run `git add`, `git commit`, or `git push` unless explicitly commanded using the exact words 'commit' or 'push'. Leave all changes unstaged.
-4. **Context Initialization:** Always start documentation and implementation tasks by reading [`AGENT.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AGENT.md) and [`AI_DEVELOPMENT_GUIDELINES.md`](file:///Users/wtrzonkowski/Desktop/private/homeassistant/AI_DEVELOPMENT_GUIDELINES.md).
+All rule text lives in `AI_DEVELOPMENT_GUIDELINES.md` (imported above). Do not duplicate it here; these are pointers only.
+
+1. Rule 1 (see AI_DEVELOPMENT_GUIDELINES.md): planning/design/review mode is read-only; only an explicit user command unlocks edits.
+2. Rule 2 (see AI_DEVELOPMENT_GUIDELINES.md): every code/config change syncs `PLACES_AND_BEHAVIORS.md`, `AGENT.md`, `AGENTS.md`, `llms.txt` (and `CLAUDE.md` for CLI/env changes).
+3. Rule 3 (see AI_DEVELOPMENT_GUIDELINES.md): never `git add`/`commit`/`push` without the explicit words 'commit'/'push'; leave changes unstaged.
+4. Rule 4 (see AI_DEVELOPMENT_GUIDELINES.md): start by reading `AGENT.md`; check `PLACES_AND_BEHAVIORS.md` before adding/modifying entities.
+5. Rule 5 (see AI_DEVELOPMENT_GUIDELINES.md): never clear optimization databases or caches.
+6. Rule 6 (see AI_DEVELOPMENT_GUIDELINES.md): `python3 tests/runner.py --auto` must pass; new features get a scenario in `tests/scenarios/` registered in `tests/test_registry.yaml`.
+7. Rule 7 (see AI_DEVELOPMENT_GUIDELINES.md): end every substantive session with the structured retrospective and re-validation.
+8. Rule 8 (see AI_DEVELOPMENT_GUIDELINES.md): English-only identifiers; Polish only in user-facing UI/TTS/notifications.
+9. Rule 9 (see AI_DEVELOPMENT_GUIDELINES.md): zero hardcoded battery/inverter hardware parameters (see `SPEC_DEYE_BATTERY_SYSTEM.md`).
+10. Rule 10 (see AI_DEVELOPMENT_GUIDELINES.md): fallbacks live only in `.env.example`; run `--search` before adding variables, `--validate` must pass.
+11. Rule 11 (see AI_DEVELOPMENT_GUIDELINES.md): Lovelace conditional cards nest `entities:`/`cards:` under `card:`; no empty lists.
+
+## Definition of Done (Claude)
+
+A task that changed files is done only when every item holds:
+
+- [ ] `python3 tests/runner.py --auto` passes for the current diff (Rule 6).
+- [ ] `python3 scripts/check_duplicate_variable.py --search "<concept>"` was run before adding any constant/env var/helper, and `python3 scripts/check_duplicate_variable.py --validate` exits 0 (Rule 10).
+- [ ] Docs synced: `PLACES_AND_BEHAVIORS.md`, `AGENT.md`, `AGENTS.md`, `llms.txt`, plus `SPEC_DEYE_BATTERY_SYSTEM.md` when battery/inverter logic changes (Rule 2).
+- [ ] New scenarios are registered in `tests/test_registry.yaml` (Rule 6).
+- [ ] Retrospective done (Rule 7).
+- [ ] Changes left unstaged (Rule 3).
+- [ ] With the `dev-team` skill: every subagent prompt carries these rules and this checklist.
+
+`/verify` (`.claude/commands/verify.md`) runs the whole checklist and reports a pass/fail table.
+
+**Enforced by project hooks** (`.claude/settings.json` -> `.claude/hooks/guard.py`): PreToolUse denies `git add`/`git stage`/`git commit -a`; PostToolUse runs `--validate` after edits to `config/*.py`, `.env.example`, `config/configuration.yaml`, `config/templates.yaml`; a successful `tests/runner.py` run is recorded per diff fingerprint in `.claude/state/` (gitignored); the Stop hook blocks once (then only warns) when the runner pass, doc sync or scenario registration is missing.
 
 ## Project Overview
 
@@ -225,19 +252,11 @@ python3 tests/runner.py --generate <x> # Synthesize new test scenario
 python3 tests/runner.py --stop         # Teardown test containers
 ```
 
-**WARNING:** `clear_retained_simple.sh` contains hardcoded MQTT credentials (MQTT_PASS="waders").
+**WARNING:** `clear_retained_simple.sh` contains hardcoded MQTT credentials (`MQTT_PASS`).
 
-## Key Secrets (secrets.yaml)
+## Secrets
 
-```yaml
-latitude_home: 52.34453253634735
-longitude_home: 21.099288761615757
-Camera_URL: "http://10.20.2.7/cgi-bin/api.cgi?..."
-CameraFront_Source: "rtsp://homeAssistant:waders@10.20.2.7:554/..."
-# Two separate Pstryk installations:
-pstryk_api_key_dol: "sk-BT59VQSTTHMNIRBL26B52YLCW3NMOG3YEUVDL4K5"    # dół
-pstryk_api_key_gora: "sk-G0SUY5HUO5YYQXOUYS2Z7BWT0KG8SGV3Q0CGRKHW"  # góra
-```
+Secrets live in `config/secrets.yaml` and `config/.env` — never paste values into docs.
 
 ## Important Files
 

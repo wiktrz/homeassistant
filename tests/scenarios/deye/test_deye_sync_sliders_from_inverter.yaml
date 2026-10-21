@@ -1,0 +1,25 @@
+id: test_deye_sync_sliders_from_inverter
+area: deye
+description: "Verify automation deye_sync_sliders_from_inverter copies the inverter Min SOC reading into the input_number slider"
+tags: [deye, battery, slider, sync, regression]
+status: active
+
+preconditions:
+  entities:
+    input_number.deye_battery_min_discharge_soc:
+      state: "20"
+    binary_sensor.ui_any_operation_pending:
+      state: "off"
+    sensor.deye_inverter_min_discharge_soc:
+      state: "20"
+
+action:
+  type: set_state
+  entity_id: sensor.deye_inverter_min_discharge_soc
+  state: "15"
+
+wait_seconds: 2.0
+
+assertions:
+  - entity: input_number.deye_battery_min_discharge_soc
+    state: "15.0"

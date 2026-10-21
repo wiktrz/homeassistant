@@ -35,6 +35,18 @@ def test_no_hardcoded_defaults_in_python_code():
     )
 
 
+def test_validator_flags_get_numeric_fallback(tmp_path):
+    """The Rule 10 AST rule flags .get(key, <non-zero literal>) and allows 0 / named constants."""
+    import sys
+    sys.path.insert(0, os.path.join(REPO_ROOT, "scripts"))
+    import check_duplicate_variable as cdv
+
+    bad = tmp_path / "bad.py"
+    bad.write_text("x = d.get('x', 5000)\ny = d.get('y', 0)\nz = d.get('z', ed.NAME)\n")
+    found = cdv.find_get_literal_fallbacks(str(bad))
+    assert len(found) == 1 and "5000" in found[0]
+
+
 def test_energy_defaults_module_loads_correctly():
     """Verifies that config/energy_defaults.py resolves all required constants from .env.example."""
     import sys

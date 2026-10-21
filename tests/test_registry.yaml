@@ -13,7 +13,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-08T12:47:49.297873'
+  last_verified: '2026-10-21T11:45:12.918496'
 - id: test_salon_cinema_mode_on_night
   area: salon
   file: scenarios/salon/test_cinema_mode.yaml
@@ -27,7 +27,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-07T17:26:15.417324'
+  last_verified: '2026-10-21T11:45:14.969508'
 - id: test_kitchen_island_light_state
   area: kuchnia
   file: scenarios/kuchnia/test_kitchen_island_light.yaml
@@ -53,7 +53,7 @@ tests:
   - rental
   - regression
   status: active
-  last_verified: '2026-10-13T21:07:28.412940'
+  last_verified: '2026-10-21T11:45:16.490606'
 - id: test_local01_heating_routine_bidirectional_sync
   area: termostaty
   file: scenarios/termostaty/test_local01_heating_routine_bidirectional_sync.yaml
@@ -67,7 +67,7 @@ tests:
   - sync
   - regression
   status: active
-  last_verified: '2026-10-13T21:07:30.009424'
+  last_verified: '2026-10-21T11:45:18.022417'
 - id: test_protected_power_supplies_integrity
   area: bezpieczenstwo
   file: scenarios/bezpieczenstwo/test_power_supplies_untouched.yaml
@@ -80,7 +80,7 @@ tests:
   - safety
   - regression
   status: active
-  last_verified: '2026-10-07T21:38:09.970526'
+  last_verified: '2026-10-21T11:45:19.580052'
 - id: test_pstryk_price_meter_dol_state
   area: pstryk
   file: scenarios/pstryk/test_energy_price_sensor.yaml
@@ -93,7 +93,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-08T17:33:07.923836'
+  last_verified: '2026-10-21T11:45:20.598923'
 - id: test_radio_volume_up_execution
   area: multimedia
   file: scenarios/multimedia/test_radio_volume_up.yaml
@@ -105,7 +105,7 @@ tests:
   - script
   - regression
   status: active
-  last_verified: '2026-10-08T12:47:50.826718'
+  last_verified: '2026-10-21T11:45:22.117579'
 - id: test_radio_station_switch_playing
   area: multimedia
   file: scenarios/multimedia/test_radio_station_switch_playing.yaml
@@ -119,7 +119,7 @@ tests:
   - alias
   - regression
   status: active
-  last_verified: '2026-10-08T12:47:52.354756'
+  last_verified: '2026-10-21T11:45:23.646649'
 - id: test_pstryk_engine_unit_suite
   area: pstryk
   file: unit/test_pstryk_engine.py
@@ -147,7 +147,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-08T17:33:09.468434'
+  last_verified: '2026-10-21T11:45:25.183514'
 - id: test_solar_engine_unit_suite
   area: solar
   file: unit/test_solar_engine.py
@@ -234,3 +234,42 @@ tests:
   - regression
   status: active
   last_verified: '2026-10-07T20:20:26.000000'
+- id: test_deye_sync_sliders_from_inverter
+  area: deye
+  file: scenarios/deye/test_deye_sync_sliders_from_inverter.yaml
+  description: Verify automation deye_sync_sliders_from_inverter copies the inverter
+    Min SOC reading into the input_number slider
+  tags:
+  - deye
+  - battery
+  - slider
+  - sync
+  - regression
+  status: active
+  last_verified: '2026-10-21T11:45:27.716827'
+- id: test_deye_tou_sync_success
+  area: deye
+  file: scenarios/deye/test_deye_tou_sync_success.yaml
+  description: Stub exits 0 - sync script runs to completion and removes its own pending-UI
+    marker
+  tags:
+  - deye
+  - tou
+  - sync
+  - stub
+  - regression
+  status: active
+  last_verified: '2026-10-21T11:45:32.244960'
+- id: test_deye_tou_sync_failure
+  area: deye
+  file: scenarios/deye/test_deye_tou_sync_failure.yaml
+  description: Stub exits 1 - last-synced date is not advanced and its pending-UI
+    marker is removed
+  tags:
+  - deye
+  - tou
+  - sync
+  - stub
+  - regression
+  status: active
+  last_verified: '2026-10-21T11:45:36.771006'

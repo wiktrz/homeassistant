@@ -13,6 +13,7 @@ import time
 import json
 import uuid
 import jwt
+import re
 import yaml
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -21,6 +22,13 @@ SANDBOX_DIR = "/tmp/ha_test_sandbox"
 TESTS_DIR = os.path.join(REPO_ROOT, "tests")
 OVERLAY_DIR = os.path.join(TESTS_DIR, "test_config_overlay")
 DOCKER_COMPOSE_FILE = os.path.join(TESTS_DIR, "docker-compose.test.yml")
+
+# Hermetic stubbing: nothing in the sandbox may reach the real inverter / clouds.
+STUB_SCRIPT_NAME = "test_stub_cmd.sh"
+STUB_RC_FILE = ".test_stub_rc"  # exit code the stub returns (default 0)
+REAL_SCRIPTS = ("pstryk_engine.py", "solarman_v5_client.py", "deye_cloud_client.py")
+SANDBOX_SKIP = (".env", ".deye_inverter_config.json", "tesla_fleet.key", ".cloud", "__pycache__")
+SECRET_KEY_RE = re.compile(r"(_KEY|_TOKEN|_SECRET|_PASSWORD|_USER|_APP_ID|_APPSECRET|_EMAIL)", re.I)
 
 # Fixed deterministic test JWT credentials
 TEST_USER_ID = "ai_test_runner_user_001"
@@ -39,21 +47,76 @@ def generate_test_token() -> str:
     return jwt.encode(payload, TEST_JWT_SECRET, algorithm="HS256")
 
 
-def create_sandbox() -> str:
-    """Creates an isolated test sandbox in /tmp/ha_test_sandbox."""
-    if os.path.exists(SANDBOX_DIR):
-        shutil.rmtree(SANDBOX_DIR)
+def write_sandbox_env(target_dir: str):
+    """Writes a sandbox .env from .env.example: loopback inverter, all secrets blank."""
+    out = []
+    with open(os.path.join(CONFIG_DIR, ".env.example"), encoding="utf-8") as f:
+        for line in f:
+            key = line.split("=", 1)[0].strip()
+            if "=" in line and not line.lstrip().startswith("#"):
+                if key == "DEYE_INVERTER_IP":
+                    line = f"{key}=127.0.0.1\n"
+                elif SECRET_KEY_RE.search(key) or key.startswith("DEYE_CLOUD_"):
+                    line = f"{key}=\n"
+            out.append(line)
+    with open(os.path.join(target_dir, ".env"), "w", encoding="utf-8") as f:
+        f.writelines(out)
 
-    os.makedirs(SANDBOX_DIR, exist_ok=True)
 
-    # Sync config excluding databases, locks, and logs
+def stub_commands(text: str) -> str:
+    """Text rewrite (keeps !include/!secret intact): every shell_command entry and
+    every command_line command calling a real engine/client script becomes the stub."""
+    stub = f"sh /config/{STUB_SCRIPT_NAME}"
+    lines = text.splitlines(keepends=True)
+    out, section, i = [], None, 0
+
+    def indent(l):
+        return len(l) - len(l.lstrip())
+
+    def take_value(start, key_indent):
+        j = start + 1
+        while j < len(lines) and (not lines[j].strip() or indent(lines[j]) > key_indent):
+            j += 1
+        return "".join(lines[start:j]), j
+
+    while i < len(lines):
+        line = lines[i]
+        if line.strip() and not line[0].isspace() and not line.startswith("#"):
+            section = line.split(":", 1)[0].strip()
+        m_shell = re.match(r"^(\s+)([A-Za-z0-9_]+):", line) if section == "shell_command" else None
+        m_cmd = re.match(r"^(\s+)command:", line) if section == "command_line" else None
+        if m_shell and indent(line) == 2:
+            _, i = take_value(i, 2)
+            out.append(f'  {m_shell.group(2)}: "{stub} {m_shell.group(2)}"\n')
+            continue
+        if m_cmd:
+            value, j = take_value(i, len(m_cmd.group(1)))
+            if any(s in value for s in REAL_SCRIPTS):
+                out.append(f'{m_cmd.group(1)}command: "{stub} command_line"\n')
+                i = j
+                continue
+        out.append(line)
+        i += 1
+    return "".join(out)
+
+
+def create_sandbox(target_dir: str = SANDBOX_DIR) -> str:
+    """Creates an isolated, hermetic test sandbox (default /tmp/ha_test_sandbox)."""
+    if os.path.exists(target_dir):
+        shutil.rmtree(target_dir)
+
+    os.makedirs(target_dir, exist_ok=True)
+
+    # Sync config excluding databases, locks, logs, real secrets and inverter cache
     ignore_patterns = shutil.ignore_patterns(
-        "*.db", "*.db-shm", "*.db-wal", ".ha_run.lock", "*.log", "*.log.*"
+        "*.db", "*.db-shm", "*.db-wal", ".ha_run.lock", "*.log", "*.log.*", *SANDBOX_SKIP
     )
-    shutil.copytree(CONFIG_DIR, SANDBOX_DIR, dirs_exist_ok=True, ignore=ignore_patterns)
+    shutil.copytree(CONFIG_DIR, target_dir, dirs_exist_ok=True, ignore=ignore_patterns)
+    write_sandbox_env(target_dir)
+    shutil.copy(os.path.join(OVERLAY_DIR, STUB_SCRIPT_NAME), os.path.join(target_dir, STUB_SCRIPT_NAME))
 
     # Ensure .storage directory exists
-    storage_dir = os.path.join(SANDBOX_DIR, ".storage")
+    storage_dir = os.path.join(target_dir, ".storage")
     os.makedirs(storage_dir, exist_ok=True)
 
     # 1. Inject onboarding state (mark all done)
@@ -128,38 +191,38 @@ def create_sandbox() -> str:
     else:
         entries_data = {"version": 1, "minor_version": 5, "key": "core.config_entries", "data": {"entries": []}}
 
-    entries = entries_data.setdefault("data", {}).setdefault("entries", [])
-    has_mqtt = any(e.get("domain") == "mqtt" for e in entries)
-    if not has_mqtt:
-        entries.append({
-            "created_at": "2026-03-01T19:15:08.000000+00:00",
-            "data": {
-                "broker": "ha-test-mqtt",
-                "port": 1883,
-                "discovery": False,
-            },
-            "disabled_by": None,
-            "discovery_keys": {},
-            "domain": "mqtt",
-            "entry_id": "01KJND6VMQTTTESTCONFIGENTRY01",
-            "minor_version": 1,
-            "modified_at": "2026-03-01T19:15:08.000000+00:00",
-            "options": {},
-            "pref_disable_new_entities": False,
-            "pref_disable_polling": False,
-            "source": "user",
-            "subentries": [],
-            "title": "MQTT Test Broker",
-            "unique_id": None,
-            "version": 1,
-        })
+    # Drop any real MQTT entry so the sandbox can only talk to ha-test-mqtt
+    entries = [e for e in entries_data.setdefault("data", {}).get("entries", []) if e.get("domain") != "mqtt"]
+    entries_data["data"]["entries"] = entries
+    entries.append({
+        "created_at": "2026-03-01T19:15:08.000000+00:00",
+        "data": {
+            "broker": "ha-test-mqtt",
+            "port": 1883,
+            "discovery": False,
+        },
+        "disabled_by": None,
+        "discovery_keys": {},
+        "domain": "mqtt",
+        "entry_id": "01KJND6VMQTTTESTCONFIGENTRY01",
+        "minor_version": 1,
+        "modified_at": "2026-03-01T19:15:08.000000+00:00",
+        "options": {},
+        "pref_disable_new_entities": False,
+        "pref_disable_polling": False,
+        "source": "user",
+        "subentries": [],
+        "title": "MQTT Test Broker",
+        "unique_id": None,
+        "version": 1,
+    })
     with open(config_entries_file, "w", encoding="utf-8") as f:
         json.dump(entries_data, f, indent=2)
 
     # 4. Modify configuration.yaml in sandbox to optimize for testing
-    config_yaml_file = os.path.join(SANDBOX_DIR, "configuration.yaml")
+    config_yaml_file = os.path.join(target_dir, "configuration.yaml")
     with open(config_yaml_file, "r", encoding="utf-8") as f:
-        config_text = f.read()
+        config_text = stub_commands(f.read())
 
     # Append test optimizations: in-memory sqlite recorder, trusted networks
     test_append = """
@@ -193,10 +256,10 @@ lovelace:
       filename: dashboard_improved.yaml
 
 """
-    with open(config_yaml_file, "a", encoding="utf-8") as f:
-        f.write(test_append)
+    with open(config_yaml_file, "w", encoding="utf-8") as f:
+        f.write(config_text + test_append)
 
-    return SANDBOX_DIR
+    return target_dir
 
 
 def start_containers() -> bool:

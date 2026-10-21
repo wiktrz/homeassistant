@@ -905,12 +905,12 @@ def test_generate_deye_tou_schedule_midday_charge_13_15():
     assert slots[2]["target_soc"] == 90
     assert "Najtańsze Ładowanie" in slots[2]["label"]
 
-    # Slot 4: Pre-peak daytime autokonsumpcja (min_soc + 20 = 40%)
+    # Slot 4: hold the cheap midday charge (max_soc 90%) until the evening peak
     assert slots[3]["slot"] == 4
     assert slots[3]["time"] == "15:00"
     assert slots[3]["grid_charge"] is False
-    assert slots[3]["target_soc"] == 40
-    assert "Autokonsumpcja PV" in slots[3]["label"]
+    assert slots[3]["target_soc"] == 90
+    assert "Hold do Szczytu" in slots[3]["label"]
 
     # Slot 5: 100% peak coverage down to 20%
     assert slots[4]["slot"] == 5
@@ -1506,7 +1506,7 @@ def test_fetch_consolidated_custom_soc_and_battery_model(tmp_path, monkeypatch):
         assert tou_slots[0]["target_soc"] == 25  # Slot 1: morning reserve (15 + 10)
         assert tou_slots[1]["target_soc"] == 15  # Slot 2: min_soc
         assert tou_slots[2]["target_soc"] == 80  # Slot 3: max_soc
-        assert tou_slots[3]["target_soc"] == 35  # Slot 4: pre_peak autokonsumpcja (min_soc 15 + 20)
+        assert tou_slots[3]["target_soc"] == 80  # Slot 4: hold max_soc after the midday charge until the peak
         assert tou_slots[4]["target_soc"] == 15  # Slot 5: evening peak discharge down to min_soc
         assert tou_slots[5]["target_soc"] == 25  # Slot 6: night standby reserve (15 + 10)
 
@@ -2004,7 +2004,9 @@ def test_schedule_morning_sell_window_keeps_evening_peak(pb):
     assert_valid_schedule(slots)
     by_time = {s["time"]: s for s in slots}
     assert by_time["07:00"]["target_soc"] == 20 and not by_time["07:00"]["grid_charge"]
-    assert by_time["10:00"]["target_soc"] == 40  # hold pre-peak reserve after the sale
+    # Night charge: the sale is followed by the evening peak -> keep the pre-peak reserve (40);
+    # midday charge: the sale is followed by a cheap refill at 13:00 -> drain to min (20)
+    assert by_time["10:00"]["target_soc"] == (40 if pb[0] < 7 else 20)
     assert by_time["17:00"]["target_soc"] == 20 and "Szczyt Wieczorny" in by_time["17:00"]["label"]
     charge_m = slot_minutes([s for s in slots if s["grid_charge"]])[0]
     assert charge_m == pb[0] * 60
@@ -2164,6 +2166,9 @@ def test_tou_sync_does_not_double_call_cloud(tmp_path):
 # Code-review round: H1 / M1 / M2 / M3 / M6 / L5 / L7
 # ---------------------------------------------------------------------------
 
+STRETCH_LABELS = ("Czuwanie po Ładowaniu (Hold do Szczytu)", "Autokonsumpcja do Min SOC (przed Ładowaniem)")
+
+
 def _hm(m):
     return f"{(m // 60) % 24:02d}:{m % 60:02d}"
 
@@ -2211,6 +2216,24 @@ def test_schedule_property_all_windows():
                         if not (ss < pe and se > ps):
                             if any(active(h * 60)["target_soc"] != min_soc or active(h * 60)["grid_charge"] for h in range(ss, se)):
                                 failures.append((key, "sell", ts))
+                        # (a) after a charge, until the next peak: hold max; (b) after a peak, until the next charge: min
+                        kinds = [x["role"] for x in slots]
+                        assert all((k == "charge") == x["grid_charge"] for k, x in zip(kinds, slots))
+                        for i, k in enumerate(kinds):
+                            if k in ("charge", "peak"):
+                                continue
+                            # S3: head of the day (no charge/peak earlier today) keeps the branch's own SOC
+                            prevs = [kinds[j] for j in range(i - 1, -1, -1) if kinds[j] in ("charge", "peak")]
+                            if not prevs:
+                                if slots[i]["label"] in STRETCH_LABELS:
+                                    failures.append((key, "head-wrapped", ts))
+                                continue
+                            prev_k = prevs[0]
+                            next_k = next(kinds[(i + j) % 6] for j in range(1, 7) if kinds[(i + j) % 6] in ("charge", "peak"))
+                            if prev_k == "charge" and next_k == "peak" and slots[i]["target_soc"] != top:
+                                failures.append((key, "hold-after-charge", ts, [x["target_soc"] for x in slots]))
+                            if prev_k == "peak" and next_k == "charge" and slots[i]["target_soc"] != min_soc:
+                                failures.append((key, "min-before-charge", ts, [x["target_soc"] for x in slots]))
     assert not failures, f"{len(failures)} failures, e.g. {failures[:5]}"
 
 
@@ -2344,6 +2367,101 @@ def test_m2_total_missing_hours_capped_at_one(strip_end):
         for f in fr:
             f.pop("end")
     assert len(fr) == 24 and pstryk_engine.warsaw_day_covered(fr, dst) is True          # 25h DST day as 24 frames
+
+
+def _sched(slots):
+    return [(s["time"], s["target_soc"], s["grid_charge"]) for s in slots]
+
+
+def test_live_bug_sell_before_charge_holds_after_charge_and_drains_before_charge():
+    """
+    Live repro (min 10, max 90, margins 10/10, sell 06-09, charge 13-15):
+    was 00:00 20 | 06:00 10 | 09:00 20 | 13:00 90 G | 15:00 20 | 17:00 10.
+    (a) 15:00 must hold 90 until the 17:00 peak; (b) 09:00 must be min (next event is a cheap refill);
+    (c) 00:00 keeps the morning reserve before the 06:00 sale.
+    """
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        max_soc=90, min_soc=10, morning_reserve_margin=10, pre_peak_margin=10,
+        best_pb_window={"start": "13:00", "end": "15:00", "duration_hours": 2},
+        best_sell_window={"start": "06:00", "end": "09:00"})
+    assert _sched(slots) == [
+        ("00:00", 20, False), ("06:00", 10, False), ("09:00", 10, False),
+        ("13:00", 90, True), ("15:00", 90, False), ("17:00", 10, False),
+    ]
+
+
+def test_midday_charge_13_15_sell_17_20_holds_max_until_peak():
+    """Most common case: after the 13-15 charge the battery holds max until the 17:00 sell window."""
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        max_soc=90, min_soc=10, morning_reserve_margin=10, pre_peak_margin=10,
+        best_pb_window={"start": "13:00", "end": "15:00", "duration_hours": 2},
+        best_sell_window={"start": "17:00", "end": "20:00"})
+    assert _sched(slots) == [
+        ("00:00", 20, False), ("06:00", 10, False), ("13:00", 90, True),
+        ("15:00", 90, False), ("17:00", 10, False), ("20:00", 20, False),
+    ]
+
+
+def _ref(pb, sell, **kw):
+    hm = lambda h: f"{h % 24:02d}:00"
+    params = dict(max_soc=90, min_soc=10, morning_reserve_margin=10, pre_peak_margin=10)
+    params.update(kw)
+    return pstryk_engine.generate_deye_tou_schedule(
+        best_pb_window={"start": hm(pb[0]), "end": hm(pb[1]), "duration_hours": pb[1] - pb[0]},
+        best_sell_window={"start": hm(sell[0]), "end": hm(sell[1])}, **params)
+
+
+def test_s2_classification_uses_roles_not_labels():
+    """S2: renaming every label (e.g. "Szczyt ..." -> "XSzczyt ...") must not change any target SOC."""
+    import importlib.util
+    src = open(pstryk_engine.__file__, encoding="utf-8").read()
+    renamed_src = src.replace('"Szczyt', '"XSzczyt').replace('f"Szczyt', 'f"XSzczyt')
+    assert renamed_src != src
+    spec = importlib.util.spec_from_loader("pstryk_engine_renamed", loader=None)
+    renamed = importlib.util.module_from_spec(spec)
+    renamed.__file__ = pstryk_engine.__file__
+    exec(compile(renamed_src, pstryk_engine.__file__, "exec"), renamed.__dict__)
+    for pb in [(2, 4), (13, 15), (19, 21), (22, 24), (9, 13)]:
+        for sell in [(6, 9), (7, 10), (12, 15), (17, 20), (21, 24)]:
+            kw = dict(max_soc=90, min_soc=10, morning_reserve_margin=10, pre_peak_margin=10,
+                      best_pb_window={"start": f"{pb[0]:02d}:00", "end": f"{pb[1] % 24:02d}:00", "duration_hours": pb[1] - pb[0]},
+                      best_sell_window={"start": f"{sell[0]:02d}:00", "end": f"{sell[1] % 24:02d}:00"})
+            a = pstryk_engine.generate_deye_tou_schedule(**kw)
+            b = renamed.generate_deye_tou_schedule(**kw)
+            assert [(x["time"], x["target_soc"], x["grid_charge"]) for x in a] == \
+                   [(x["time"], x["target_soc"], x["grid_charge"]) for x in b], (pb, sell)
+            assert any(x["label"].startswith("XSzczyt") for x in b)
+
+
+def test_s1_evening_charge_19_21_reference_schedule():
+    slots = _ref((19, 21), (17, 19))
+    assert _sched(slots) == [
+        ("00:00", 90, False), ("06:00", 20, False), ("10:00", 20, False),
+        ("17:00", 10, False), ("19:00", 90, True), ("21:00", 90, False),
+    ]
+
+
+@pytest.mark.parametrize("pb,sell", [((19, 21), (17, 19)), ((22, 24), (17, 20)), ((20, 24), (17, 20)), ((19, 21), (7, 10))])
+def test_s1_evening_charge_hold_ends_at_morning_boundary(pb, sell):
+    """S1: an evening/late charge is held overnight only until 06:00; 06:00-17:00 stays <= pre-peak reserve."""
+    slots = _ref(pb, sell)
+    assert_valid_schedule(slots)
+    pre_peak = 10 + 10
+    mb = energy_defaults.MORNING_PEAK_START_HOUR * 60
+    mins = slot_minutes(slots)
+    active_at = lambda m: slots[max([i for i, t in enumerate(mins) if t <= m], default=5)]
+    assert active_at(mb)["target_soc"] <= pre_peak
+    for t, sl in zip(mins, slots):
+        if mb <= t < 17 * 60:
+            assert sl["target_soc"] <= pre_peak, (t, sl)
+
+
+def test_s3_late_charge_midnight_slot_is_set_by_branch_not_wrap():
+    """S3: the 00:00 slot of a 22-24 charge comes from the branch itself, not from wrapping 'prev' to today's charge."""
+    s0 = _ref((22, 24), (17, 20))[0]
+    assert s0["time"] == "00:00"
+    assert s0["label"] not in STRETCH_LABELS
+    assert s0["role"] != "charge"
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

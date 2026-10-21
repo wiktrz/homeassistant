@@ -27,7 +27,7 @@ import energy_defaults
 DEFAULT_INVERTER_IP = energy_defaults.DEFAULT_INVERTER_IP
 DEFAULT_INVERTER_PORT = energy_defaults.DEFAULT_INVERTER_PORT
 DEFAULT_TIMEOUT = energy_defaults.DEFAULT_SOCKET_TIMEOUT
-LOCAL_TIME_BUDGET_S = 25.0
+LOCAL_TIME_BUDGET_S = energy_defaults.LOCAL_TIME_BUDGET_S
 CONFIG_FILENAME = ".deye_inverter_config.json"
 CACHE_FILENAME = ".deye_inverter_cache.json"
 CACHE_TTL_SECONDS = energy_defaults.DEYE_CACHE_TTL
@@ -491,7 +491,7 @@ def scan_network_for_inverter(
             if res:
                 candidates.append(res)
 
-    candidates.sort(key=lambda x: (not x.get("solarman_verified", False), x.get("latency_ms", 99999)))
+    candidates.sort(key=lambda x: (not x.get("solarman_verified", False), x.get("latency_ms", energy_defaults.LATENCY_UNREACHABLE_SENTINEL_MS)))
 
     duration = round(time.time() - start_all, 2)
     found = len(candidates) > 0
@@ -913,6 +913,7 @@ def read_inverter_telemetry(
         "slots": [],
     }
     if tou_res["success"] and len(tou_res["registers"]) >= 26:
+        import deye_cloud_client  # lazy: avoids circular import
         r = tou_res["registers"]
         active_tou["enabled"] = bool(r[0])
         # r[0] = 248 (enable), r[1] = 249
@@ -928,14 +929,7 @@ def read_inverter_telemetry(
             power = r[8 + i]
             soc = r[14 + i]
             charge = bool(r[20 + i] & 0x01)
-            if charge:
-                label = "Najtańsze Ładowanie"
-            elif soc >= 80:
-                label = "Czuwanie Przed Szczytem (Hold)"
-            elif soc <= 30:
-                label = "Szczyt Cenowy (Autokonsumpcja)"
-            else:
-                label = "Autokonsumpcja PV"
+            label = deye_cloud_client.tou_slot_label(charge, soc, config.get("min_discharge_soc"), config.get("max_charge_soc"))
             nom_v = float(config.get("nominal_voltage") or energy_defaults.FALLBACK_BATTERY_NOMINAL_VOLTAGE)
             eff_current = int(round(power / nom_v)) if nom_v > 0 else 0
             active_tou["slots"].append({
@@ -1042,8 +1036,8 @@ def sync_tou_schedule(
         mm = int(parts[1]) if len(parts) > 1 else 0
         encoded_time = (hh * 100) + mm
 
-        power = int(slot.get("power_w", slot.get("power", 5000)))
-        target_soc = int(slot.get("target_soc", slot.get("soc", 20)))
+        power = int(slot.get("power_w", slot.get("power", energy_defaults.DEFAULT_TRANSFER_POWER_W)))
+        target_soc = int(slot.get("target_soc", slot.get("soc", energy_defaults.DEFAULT_MIN_SOC)))
         target_soc = max(10, min(100, target_soc))
 
         grid_charge = 1 if slot.get("grid_charge", False) else 0

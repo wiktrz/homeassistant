@@ -35,6 +35,21 @@ DEFAULT_TOKEN_CACHE_FILE = "/tmp/deye_cloud_token.json"
 CACHE_TTL_SECONDS = energy_defaults.DEYE_CACHE_TTL
 
 
+def tou_slot_label(charge: bool, soc: int, min_soc: Any, max_soc: Any) -> str:
+    """Label a TOU slot relative to the configured min/max SOC (falls back to the TOU thresholds when unknown)."""
+    try: lo = int(min_soc)
+    except (ValueError, TypeError): lo = energy_defaults.TOU_DISCHARGE_SOC_THRESHOLD
+    try: hi = int(max_soc)
+    except (ValueError, TypeError): hi = energy_defaults.TOU_HOLD_SOC_THRESHOLD
+    if charge:
+        return "Najtańsze Ładowanie"
+    if soc >= hi - energy_defaults.TOU_LABEL_SOC_TOLERANCE:
+        return "Czuwanie Przed Szczytem (Hold)"
+    if soc <= lo + energy_defaults.TOU_LABEL_SOC_TOLERANCE:
+        return "Szczyt Cenowy (Autokonsumpcja)"
+    return "Rezerwa Przed Szczytem"
+
+
 def hash_deye_password(pwd: Optional[str]) -> Optional[str]:
     """Ensures password is lower-case SHA256 hashed as required by Deye OpenAPI specification."""
     if not pwd:
@@ -314,7 +329,7 @@ def read_inverter_telemetry(
         dev_list = res_dev.get("deviceDataList", [])
         if dev_list and isinstance(dev_list, list):
             item = dev_list[0]
-            telemetry_data["device_state"] = item.get("deviceState", 1)
+            telemetry_data["device_state"] = item.get("deviceState", energy_defaults.DEVICE_STATE_ONLINE)
             raw_data_list = item.get("dataList", [])
             # Map key-value pairs
             kv: Dict[str, Any] = {}
@@ -475,16 +490,9 @@ def read_inverter_telemetry(
             else:
                 time_str = t_raw
             charge = bool(itm.get("enableGridCharge", False))
-            soc = itm.get("soc", 20)
-            if charge:
-                label = "Najtańsze Ładowanie"
-            elif soc >= 80:
-                label = "Czuwanie Przed Szczytem (Hold)"
-            elif soc <= 30:
-                label = "Szczyt Cenowy (Autokonsumpcja)"
-            else:
-                label = "Autokonsumpcja PV"
-            pwr = int(itm.get("power", 5000))
+            soc = itm.get("soc", energy_defaults.DEFAULT_MIN_SOC)
+            label = tou_slot_label(charge, soc, config_data.get("min_discharge_soc"), config_data.get("max_charge_soc"))
+            pwr = int(itm.get("power", energy_defaults.DEFAULT_TRANSFER_POWER_W))
             nom_v = float(config_data.get("nominal_voltage") or energy_defaults.FALLBACK_BATTERY_NOMINAL_VOLTAGE)
             eff_current = int(round(pwr / nom_v)) if nom_v > 0 else 0
             active_tou["slots"].append({
@@ -605,12 +613,12 @@ def sync_tou_schedule(
 
         formatted_items.append({
             "time": formatted_time,
-            "power": int(s.get("power_w", s.get("power", 5000))),
-            "soc": int(s.get("target_soc", s.get("soc", 20))),
+            "power": int(s.get("power_w", s.get("power", energy_defaults.DEFAULT_TRANSFER_POWER_W))),
+            "soc": int(s.get("target_soc", s.get("soc", energy_defaults.DEFAULT_MIN_SOC))),
             "enableGridCharge": bool(s.get("grid_charge", False)),
             "enableGeneration": False,
             "enableSell": False,
-            "voltage": int(s.get("voltage", 49)),
+            "voltage": int(s.get("voltage", energy_defaults.FALLBACK_BATTERY_NOMINAL_VOLTAGE)),
         })
 
     payload = {

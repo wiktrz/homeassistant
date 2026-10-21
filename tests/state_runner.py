@@ -20,7 +20,7 @@ import yaml
 from typing import Dict, Any, List, Optional, Tuple
 
 sys.path.insert(0, os.path.dirname(__file__))
-from sandbox import generate_test_token
+from sandbox import generate_test_token, SANDBOX_DIR, STUB_RC_FILE
 
 
 class HomeAssistantClient:
@@ -94,6 +94,11 @@ def execute_scenario(scenario_path: str, client: HomeAssistantClient) -> Tuple[b
 
     # 1. Setup Preconditions
     pre = doc.get("preconditions", {})
+
+    # Exit code of the hermetic command stub (/config/.test_stub_rc), reset to 0 per scenario
+    if os.path.isdir(SANDBOX_DIR):
+        with open(os.path.join(SANDBOX_DIR, STUB_RC_FILE), "w", encoding="utf-8") as f:
+            f.write(str(int(pre.get("stub_rc", 0))))
     entities_to_mock = pre.get("entities", {})
     for entity_id, val in entities_to_mock.items():
         if isinstance(val, dict):
