@@ -72,7 +72,6 @@ def test_energy_defaults_module_loads_correctly():
     assert ed.DEFAULT_MIN_SOC == 20
     assert ed.DEFAULT_SHUTDOWN_SOC == 5
     assert ed.DEFAULT_CURRENT_SOC == 85
-    assert ed.DEFAULT_MORNING_RESERVE_MARGIN == 10
     assert ed.DEFAULT_PRE_PEAK_MARGIN == 20
     assert ed.DEFAULT_LOSS_BUFFER_PCT == 10.0
 

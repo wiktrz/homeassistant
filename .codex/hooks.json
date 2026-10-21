@@ -1,0 +1,49 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 '/Users/wtrzonkowski/Desktop/private/homeassistant/.codex/hooks/guard.py' pre-bash",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 '/Users/wtrzonkowski/Desktop/private/homeassistant/.codex/hooks/guard.py' post-edit",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 '/Users/wtrzonkowski/Desktop/private/homeassistant/.codex/hooks/guard.py' post-bash",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 '/Users/wtrzonkowski/Desktop/private/homeassistant/.codex/hooks/guard.py' stop",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

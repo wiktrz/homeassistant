@@ -1,0 +1,316 @@
+{
+  "frames": [
+    {
+      "start": "2026-10-21T22:00:00Z",
+      "end": "2026-10-21T23:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.3171,
+          "price_gross": 1.62,
+          "sell_price_net": 1.1195,
+          "sell_price_gross": 1.377
+        }
+      }
+    },
+    {
+      "start": "2026-10-21T23:00:00Z",
+      "end": "2026-10-22T00:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.2846,
+          "price_gross": 1.58,
+          "sell_price_net": 1.0919,
+          "sell_price_gross": 1.343
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T00:00:00Z",
+      "end": "2026-10-22T01:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 0.9106,
+          "price_gross": 1.12,
+          "sell_price_net": 0.774,
+          "sell_price_gross": 0.952
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T01:00:00Z",
+      "end": "2026-10-22T02:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 0.7317,
+          "price_gross": 0.9,
+          "sell_price_net": 0.6219,
+          "sell_price_gross": 0.765
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T02:00:00Z",
+      "end": "2026-10-22T03:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 0.6992,
+          "price_gross": 0.86,
+          "sell_price_net": 0.5943,
+          "sell_price_gross": 0.731
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T03:00:00Z",
+      "end": "2026-10-22T04:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 0.7398,
+          "price_gross": 0.91,
+          "sell_price_net": 0.6288,
+          "sell_price_gross": 0.7735
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T04:00:00Z",
+      "end": "2026-10-22T05:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.252,
+          "price_gross": 1.54,
+          "sell_price_net": 1.0642,
+          "sell_price_gross": 1.309
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T05:00:00Z",
+      "end": "2026-10-22T06:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.5122,
+          "price_gross": 1.86,
+          "sell_price_net": 1.2854,
+          "sell_price_gross": 1.581
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T06:00:00Z",
+      "end": "2026-10-22T07:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.4634,
+          "price_gross": 1.8,
+          "sell_price_net": 1.2439,
+          "sell_price_gross": 1.53
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T07:00:00Z",
+      "end": "2026-10-22T08:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.4065,
+          "price_gross": 1.73,
+          "sell_price_net": 1.1955,
+          "sell_price_gross": 1.4705
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T08:00:00Z",
+      "end": "2026-10-22T09:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.3008,
+          "price_gross": 1.6,
+          "sell_price_net": 1.1057,
+          "sell_price_gross": 1.36
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T09:00:00Z",
+      "end": "2026-10-22T10:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.1382,
+          "price_gross": 1.4,
+          "sell_price_net": 0.9675,
+          "sell_price_gross": 1.19
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T10:00:00Z",
+      "end": "2026-10-22T11:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.0813,
+          "price_gross": 1.33,
+          "sell_price_net": 0.9191,
+          "sell_price_gross": 1.1305
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T11:00:00Z",
+      "end": "2026-10-22T12:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.0976,
+          "price_gross": 1.35,
+          "sell_price_net": 0.933,
+          "sell_price_gross": 1.1475
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T12:00:00Z",
+      "end": "2026-10-22T13:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.1789,
+          "price_gross": 1.45,
+          "sell_price_net": 1.0021,
+          "sell_price_gross": 1.2325
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T13:00:00Z",
+      "end": "2026-10-22T14:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.3171,
+          "price_gross": 1.62,
+          "sell_price_net": 1.1195,
+          "sell_price_gross": 1.377
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T14:00:00Z",
+      "end": "2026-10-22T15:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.4634,
+          "price_gross": 1.8,
+          "sell_price_net": 1.2439,
+          "sell_price_gross": 1.53
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T15:00:00Z",
+      "end": "2026-10-22T16:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.5854,
+          "price_gross": 1.95,
+          "sell_price_net": 1.3476,
+          "sell_price_gross": 1.6575
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T16:00:00Z",
+      "end": "2026-10-22T17:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.6748,
+          "price_gross": 2.06,
+          "sell_price_net": 1.4236,
+          "sell_price_gross": 1.751
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T17:00:00Z",
+      "end": "2026-10-22T18:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.6341,
+          "price_gross": 2.01,
+          "sell_price_net": 1.389,
+          "sell_price_gross": 1.7085
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T18:00:00Z",
+      "end": "2026-10-22T19:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.5041,
+          "price_gross": 1.85,
+          "sell_price_net": 1.2785,
+          "sell_price_gross": 1.5725
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T19:00:00Z",
+      "end": "2026-10-22T20:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 1.1789,
+          "price_gross": 1.45,
+          "sell_price_net": 1.0021,
+          "sell_price_gross": 1.2325
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T20:00:00Z",
+      "end": "2026-10-22T21:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 0.9024,
+          "price_gross": 1.11,
+          "sell_price_net": 0.767,
+          "sell_price_gross": 0.9435
+        }
+      }
+    },
+    {
+      "start": "2026-10-22T21:00:00Z",
+      "end": "2026-10-22T22:00:00Z",
+      "is_live": false,
+      "metrics": {
+        "pricing": {
+          "price_net": 0.935,
+          "price_gross": 1.15,
+          "sell_price_net": 0.7948,
+          "sell_price_gross": 0.9775
+        }
+      }
+    }
+  ]
+}

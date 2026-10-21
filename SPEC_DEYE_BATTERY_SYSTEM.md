@@ -22,11 +22,11 @@ Hardware parameters of the battery storage system must **NEVER** be hardcoded an
 - **Continuous Enforcement:** Continuously verified and blocked by pytest invariant `tests/invariants/test_safety_rules.py::test_no_hardcoded_battery_parameters`.
 
 ### 1.2 Hardware Register Safety & Control Policy
-- **Dynamic Register 108 Modulation:** Modbus Holding Register `108` (`REG_MAX_CHARGE_CURRENT`) is written by `pstryk_engine.py` (`check_and_apply_charge_current_modulation`) to control charging speed. The base is always the 100A ceiling (hard cap `min(100, env)`), never the live register value:
-  * Inside a grid-charge window: $I_{\text{target}} = \max(20\text{A}, \operatorname{round}(I_{\text{base}} \times (2 / T)))$ (e.g. 50A for a 4h window, 67A for 3h, 100A for 2h).
-  * Outside a window, 05:00-19:00 (`REG108_DAYTIME_START_HOUR`..`REG108_EVENING_PRESET_HOUR`): 100A (PV charges at full rate).
-  * After today's window and before 19:00: 100A; from 19:00 the next cycle's target is pre-set.
-  * Between 00:00 and the start of today's window: today's window target.
+- **Dynamic Register 108 Modulation:** Modbus Holding Register `108` (`REG_MAX_CHARGE_CURRENT`) is written by `pstryk_engine.py` (`check_and_apply_charge_current_modulation`). The base is always the 100A ceiling (hard cap `min(100, env)`), never the live register value:
+  * Inside a charge window: $I_{\text{target}} = \operatorname{clamp}(\operatorname{round}(I_{\text{base}} \times N / T), I_{\text{floor}}, I_{\text{base}})$, where $N$ is the charge-window length in hours and $T$ the window length.
+  * Outside all windows: 100A baseline.
+  * After today's last window: the next cycle's target when known, otherwise 100A.
+  * Before today's first window: its target is pre-set.
   * `--restore-charge-current` restores 100A. Writes are idempotent (only when the value differs), minimizing EEPROM cycles.
 - **Registers 109 and 112 Never Written:** Reg `109` (Max Discharge Current, 140A) and Reg `112` (Max Charge SOC; the HA slider `input_number.deye_battery_max_charge_soc` is the source of truth) are never written by software.
 - **Registers 110 and 111 Confirm-Only:** Reg `110` (Min Discharge SOC) and Reg `111` (Shutdown SOC) are written only via the 2-step Confirm button (`script.confirm_and_apply_deye_battery_settings`).
@@ -99,22 +99,20 @@ To protect the Deye Wi-Fi logger and SD card / flash storage, all Deye reads imp
 **Stretch rule** for `reserve`/`other` slots, based on the nearest charge/peak before and after:
 - between a charge and the next peak: hold Max SOC;
 - between a peak and the next charge: Min SOC;
-- between two peaks: keep the branch reserve (morning reserve $\min(\text{max\_soc}, \text{min\_soc} + \text{margin})$, default +10%, or pre-peak $\min(\text{max\_soc}, \text{min\_soc} + \text{pre\_peak\_margin})$).
+- between two peaks: hold the level the previous peak left (the pre-peak reserve $\min(\text{max\_soc}, \text{min\_soc} + \text{pre\_peak\_margin})$ when a higher-ranked peak follows).
 - "Previous" does not wrap past 00:00; "next" may wrap to today's first events.
 
 **Dynamic Peak & Charging Placement (Zero Hardcoded Boundaries, Strictly No-PV):**
 The installation is strictly a No-PV battery storage system. There are no fixed clock boundaries (`06:00`, `10:00`, `12:00`, `17:00`) or "PV refill" heuristics. All slot start times and durations adapt dynamically to market prices:
 - **Discharge Peak Ranking:** Driven strictly by gross retail buy price (`price_gross`), NOT prosumer sell price (`price_prosumer_gross`), because zero-export self-consumption (`enableSell: false`) is enforced.
-- **Dynamic Dual Peaks:** When 2 distinct price peaks are separated by $\ge 2$ hours, Peak 1 discharges down to `pre_peak_soc`, the intervening valley holds reserve on grid power, and Peak 2 discharges fully down to `safe_min_soc`.
-- **Dynamic Charging Duration:** Derived dynamically by `determine_dynamic_charge_hours` from current SOC, target SOC, and pack capacity without hardcoded weekday limits.
+- **Peak Structure:** Peaks are the hours at or above the Warsaw day-mean gross price (`analyse_day_price_profile`); see the Pre-Peak rule in AGENT.md / AGENTS.md for the reserve held before a higher-ranked peak.
+- **Charging Window:** One grid-charge window per day, with no weekday/weekend rules. N = max(`CHARGE_WINDOW_MIN_HOURS` (.env, default 2), ceil(energy need / (ceiling A × V / 1000))), energy need = (max_soc − SOC)/100 × capacity × (1 + loss%). It is the cheapest contiguous N-hour block inside a price valley; it stretches by one adjacent hour only if that hour is in the same valley, priced at or below the valley mean, and the resulting current stays ≥ `BATTERY_CHARGE_CURRENT_MIN_FLOOR_A` (.env, 20 A).
 
-Reference schedules (min 10, max 90, margins 10; `G` = grid charge):
+Example output for one price day (not a rule), 22.10 fixture, 10.24 kWh pack, SOC 20→90 (`G` = grid charge):
 
-| Charge / Peak window | Schedule |
+| Example | Schedule |
 |:---|:---|
-| 13-15 / 06-09 | `00:00 20 \| 06:00 10 \| 09:00 10 \| 13:00 90G \| 15:00 90 \| 17:00 10` |
-| 13-15 / 17-20 | `00:00 20 \| 06:00 10 \| 13:00 90G \| 15:00 90 \| 17:00 10 \| 20:00 10` |
-| 19-21 / 17-19 | `00:00 90 \| 08:00 20 \| 12:00 20 \| 17:00 10 \| 19:00 90G \| 21:00 90` |
+| 22.10 fixture (SOC 20→90) | `03:00–06:00 67A grid charge · 06:00–15:00 peak to pre-peak reserve · 15:00–21:00 peak to min SOC · 21:00 standby` |
 
 **Price coverage:** TOU is neither written nor cached unless the Europe/Warsaw day is covered (`warsaw_day_covered()`: first frame at/before 00:00, last end at/after the next 00:00, at most 1h (`PRICE_COVERAGE_MAX_MISSING_HOURS`) missing in total; handles DST days returned as 24 frames). The cache stores `_warsaw_date` and target hours and is reused only on a match.
 
@@ -130,10 +128,10 @@ Reference schedules (min 10, max 90, margins 10; `G` = grid charge):
 
 2. **Charging Current Modulation via Register 108 (`Max A Charge`):**
    Charging speed when grid charging is active is governed by Modbus Holding Register 108 (and OpenAPI `/order/battery/parameter/update`):
-   - When charging window duration $T$ extends beyond 2 hours (e.g. 4h on weekends), charging current is modulated down to distribute charging across the entire low-price window:
-     $$I_{\text{target}} = \max\left(20\text{ A}, \min\left(I_{\text{base}}, \operatorname{round}\left(I_{\text{base}} \times \frac{2}{T}\right)\right)\right)$$
+   - Current scales with the window length: $I = \operatorname{round}(I_{\text{base}} \times N / T)$, clamped to [floor, ceiling] (N = charge hours, T = window length).
+     $$I_{\text{target}} = \max\left(I_{\text{floor}}, \min\left(I_{\text{base}}, \operatorname{round}\left(I_{\text{base}} \times \frac{N}{T}\right)\right)\right)$$
      (e.g., $100\text{A} \times (2 / 4) = \mathbf{50\text{ A}}$ for a 4h window; $100\text{A} \times (2 / 3) = \mathbf{67\text{ A}}$ for a 3h window; $100\text{A}$ for a 2h window).
-   - `check_and_apply_charge_current_modulation()` applies $I_{\text{target}}$ inside the window, keeps $I_{\text{base}}$ (100A) during 05:00-19:00 outside the window, and from 19:00 (after today's window) pre-sets the next cycle's target; between 00:00 and the window start it holds today's window target.
+   - `check_and_apply_charge_current_modulation()` applies $I_{\text{target}}$ inside the window; before today's first window it pre-sets that target; after today's last window it applies the next cycle's target when known; otherwise the 100A ceiling.
    - Writes are strictly idempotent (executed only when the active register value differs from target), protecting EEPROM memory.
 3. **Peak Slot Power:** peak slots stay at full base power $P_{\text{base}}$ (7170W) down to `min_soc`.
 
@@ -156,7 +154,6 @@ Triggered via `script.start_deye_battery_calibration` (flag `input_boolean.deye_
 | Max Charge Current (`max_charge_current`) | Hardware Spec | Read-Only sensor (`sensor.deye_inverter_max_charge_current`); Reg 108 written only by engine modulation (100A ceiling) | N/A (not user-editable) |
 | Max Discharge Current (`max_discharge_current`) | Hardware Spec | Read-Only (`sensor.deye_inverter_max_discharge_current`) | N/A (writes blocked) |
 | Max Charge Level (`deye_battery_max_charge_soc`) | TOU Dispatch | Active Slider (50–100%, default 90%) | No (safe operational dispatch) |
-| Morning Reserve Margin (`deye_morning_reserve_margin_pct`) | TOU Dispatch | Active Slider (0–30%, default 10%) | No (safe operational dispatch) |
 | Min Discharge SOC (`deye_battery_min_discharge_soc`) | Safety Limit | Active Slider (10–50%, default 20%) | **YES (2-Step Process)** |
 | Shutdown SOC (`deye_battery_shutdown_soc`) | Safety Limit | Active Slider (0–30%, default 5%) | **YES (2-Step Process)** |
 

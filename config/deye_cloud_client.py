@@ -865,7 +865,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                 min_soc=cfg_data.get("min_discharge_soc"),
                 best_pb_window=pb_win,
                 best_sell_window=sell_win,
+                best_discharge_windows=pstryk_data.get("best_discharge_windows"),
+                pricing_data=pstryk_engine.warsaw_day_pricing(pstryk_data),
             )
+            if not slots:
+                print(json.dumps({"success": False, "error": "No Pstryk price data to derive the TOU schedule; nothing written"}, indent=2))
+                return 1
 
             res = sync_tou_schedule(slots, cfg=cfg)
             res["generated_slots"] = slots

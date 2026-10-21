@@ -13,7 +13,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-21T11:45:12.918496'
+  last_verified: '2026-10-21T22:21:52.325496'
 - id: test_salon_cinema_mode_on_night
   area: salon
   file: scenarios/salon/test_cinema_mode.yaml
@@ -27,7 +27,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-21T11:45:14.969508'
+  last_verified: '2026-10-21T22:21:54.352035'
 - id: test_kitchen_island_light_state
   area: kuchnia
   file: scenarios/kuchnia/test_kitchen_island_light.yaml
@@ -40,7 +40,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-07T17:26:16.440959'
+  last_verified: '2026-10-21T22:21:55.364438'
 - id: test_local01_heating_routine_selection
   area: termostaty
   file: scenarios/termostaty/test_local01_heating_routine.yaml
@@ -80,7 +80,7 @@ tests:
   - safety
   - regression
   status: active
-  last_verified: '2026-10-21T11:45:19.580052'
+  last_verified: '2026-10-21T22:21:56.884821'
 - id: test_pstryk_price_meter_dol_state
   area: pstryk
   file: scenarios/pstryk/test_energy_price_sensor.yaml
@@ -93,7 +93,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-21T11:45:20.598923'
+  last_verified: '2026-10-21T22:21:57.907411'
 - id: test_radio_volume_up_execution
   area: multimedia
   file: scenarios/multimedia/test_radio_volume_up.yaml
@@ -105,7 +105,7 @@ tests:
   - script
   - regression
   status: active
-  last_verified: '2026-10-21T11:45:22.117579'
+  last_verified: '2026-10-21T22:21:59.421470'
 - id: test_radio_station_switch_playing
   area: multimedia
   file: scenarios/multimedia/test_radio_station_switch_playing.yaml
@@ -119,7 +119,7 @@ tests:
   - alias
   - regression
   status: active
-  last_verified: '2026-10-21T11:45:23.646649'
+  last_verified: '2026-10-21T22:22:00.959264'
 - id: test_pstryk_engine_unit_suite
   area: pstryk
   file: unit/test_pstryk_engine.py
@@ -147,7 +147,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-21T11:45:25.183514'
+  last_verified: '2026-10-21T22:22:02.496006'
 - id: test_solar_engine_unit_suite
   area: solar
   file: unit/test_solar_engine.py
@@ -246,7 +246,7 @@ tests:
   - sync
   - regression
   status: active
-  last_verified: '2026-10-21T11:45:27.716827'
+  last_verified: '2026-10-21T22:22:05.013216'
 - id: test_deye_tou_sync_success
   area: deye
   file: scenarios/deye/test_deye_tou_sync_success.yaml
@@ -259,7 +259,7 @@ tests:
   - stub
   - regression
   status: active
-  last_verified: '2026-10-21T11:45:32.244960'
+  last_verified: '2026-10-21T22:22:09.536616'
 - id: test_deye_tou_sync_failure
   area: deye
   file: scenarios/deye/test_deye_tou_sync_failure.yaml
@@ -272,4 +272,4 @@ tests:
   - stub
   - regression
   status: active
-  last_verified: '2026-10-21T11:45:36.771006'
+  last_verified: '2026-10-21T22:22:14.052216'

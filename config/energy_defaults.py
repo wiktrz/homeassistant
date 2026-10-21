@@ -126,6 +126,10 @@ FALLBACK_BATTERY_MAX_CHARGE_CURRENT = get_default_float(
 )
 # Hard safety cap for Reg 108 (Max A Charge): never above 100 A, even if .env/env configures more
 BATTERY_CHARGE_CURRENT_MAX_CEILING_A = min(100.0, FALLBACK_BATTERY_MAX_CHARGE_CURRENT)
+# Lowest Reg 108 charge current the TOU charge-window stretch / modulation may set (hardware floor)
+BATTERY_CHARGE_CURRENT_MIN_FLOOR_A = get_default_float("BATTERY_CHARGE_CURRENT_MIN_FLOOR_A")
+# User minimum TOU grid-charge window length in hours (N = max(energy need, this))
+CHARGE_WINDOW_MIN_HOURS = get_default_int("CHARGE_WINDOW_MIN_HOURS")
 FALLBACK_BATTERY_MAX_DISCHARGE_CURRENT = get_default_float(
     "BATTERY_MAX_DISCHARGE_CURRENT", alias="BATTERY_DISCHARGE_CURRENT_A"
 )
@@ -143,7 +147,6 @@ DEFAULT_MAX_SOC = get_default_int("DEYE_DEFAULT_MAX_SOC")
 DEFAULT_MIN_SOC = get_default_int("DEYE_DEFAULT_MIN_SOC")
 DEFAULT_SHUTDOWN_SOC = get_default_int("DEYE_DEFAULT_SHUTDOWN_SOC")
 DEFAULT_CURRENT_SOC = get_default_int("DEYE_DEFAULT_CURRENT_SOC")
-DEFAULT_MORNING_RESERVE_MARGIN = get_default_int("DEYE_DEFAULT_MORNING_RESERVE_MARGIN")
 DEFAULT_PRE_PEAK_MARGIN = get_default_int("DEYE_DEFAULT_PRE_PEAK_MARGIN")
 DEFAULT_LOSS_BUFFER_PCT = get_default_float("DEYE_DEFAULT_LOSS_BUFFER_PCT")
 
@@ -167,14 +170,10 @@ DEFAULT_HOURS_AHEAD = 48
 DEFAULT_INSTALLATION = "dol"
 DEFAULT_HTTP_TIMEOUT = get_default_int("PSTRYK_HTTP_TIMEOUT")
 VAT_MULTIPLIER = get_default_float("ENERGY_VAT_RATE")
-PRICE_EXPANSION_TOLERANCE = 0.05
-PRICE_EXPANSION_EPSILON = 0.01
 
 # --- 7. Window Durations ---
 EV_WINDOW_WEEKDAY_HOURS = 2
 EV_WINDOW_WEEKEND_HOURS = 4
-PB_BASE_HOURS = 2
-PB_MAX_WEEKEND_HOURS = 5
 SELL_TARGET_HOURS = 3
 # Max total price-frame holes (hours) tolerated by warsaw_day_covered
 PRICE_COVERAGE_MAX_MISSING_HOURS = 1
@@ -189,4 +188,5 @@ LATENCY_UNREACHABLE_SENTINEL_MS = 99999
 TOU_HOLD_SOC_THRESHOLD = 80
 TOU_DISCHARGE_SOC_THRESHOLD = 30
 TOU_POWER_DIFF_TOLERANCE_W = 50
+TOU_SLOT_COUNT = 6  # Deye hybrid inverters expose exactly 6 TOU slots (regs 248..273)
 TOU_LABEL_SOC_TOLERANCE = 1  # SOC % margin around min/max when labelling a TOU slot

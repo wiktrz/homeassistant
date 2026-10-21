@@ -9,6 +9,7 @@ unverified PV refill assumptions.
 
 import ast
 import os
+import re
 import pytest
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -178,6 +179,90 @@ def test_no_pv_refill_assumptions_in_tou_logic():
         "PV refill assumptions found in TOU schedule logic:\n"
         + "\n".join(violations)
     )
+
+
+TOU_FUNCTIONS = (
+    "find_powerbank_best_window",
+    "analyse_day_price_profile",
+    "generate_deye_tou_schedule",
+    "check_and_apply_charge_current_modulation",
+    "find_best_discharge_windows",
+)
+# Unit-conversion / structural ints: 0, 1, -1 (indices), 60 (min/h), 1440 (min/day), 24 (h/day), 2 (only in comparisons,
+# e.g. len(x) == 2). 100 and 1000 are accepted ONLY as the right operand of a division (percent -> fraction, W -> kW).
+ALLOWED_INTS = {0, 1, -1, 24, 60, 1440}
+ALLOWED_COMPARE_INTS = ALLOWED_INTS | {2}
+ALLOWED_DIVISORS = {100, 1000}
+ALLOWED_FLOAT_ADDENDS = {0.0, 1.0}
+HHMM_RE = re.compile(r"^\d{1,2}:\d{2}$")
+WEEKDAY_NAMES = {"weekday", "isoweekday", "tm_wday", "wday"}
+
+
+def _is_int(node):
+    return isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool)
+
+
+def _tou_function_violations(fn):
+    """AST violations inside one TOU function (see ALLOWED_* above)."""
+    found = []
+    for node in ast.walk(fn):
+        line = getattr(node, "lineno", fn.lineno)
+        if isinstance(node, ast.Compare):
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Constant) and isinstance(sub.value, str) and HHMM_RE.match(sub.value):
+                    found.append(f"{fn.name}:{line} 'HH:MM' constant {sub.value!r} in comparison")
+            for operand in [node.left, *node.comparators]:
+                for sub in ast.walk(operand):
+                    if _is_int(sub) and sub.value not in ALLOWED_COMPARE_INTS:
+                        found.append(f"{fn.name}:{line} integer literal {sub.value} in comparison")
+        elif isinstance(node, ast.BinOp):
+            for side, operand in (("left", node.left), ("right", node.right)):
+                if _is_int(operand) and operand.value not in ALLOWED_INTS:
+                    divisor_ok = (
+                        side == "right" and isinstance(node.op, (ast.Div, ast.FloorDiv)) and operand.value in ALLOWED_DIVISORS
+                    )
+                    if not divisor_ok:
+                        found.append(f"{fn.name}:{line} integer literal {operand.value} in arithmetic")
+                if (
+                    isinstance(node.op, (ast.Add, ast.Sub)) and isinstance(operand, ast.Constant)
+                    and isinstance(operand.value, float) and operand.value not in ALLOWED_FLOAT_ADDENDS
+                ):
+                    found.append(f"{fn.name}:{line} float literal {operand.value} added to a price")
+        if isinstance(node, ast.Attribute) and node.attr in WEEKDAY_NAMES:
+            found.append(f"{fn.name}:{line} weekday dependence '.{node.attr}'")
+        elif isinstance(node, ast.Name) and node.id in WEEKDAY_NAMES:
+            found.append(f"{fn.name}:{line} weekday dependence '{node.id}'")
+    return found
+
+
+def test_tou_functions_have_no_clock_duration_weekday_or_tolerance_literals():
+    """
+    INVARIANT (Rule 12): every TOU/dispatch function is data-derived.
+    Fails on 'HH:MM' constants in comparisons, integer literals (other than unit conversions) in comparisons or
+    arithmetic (e.g. 480, 1140, 180, 240, `// 2`, a literal 100 A), weekday()/tm_wday/wday and float tolerances
+    added to prices (e.g. `+ 0.05`). Functions that do not exist yet are skipped.
+    """
+    pstryk_path = os.path.join(CONFIG_DIR, "pstryk_engine.py")
+    with open(pstryk_path, "r", encoding="utf-8") as f:
+        tree = ast.parse(f.read(), filename=pstryk_path)
+    functions = {n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name in TOU_FUNCTIONS}
+    violations = [v for name in TOU_FUNCTIONS if name in functions for v in _tou_function_violations(functions[name])]
+    assert not violations, "Hardcoded heuristics in TOU functions:\n" + "\n".join(violations)
+
+
+def test_invariant_scanner_detects_planted_heuristics():
+    """Self-check: the scanner flags each forbidden pattern and accepts unit conversions."""
+    bad = ast.parse(
+        "def f(x, d, p, now_m):\n"
+        "    if x == '06:00' or now_m >= 1140: pass\n"
+        "    a = p_start // 2\n"
+        "    b = d.weekday() + 180\n"
+        "    c = p + 0.05\n"
+        "    e = 100 * 2 / t\n"
+    ).body[0]
+    assert len(_tou_function_violations(bad)) >= 6
+    good = ast.parse("def f(a, b):\n    m = a * 60 + 1\n    return b / 100.0 + 1.0 if len(a) == 2 and m < 1440 else (b / 1000)\n").body[0]
+    assert _tou_function_violations(good) == []
 
 
 if __name__ == "__main__":

@@ -305,7 +305,10 @@ def test_tou_zero_grid_export_and_no_generation(monkeypatch):
     # 2. Test with standard generated schedule from pstryk_engine
     try:
         import pstryk_engine
-        gen_slots = pstryk_engine.generate_deye_tou_schedule()
+        # TOU is only generated from price-derived input (charge + peak windows); without it nothing is written
+        assert pstryk_engine.generate_deye_tou_schedule() is None
+        gen_slots = pstryk_engine.generate_deye_tou_schedule(
+            best_pb_window={"start": "02:00", "end": "04:00"}, best_sell_window={"start": "17:00", "end": "21:00"})
         for idx, s in enumerate(gen_slots, 1):
             assert s.get("enableSell", False) is False, f"Generated slot {idx} has enableSell=True"
             assert s.get("enableGeneration", False) is False, f"Generated slot {idx} has enableGeneration=True"
