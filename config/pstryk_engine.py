@@ -38,6 +38,48 @@ CACHE_TTL_SECONDS = int(energy_defaults.PSTRYK_CACHE_TTL)
 DEFAULT_CACHE_DIR = "/tmp"
 
 
+def parse_target_hours(value: Any, default: Any) -> Any:
+    """
+    Parses a target-hours setting as passed from HA input_select ("3h", "Auto 2h/4h") or CLI ("3", "auto").
+    Returns "auto" for values starting with "auto" when default is "auto", else a positive int (fallback: default).
+    """
+    s = str(value).strip() if value is not None else ""
+    digits = ""
+    for ch in s:
+        if not ch.isdigit():
+            break
+        digits += ch
+    if digits and int(digits) > 0:
+        return int(digits)
+    return default
+
+
+def set_charge_current_with_fallback(host: Optional[str], port: Optional[int], current_a: int) -> Dict[str, Any]:
+    """
+    Writes Reg 108 via the local Solarman client; falls back to Deye Cloud only when the local client
+    is unavailable/raised, or explicitly reports cloud_attempted=False. solarman_v5_client.set_charge_current
+    already tries the cloud internally on failure, so a plain success=False is not retried (cloud at most once).
+    """
+    res: Dict[str, Any] = {"success": False, "error": "solarman_v5_client module not available", "cloud_attempted": False}
+    if solarman_v5_client is not None:
+        try:
+            res = solarman_v5_client.set_charge_current(host=host, port=port, current_a=current_a)
+        except Exception as e:
+            res = {"success": False, "error": str(e), "cloud_attempted": False}
+    if not isinstance(res, dict):
+        res = {"success": False, "error": f"Unexpected response: {res!r}", "cloud_attempted": False}
+    if not res.get("success") and res.get("cloud_attempted", True) is False:
+        try:
+            import deye_cloud_client
+            cloud_res = deye_cloud_client.set_charge_current_cloud(current_a=current_a)
+            if isinstance(cloud_res, dict):
+                cloud_res["local_fallback_reason"] = res.get("error")
+                res = cloud_res
+        except Exception as e:
+            res["cloud_error"] = str(e)
+    return res
+
+
 def load_dotenv(paths: Optional[List[str]] = None) -> None:
     """Zero-dependency .env file loader for environment configuration."""
     if paths is None:
@@ -807,12 +849,12 @@ def find_ev_best_window(
     if not valid_frames:
         return {"error": "No valid pricing frames"}
 
-    ref_dt = now_dt or datetime.now(timezone.utc)
+    ref_dt = now_dt or datetime.now(WARSAW_TZ)
     if target_hours == "auto" or target_hours is None:
         first_start = valid_frames[0].get("start")
         if first_start:
             try:
-                frame_dt = datetime.fromisoformat(first_start.replace("Z", "+00:00"))
+                frame_dt = datetime.fromisoformat(first_start.replace("Z", "+00:00")).astimezone(WARSAW_TZ)
                 wday = frame_dt.weekday()
             except Exception:
                 wday = ref_dt.weekday()
@@ -1214,7 +1256,8 @@ def generate_deye_tou_schedule(
         pb_start_m = to_minutes(pb_start_str, 780)
         pb_end_m = to_minutes(pb_end_str, 900)
         if pb_end_m <= pb_start_m:
-            pb_end_m = pb_start_m + 120
+            # "00:00" end means 24:00 (window ending at midnight); equal times fall back to a 2h window
+            pb_end_m = pb_end_m + 1440 if pb_end_m < pb_start_m else pb_start_m + 120
 
     # Determine charging duration in integer hours
     charging_duration_hours = max(1, int(round((pb_end_m - pb_start_m) / 60)))
@@ -1225,13 +1268,45 @@ def generate_deye_tou_schedule(
             pass
 
     # Dynamic charge current calculation for Register 108 (Max A Charge)
+    ceiling_curr = int(round(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A))
+    # Base is always the hardware ceiling, never the live/CLI Reg 108 value: that value is this engine's own
+    # previous output, and scaling it again ratchets Reg 108 down (100 -> 50 -> 25 -> 20 A).
+    eff_charge_curr = float(ceiling_curr)
     if calibration_active:
         target_charge_current_a = int(round(eff_charge_curr))
     elif charging_duration_hours > 2:
         scaled_curr = eff_charge_curr * (2.0 / float(charging_duration_hours))
-        target_charge_current_a = max(20, min(int(round(eff_charge_curr)), int(round(scaled_curr))))
+        target_charge_current_a = max(20, min(ceiling_curr, min(int(round(eff_charge_curr)), int(round(scaled_curr)))))
     else:
-        target_charge_current_a = int(round(eff_charge_curr))
+        target_charge_current_a = min(ceiling_curr, int(round(eff_charge_curr)))
+
+    charge_power_w = min(energy_defaults.INVERTER_MAX_POWER_W, max(energy_defaults.INVERTER_MIN_POWER_W, int(round(target_charge_current_a * eff_volts, -1))))
+    discharge_power_w = base_power_w
+    eff_dis_a = int(round(eff_discharge_curr)) if eff_discharge_curr > 0 else (int(round(base_power_w / eff_volts)) if eff_volts > 0 else int(energy_defaults.FALLBACK_BATTERY_MAX_DISCHARGE_CURRENT))
+
+    def _build_slot_dict(slot_num: int, time_m: int, target_soc: int, grid_charge: bool, label: str) -> Dict[str, Any]:
+        is_charge = bool(grid_charge)
+        act_curr = target_charge_current_a if is_charge else eff_dis_a
+        act_pwr = charge_power_w if is_charge else discharge_power_w
+        return {
+            "slot": slot_num,
+            "time": to_time_str(time_m),
+            "power_w": discharge_power_w,
+            "target_soc": target_soc,
+            "grid_charge": is_charge,
+            "charge_current_a": target_charge_current_a if is_charge else 0,
+            "charge_power_w": charge_power_w if is_charge else 0,
+            "discharge_current_a": eff_dis_a,
+            "discharge_power_w": discharge_power_w,
+            "active_current_a": act_curr,
+            "active_power_w": act_pwr,
+            "display_current_a": act_curr,
+            "display_power_w": act_pwr,
+            "target_charge_current_a": target_charge_current_a,
+            "base_charge_current_a": int(round(eff_charge_curr)),
+            "label": label,
+            "voltage": eff_volts,
+        }
 
     sell_start_m = 1020  # Default 17:00
     sell_end_m = 1260    # Default 21:00
@@ -1241,9 +1316,53 @@ def generate_deye_tou_schedule(
         sell_start_m = to_minutes(sell_start_str, 1020)
         sell_end_m = to_minutes(sell_end_str, 1260)
         if sell_end_m <= sell_start_m:
-            sell_end_m = sell_start_m + 180
+            sell_end_m = sell_end_m + 1440 if sell_end_m < sell_start_m else sell_start_m + 180
 
-    is_midday = (pb_start_m >= 480) and not has_disjoint_midday
+    # Charge and sell windows must not overlap: trim the sell window around the charge window
+    if not has_disjoint_midday and sell_start_m < pb_end_m and sell_end_m > pb_start_m:
+        if sell_start_m < pb_start_m:
+            sell_end_m = pb_start_m
+        else:
+            sell_start_m = pb_end_m
+            sell_end_m = max(sell_end_m, sell_start_m + 60)
+
+    evening_peak_m = 1020  # 17:00: evening peak that must stay protected when the sell window ends earlier
+
+    def _charge_label(a: int, b: int, name: str) -> str:
+        return "Ładowanie (Kalibracja 100%)" if calibration_active else f"{name} ({to_time_str(a)}-{to_time_str(b)})"
+
+    def _sell_label(a: int, b: int) -> str:
+        name = "Szczyt Wieczorny" if a >= 960 else "Szczyt Sprzedaży"
+        return f"{name} 100% ({to_time_str(a)}-{to_time_str(b)})"
+
+    evening_peak = (evening_peak_m, safe_min_soc, False, f"Szczyt Wieczorny 100% (od {to_time_str(evening_peak_m)})")
+
+    def _fixed(*events: Tuple[int, int, bool, str]) -> List[Tuple[int, int, bool, str]]:
+        """Fixed-time breakpoints (06:00, 12:00, 17:00, ...) must not split the charge or sell window."""
+        return [e for e in events if not (pb_start_m <= e[0] < pb_end_m or sell_start_m <= e[0] < sell_end_m)]
+
+    def _finalize(events: List[Tuple[int, int, bool, str]]) -> List[Dict[str, Any]]:
+        """
+        Turns (minute, target_soc, grid_charge, label) breakpoints into exactly 6 slots with strictly increasing
+        times in [00:00, 24:00). On equal minutes a grid-charge event beats a non-charge one, otherwise the later
+        event wins (callers list fixed breakpoints first). Breakpoints at/after 24:00 are dropped (the last
+        slot already runs until slot 1). Missing slots are filled by splitting the longest gap with a copy of the
+        preceding slot (no behaviour change); surplus non-charge slots with the shortest span are merged away.
+        """
+        by_m: Dict[int, Tuple[int, bool, str]] = {}
+        for m, soc, grid, label in events:
+            if 0 <= m < 1440 and not (m in by_m and by_m[m][1] and not grid):
+                by_m[m] = (soc, grid, label)
+        times = sorted(by_m)
+        while len(times) > 6:
+            i = min((j for j in range(1, len(times)) if not by_m[times[j]][1]), key=lambda j: times[j] - times[j - 1])
+            del by_m[times.pop(i)]
+        while len(times) < 6:
+            n = len(times)
+            gap, i = max(((times[(j + 1) % n] - times[j]) % 1440 or 1440, j) for j in range(n))
+            by_m[(times[i] + (gap // 2) // 60 * 60) % 1440] = by_m[times[i]]
+            times = sorted(by_m)
+        return [_build_slot_dict(n + 1, m, *by_m[m]) for n, m in enumerate(times)]
 
     if has_disjoint_midday:
         t1 = disjoint_night_m
@@ -1252,207 +1371,77 @@ def generate_deye_tou_schedule(
         t4 = t3 + 60
         t5 = max(t4 + 60, sell_start_m)
         t6 = max(t5 + 60, sell_end_m)
-        times = [t1, t2, t3, t4, t5, t6]
-        for idx in range(1, len(times)):
-            if times[idx] <= times[idx - 1]:
-                times[idx] = min(1380, times[idx - 1] + 60)
-
-        slots = [
-            {
-                "slot": 1,
-                "time": to_time_str(times[0]),
-                "power_w": base_power_w,
-                "target_soc": safe_max_soc,
-                "grid_charge": True,
-                "target_charge_current_a": target_charge_current_a,
-                "base_charge_current_a": int(round(eff_charge_curr)),
-                "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Ładowanie Nocne ({to_time_str(times[0])}-{to_time_str(times[1])})",
-            },
-            {
-                "slot": 2,
-                "time": to_time_str(times[1]),
-                "power_w": base_power_w,
-                "target_soc": safe_max_soc,
-                "grid_charge": False,
-                "label": "Czuwanie Poranne (Hold)",
-            },
-            {
-                "slot": 3,
-                "time": to_time_str(times[2]),
-                "power_w": base_power_w,
-                "target_soc": safe_max_soc,
-                "grid_charge": True,
-                "target_charge_current_a": target_charge_current_a,
-                "base_charge_current_a": int(round(eff_charge_curr)),
-                "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Tania Godzina Dzienna ({to_time_str(times[2])}-{to_time_str(times[3])})",
-            },
-            {
-                "slot": 4,
-                "time": to_time_str(times[3]),
-                "power_w": base_power_w,
-                "target_soc": pre_peak_soc,
-                "grid_charge": False,
-                "label": "Rezerwa Przed Szczytem (Hold)",
-            },
-            {
-                "slot": 5,
-                "time": to_time_str(times[4]),
-                "power_w": base_power_w,
-                "target_soc": safe_min_soc,
-                "grid_charge": False,
-                "label": f"Szczyt Wieczorny 100% ({to_time_str(times[4])}-{to_time_str(times[5])})",
-            },
-            {
-                "slot": 6,
-                "time": to_time_str(times[5]),
-                "power_w": base_power_w,
-                "target_soc": morning_reserve_soc,
-                "grid_charge": False,
-                "label": "Autokonsumpcja Nocna / Rezerwa",
-            },
+        events = [
+            (t1, safe_max_soc, True, _charge_label(t1, t2, "Ładowanie Nocne")),
+            (t2, safe_max_soc, False, "Czuwanie Poranne (Hold)"),
+            (t3, safe_max_soc, True, _charge_label(t3, t4, "Tania Godzina Dzienna")),
+            (t4, pre_peak_soc, False, "Rezerwa Przed Szczytem (Hold)"),
+            (t5, safe_min_soc, False, f"Szczyt Wieczorny 100% ({to_time_str(t5)}-{to_time_str(t6)})"),
+            (t6, morning_reserve_soc, False, "Autokonsumpcja Nocna / Rezerwa"),
         ]
-    elif is_midday:
-        t1 = 0
-        t2 = min(pb_start_m - 60, 360)
-        t3 = pb_start_m
-        t4 = max(t3 + 60, pb_end_m)
-        t5 = max(t4 + 60, sell_start_m)
-        t6 = max(t5 + 60, sell_end_m)
-        times = [t1, t2, t3, t4, t5, t6]
-        # Guarantee strict monotonicity with 1-hour integer steps
-        for idx in range(1, len(times)):
-            if times[idx] <= times[idx - 1]:
-                times[idx] = min(1380, times[idx - 1] + 60)
-
-        slots = [
-            {
-                "slot": 1,
-                "time": to_time_str(times[0]),
-                "power_w": base_power_w,
-                "target_soc": morning_reserve_soc,
-                "grid_charge": False,
-                "label": "Rezerwa na Szczyt Poranny (Hold)",
-            },
-            {
-                "slot": 2,
-                "time": to_time_str(times[1]),
-                "power_w": base_power_w,
-                "target_soc": safe_min_soc,
-                "grid_charge": False,
-                "label": "Szczyt Poranny (Autokonsumpcja)",
-            },
-            {
-                "slot": 3,
-                "time": to_time_str(times[2]),
-                "power_w": base_power_w,
-                "target_soc": safe_max_soc,
-                "grid_charge": True,
-                "target_charge_current_a": target_charge_current_a,
-                "base_charge_current_a": int(round(eff_charge_curr)),
-                "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Najtańsze Ładowanie ({to_time_str(times[2])}-{to_time_str(times[3])})",
-            },
-            {
-                "slot": 4,
-                "time": to_time_str(times[3]),
-                "power_w": base_power_w,
-                "target_soc": pre_peak_soc,
-                "grid_charge": False,
-                "label": "Autokonsumpcja PV",
-            },
-            {
-                "slot": 5,
-                "time": to_time_str(times[4]),
-                "power_w": base_power_w,
-                "target_soc": safe_min_soc,
-                "grid_charge": False,
-                "label": f"Szczyt Wieczorny 100% ({to_time_str(times[4])}-{to_time_str(times[5])})",
-            },
-            {
-                "slot": 6,
-                "time": to_time_str(times[5]),
-                "power_w": base_power_w,
-                "target_soc": morning_reserve_soc,
-                "grid_charge": False,
-                "label": "Autokonsumpcja Nocna / Czuwanie",
-            },
+    elif pb_start_m < 480 and sell_end_m > evening_peak_m:
+        # Night charge, sell window covering the evening peak
+        events = _fixed(
+            (360, pre_peak_soc, False, "Szczyt Poranny (Rezerwa Przed Szczytem)"),
+            (720, pre_peak_soc, False, "Autokonsumpcja PV / Rezerwa Przed Szczytem"),
+        ) + [
+            (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie")),
+            (pb_end_m, safe_max_soc, False, "Czuwanie Poranne (Hold)"),
+            (sell_start_m, safe_min_soc, False, f"Szczyt Wieczorny 100% ({to_time_str(sell_start_m)}-{to_time_str(sell_end_m)})"),
+            (sell_end_m, safe_min_soc, False, "Czuwanie Nocne / Min SOC (Oczekiwanie na Okno 01:00)"),
         ]
+    elif pb_start_m < 480:
+        # Night charge, sell window ending before the evening peak: sell, refill from PV, then evening peak
+        events = _fixed((360, pre_peak_soc, False, "Szczyt Poranny (Rezerwa Przed Szczytem)")) + [
+            (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie")),
+            (pb_end_m, safe_max_soc, False, "Czuwanie Poranne (Hold)"),
+            (sell_start_m, safe_min_soc, False, _sell_label(sell_start_m, sell_end_m)),
+            (sell_end_m, pre_peak_soc, False, "Autokonsumpcja PV / Rezerwa Przed Szczytem"),
+        ] + _fixed(evening_peak)
+    elif sell_start_m >= pb_end_m and sell_end_m > evening_peak_m:
+        # Daytime charge followed by an evening sell window
+        events = _fixed(
+            (0, morning_reserve_soc, False, "Rezerwa na Szczyt Poranny (Hold)"),
+            (360, safe_min_soc, False, "Szczyt Poranny (Autokonsumpcja)"),
+        ) + [
+            (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie")),
+            (pb_end_m, pre_peak_soc, False, "Autokonsumpcja PV"),
+            (sell_start_m, safe_min_soc, False, f"Szczyt Wieczorny 100% ({to_time_str(sell_start_m)}-{to_time_str(sell_end_m)})"),
+            (sell_end_m, morning_reserve_soc, False, "Autokonsumpcja Nocna / Czuwanie"),
+        ]
+    elif sell_start_m >= pb_end_m:
+        # Daytime charge followed by a sell window ending before 17:00: keep the evening peak protected
+        events = _fixed((0, morning_reserve_soc, False, "Rezerwa na Szczyt Poranny (Hold)")) + [
+            (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie")),
+            (pb_end_m, pre_peak_soc, False, "Autokonsumpcja PV"),
+            (sell_start_m, safe_min_soc, False, _sell_label(sell_start_m, sell_end_m)),
+            (sell_end_m, pre_peak_soc, False, "Autokonsumpcja PV / Rezerwa Przed Szczytem"),
+        ] + _fixed(evening_peak)
     else:
-        t1 = pb_start_m
-        t2 = max(t1 + 60, pb_end_m)
-        t3 = max(t2 + 60, 360)
-        t4 = max(t3 + 60, 720)
-        t5 = max(t4 + 60, sell_start_m)
-        t6 = max(t5 + 60, sell_end_m)
-        times = [t1, t2, t3, t4, t5, t6]
-        # Guarantee strict monotonicity with 1-hour integer steps
-        for idx in range(1, len(times)):
-            if times[idx] <= times[idx - 1]:
-                times[idx] = min(1380, times[idx - 1] + 60)
-
-        slots = [
-            {
-                "slot": 1,
-                "time": to_time_str(times[0]),
-                "power_w": base_power_w,
-                "target_soc": safe_max_soc,
-                "grid_charge": True,
-                "target_charge_current_a": target_charge_current_a,
-                "base_charge_current_a": int(round(eff_charge_curr)),
-                "label": "Ładowanie (Kalibracja 100%)" if calibration_active else f"Najtańsze Ładowanie ({to_time_str(times[0])}-{to_time_str(times[1])})",
-            },
-            {
-                "slot": 2,
-                "time": to_time_str(times[1]),
-                "power_w": base_power_w,
-                "target_soc": safe_max_soc,
-                "grid_charge": False,
-                "label": "Czuwanie Poranne (Hold)",
-            },
-            {
-                "slot": 3,
-                "time": to_time_str(times[2]),
-                "power_w": base_power_w,
-                "target_soc": pre_peak_soc,
-                "grid_charge": False,
-                "label": "Szczyt Poranny (Rezerwa Przed Szczytem)",
-            },
-            {
-                "slot": 4,
-                "time": to_time_str(times[3]),
-                "power_w": base_power_w,
-                "target_soc": pre_peak_soc,
-                "grid_charge": False,
-                "label": "Autokonsumpcja PV / Rezerwa Przed Szczytem",
-            },
-            {
-                "slot": 5,
-                "time": to_time_str(times[4]),
-                "power_w": base_power_w,
-                "target_soc": safe_min_soc,
-                "grid_charge": False,
-                "label": f"Szczyt Wieczorny 100% ({to_time_str(times[4])}-{to_time_str(times[5])})",
-            },
-            {
-                "slot": 6,
-                "time": to_time_str(times[5]),
-                "power_w": base_power_w,
-                "target_soc": morning_reserve_soc,
-                "grid_charge": False,
-                "label": "Autokonsumpcja Nocna / Czuwanie",
-            },
+        # Sell window before a daytime/evening/night charge window (e.g. morning sale, or charge 19-21 / 22-24)
+        events = _fixed((0, morning_reserve_soc, False, "Rezerwa na Szczyt Poranny (Hold)")) + [
+            (sell_start_m, safe_min_soc, False, _sell_label(sell_start_m, sell_end_m)),
+            (sell_end_m, pre_peak_soc, False, "Autokonsumpcja PV / Rezerwa Przed Szczytem"),
+            (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie")),
         ]
+        if pb_end_m < evening_peak_m:
+            events += [(pb_end_m, pre_peak_soc, False, "Autokonsumpcja PV / Rezerwa Przed Szczytem")] + _fixed(evening_peak)
+        else:
+            events.append((pb_end_m, morning_reserve_soc, False, "Autokonsumpcja Nocna / Czuwanie"))
 
-    return slots
+    return _finalize(events)
+
+
+LAST_TOU_SYNC_PATHS = [
+    "/config/.deye_tou_last_sync.json",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), ".deye_tou_last_sync.json"),
+    "/tmp/.deye_tou_last_sync.json",
+]
 
 
 def save_last_tou_sync_result(result_data: Dict[str, Any]) -> None:
     """Persists the last TOU synchronization outcome to disk for Home Assistant UI feedback."""
-    candidate_paths = [
-        "/config/.deye_tou_last_sync.json",
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), ".deye_tou_last_sync.json"),
-        "/tmp/.deye_tou_last_sync.json",
-    ]
-    for p in candidate_paths:
+    for p in LAST_TOU_SYNC_PATHS:
         try:
             with open(p, "w", encoding="utf-8") as f:
                 json.dump(result_data, f, indent=2, ensure_ascii=False)
@@ -1506,16 +1495,25 @@ def check_and_apply_charge_current_modulation(
     host: Optional[str] = None,
     port: Optional[int] = None,
     base_charge_current: Optional[float] = None,
+    next_cycle_target_a: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Checks if current time in Warsaw is within a scheduled charging window (grid_charge == True).
-    If in charging window: applies target_charge_current_a (e.g. 50A for a 4h window).
-    If outside charging window: restores Register 108 to base_charge_current (e.g. 100A).
-    Idempotent: writes to Register 108 only when changed, protecting inverter EEPROM.
+    - If in charging window: applies target_charge_current_a (e.g. 50A for a 4h window).
+    - If outside charging window during daytime (05:00-19:00): maintains base_charge_current (100A)
+      to protect rooftop solar PV charging without throttling.
+    - After today's charging has passed: from 19:00 pre-configures Register 108 to next_cycle_target_a
+      for the upcoming cycle; before 19:00 keeps base_charge_current.
+    - At night before today's charging window (incl. 00:00 -> window start): keeps today's window target.
+    - Hard clamped to BATTERY_CHARGE_CURRENT_MAX_CEILING_A (100A).
+    - Idempotent: writes to Register 108 only when changed, protecting inverter EEPROM.
+    base_charge_current is accepted for backward compatibility but ignored: the base is always the
+    ceiling, never the live Reg 108 value (feeding Reg 108 back in ratchets it down 100 -> 50 -> 25 -> 20 A).
     """
     now_warsaw = datetime.now(WARSAW_TZ)
     now_m = now_warsaw.hour * 60 + now_warsaw.minute
-    base_curr = int(round(base_charge_current)) if base_charge_current else int(energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT)
+    ceiling_curr = int(round(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A))
+    base_curr = ceiling_curr
     in_charging_window = False
     target_curr = base_curr
 
@@ -1526,14 +1524,19 @@ def check_and_apply_charge_current_modulation(
         except Exception:
             return 0
 
+    has_grid_charge = False
+    latest_end_m = 0
     for idx, s in enumerate(slots):
         if s.get("grid_charge"):
+            has_grid_charge = True
             s_target = s.get("target_charge_current_a")
             if s_target is not None:
-                target_curr = int(s_target)
+                target_curr = min(ceiling_curr, int(s_target))
             s_start = _t2m(s.get("time", "00:00"))
             next_s = slots[(idx + 1) % len(slots)]
             s_end = _t2m(next_s.get("time", "00:00"))
+            # A slot whose end is <= its start wraps past midnight (e.g. last slot 22:00 -> slot 1 00:00)
+            latest_end_m = max(latest_end_m, s_end + 1440 if s_end <= s_start else s_end)
             if s_end <= s_start:
                 if now_m >= s_start or now_m < s_end:
                     in_charging_window = True
@@ -1543,20 +1546,31 @@ def check_and_apply_charge_current_modulation(
                     in_charging_window = True
                     break
 
-    # Pre-configure Register 108 to planned target charge current for today's TOU charging window
-    # Ensures inverter is set ahead of time (e.g. 66A for 3h window, 50A for 4h)
-    desired_a = target_curr if (in_charging_window or target_curr < base_curr) else base_curr
+    today_charging_passed = has_grid_charge and not in_charging_window and (now_m >= latest_end_m)
+    is_daytime_solar = 300 <= now_m < 1140  # 05:00 - 19:00
 
-    mod_res: Dict[str, Any] = {"success": False, "desired_a": desired_a, "in_charging_window": in_charging_window}
-    try:
-        import solarman_v5_client
-        mod_res = solarman_v5_client.set_charge_current(host=host, port=port, current_a=desired_a)
-    except Exception as e:
-        try:
-            import deye_cloud_client
-            mod_res = deye_cloud_client.set_charge_current_cloud(current_a=desired_a)
-        except Exception:
-            mod_res = {"success": False, "error": str(e)}
+    if in_charging_window:
+        desired_a = target_curr
+    elif is_daytime_solar:
+        # Daytime: keep full 100A so rooftop solar PV can charge battery at max rate
+        desired_a = base_curr
+    elif today_charging_passed:
+        # After today's charging: pre-set next cycle's target only in the evening (>= 19:00); before that
+        # (e.g. 04:00 after a 02-04 window) stay at base, avoiding extra EEPROM writes around 05:00.
+        if now_m >= 1140 and next_cycle_target_a is not None:
+            desired_a = min(ceiling_curr, int(next_cycle_target_a))
+        else:
+            desired_a = base_curr
+    elif has_grid_charge:
+        # Night before today's charging window (00:00 -> window start, or evening before a late window)
+        desired_a = target_curr
+    else:
+        desired_a = base_curr
+
+    # Enforce absolute ceiling clamp at all times (never > 100 A)
+    desired_a = max(20, min(ceiling_curr, desired_a))
+
+    mod_res = set_charge_current_with_fallback(host, port, desired_a)
 
     mod_res["in_charging_window"] = in_charging_window
     mod_res["desired_a"] = desired_a
@@ -1583,6 +1597,8 @@ def sync_deye_inverter_tou_schedule(
     nominal_voltage: Optional[float] = None,
     pre_peak_margin: Optional[int] = None,
     loss_buffer_pct: Optional[float] = None,
+    sell_target_hours: Any = None,
+    ev_target_hours: Any = "auto",
 ) -> Dict[str, Any]:
     """
     Recalculates and uploads the 6-slot TOU schedule to the Deye hybrid inverter via Solarman V5 client.
@@ -1648,7 +1664,11 @@ def sync_deye_inverter_tou_schedule(
 
     # Resolve pricing windows (from cache or API)
     cache_file = get_cache_file_path(installation, cache_dir)
+    sell_target_hours = parse_target_hours(sell_target_hours, energy_defaults.SELL_TARGET_HOURS)
+    ev_target_hours = parse_target_hours(ev_target_hours, "auto")
     cached_data = read_cache(cache_file)
+    if isinstance(cached_data, dict) and not cache_is_reusable(cached_data, sell_target_hours, ev_target_hours):
+        cached_data = None
     pb_window = None
     sell_window = None
 
@@ -1658,7 +1678,10 @@ def sync_deye_inverter_tou_schedule(
             resolved_key, _ = resolve_api_key(installation=installation, explicit_key=api_key)
             if resolved_key:
                 try:
-                    fresh_data = fetch_consolidated_data(api_key=resolved_key, installation=installation, cache_dir=cache_dir)
+                    fresh_data = fetch_consolidated_data(
+                        api_key=resolved_key, installation=installation, cache_dir=cache_dir,
+                        sell_target_hours=sell_target_hours, ev_target_hours=ev_target_hours,
+                    )
                     if isinstance(fresh_data, dict) and fresh_data.get("has_tomorrow_pricing"):
                         cached_data = fresh_data
                         has_tomorrow = True
@@ -1681,15 +1704,24 @@ def sync_deye_inverter_tou_schedule(
             pb_window = cached_data.get("powerbank_best_window")
             sell_window = cached_data.get("best_sell_window")
 
+    source_data = cached_data  # payload the windows came from (also supplies the next-cycle Reg 108 target)
     if not pb_window or not sell_window or (isinstance(pb_window, dict) and "error" in pb_window):
         resolved_key, _ = resolve_api_key(installation=installation, explicit_key=api_key)
         if resolved_key:
             try:
-                fresh_data = fetch_consolidated_data(api_key=resolved_key, installation=installation, cache_dir=cache_dir)
+                fresh_data = fetch_consolidated_data(
+                    api_key=resolved_key, installation=installation, cache_dir=cache_dir,
+                    sell_target_hours=sell_target_hours, ev_target_hours=ev_target_hours,
+                )
                 if isinstance(fresh_data, dict):
+                    source_data = fresh_data
                     if for_tomorrow and fresh_data.get("has_tomorrow_pricing"):
                         pb_window = fresh_data.get("powerbank_best_window_tomorrow")
                         sell_window = fresh_data.get("best_sell_window_tomorrow")
+                    elif not for_tomorrow and fresh_data.get("price_coverage_complete") is False:
+                        # Never derive/write TOU from a partial price day; keep the inverter's existing schedule
+                        pb_window = {"error": fresh_data.get("tou_error") or "Niepełne ceny Pstryk na dziś"}
+                        sell_window = None
                     else:
                         pb_window = fresh_data.get("powerbank_best_window")
                         sell_window = fresh_data.get("best_sell_window")
@@ -1730,17 +1762,36 @@ def sync_deye_inverter_tou_schedule(
     # Dynamic Charge Current Modulation check
     charge_mod_res = None
     if not for_tomorrow:
+        next_cycle_target_a = None
+        if source_data and isinstance(source_data, dict):
+            tomorrow_sched = source_data.get("deye_tou_schedule_tomorrow")
+            if isinstance(tomorrow_sched, list):
+                for ts in tomorrow_sched:
+                    if ts.get("grid_charge") and ts.get("target_charge_current_a"):
+                        next_cycle_target_a = int(ts["target_charge_current_a"])
+                        break
+
         charge_mod_res = check_and_apply_charge_current_modulation(
             slots=slots,
             host=host,
             port=port,
-            base_charge_current=eff_max_charge_current,
+            next_cycle_target_a=next_cycle_target_a,
         )
 
     # Idempotent diff check: verify if active inverter slots already match newly calculated schedule
+    global _DISPATCH_CACHE
     active_slots = active_tou.get("slots", []) if isinstance(active_tou, dict) else []
     active_enabled = active_tou.get("enabled", True) if isinstance(active_tou, dict) else True
     if not force and active_enabled and are_tou_slots_identical(slots, active_slots):
+        _DISPATCH_CACHE = None
+        if solarman_v5_client is not None:
+            try:
+                cached = solarman_v5_client.load_deye_cache(ignore_ttl=True)
+                if cached and isinstance(cached, dict):
+                    cached["active_tou"] = {"enabled": True, "slots": slots}
+                    solarman_v5_client.save_deye_cache(cached)
+            except Exception:
+                pass
         unchanged_res = {
             "success": True,
             "unchanged": True,
@@ -1767,15 +1818,16 @@ def sync_deye_inverter_tou_schedule(
         save_last_tou_sync_result(unchanged_res)
         return unchanged_res
 
-    sync_result = {"success": False, "message": "solarman_v5_client module not available"}
+    sync_result = {"success": False, "message": "solarman_v5_client module not available", "cloud_attempted": False}
     if solarman_v5_client is not None:
         try:
             sync_result = solarman_v5_client.sync_tou_schedule(slots=slots, host=host, port=port)
         except Exception as e:
-            sync_result = {"success": False, "error": str(e)}
+            sync_result = {"success": False, "error": str(e), "cloud_attempted": False}
 
-    # Direct fallback to Deye Cloud OpenAPI if local Modbus was not successful
-    if not sync_result.get("success"):
+    # Fallback to Deye Cloud OpenAPI only if the local client did not already try it
+    # (solarman_v5_client.sync_tou_schedule falls back to the cloud internally when local writes fail).
+    if not sync_result.get("success") and sync_result.get("cloud_attempted", True) is False:
         try:
             import deye_cloud_client
             cloud_cfg = deye_cloud_client.get_deye_cloud_config()
@@ -1786,6 +1838,17 @@ def sync_deye_inverter_tou_schedule(
                     sync_result = cloud_res
         except Exception:
             pass
+
+    if sync_result.get("success"):
+        _DISPATCH_CACHE = None
+        if solarman_v5_client is not None:
+            try:
+                cached = solarman_v5_client.load_deye_cache(ignore_ttl=True)
+                if cached and isinstance(cached, dict):
+                    cached["active_tou"] = {"enabled": True, "slots": slots}
+                    solarman_v5_client.save_deye_cache(cached)
+            except Exception:
+                pass
 
     final_result = {
         "success": sync_result.get("success", False),
@@ -2177,6 +2240,54 @@ def build_year_subobject(year_data: Dict[str, Any]) -> Dict[str, Any]:
     return {"monthly": monthly}
 
 
+def warsaw_day_covered(frames: List[Dict[str, Any]], day: Any) -> bool:
+    """
+    Span-based price coverage of one Europe/Warsaw calendar day: frames must start at/before Warsaw 00:00,
+    end at/after the next Warsaw 00:00, and the holes summed over the whole day may total at most 1 h
+    (enough for a 25 h DST day returned as 24 frames; also tolerates one missing hour on a normal day).
+    Frame counts are not used, so DST days (23/25 h) pass however the API labels them.
+    """
+    def _p(iso: Optional[str]) -> Optional[datetime]:
+        try:
+            return datetime.fromisoformat(str(iso).replace("Z", "+00:00")).astimezone(timezone.utc)
+        except Exception:
+            return None
+
+    day_start = datetime(day.year, day.month, day.day, tzinfo=WARSAW_TZ).astimezone(timezone.utc)
+    nxt = day + timedelta(days=1)
+    day_end = datetime(nxt.year, nxt.month, nxt.day, tzinfo=WARSAW_TZ).astimezone(timezone.utc)
+    spans = []
+    for f in frames or []:
+        st = _p(f.get("start")) if isinstance(f, dict) else None
+        if st is None:
+            continue
+        spans.append((st, _p(f.get("end")) or st + timedelta(hours=1)))
+    if not spans:
+        return False
+    spans.sort()
+    if spans[0][0] > day_start or max(e for _, e in spans) < day_end:
+        return False
+    missing = timedelta(0)
+    reach = spans[0][1]
+    for st, en in spans[1:]:
+        if st > reach:
+            missing += st - reach
+        reach = max(reach, en)
+    return missing <= timedelta(hours=1)
+
+
+def cache_is_reusable(cached: Dict[str, Any], sell_target_hours: Any, ev_target_hours: Any) -> bool:
+    """
+    A cached payload is reusable only if it was built for the current Europe/Warsaw date (so 00:00:30 never reuses
+    yesterday's "today" windows) and with the same target hours (legacy caches without hours: defaults).
+    """
+    return (
+        cached.get("_warsaw_date") == datetime.now(WARSAW_TZ).date().isoformat()
+        and cached.get("_sell_target_hours", energy_defaults.SELL_TARGET_HOURS) == sell_target_hours
+        and cached.get("_ev_target_hours", "auto") == ev_target_hours
+    )
+
+
 def fetch_consolidated_data(
     api_key: Optional[str] = None,
     installation: str = "dol",
@@ -2194,6 +2305,8 @@ def fetch_consolidated_data(
     nominal_voltage: Optional[float] = None,
     pre_peak_margin: Optional[int] = None,
     loss_buffer_pct: Optional[float] = None,
+    sell_target_hours: Any = None,
+    ev_target_hours: Any = "auto",
 ) -> Dict[str, Any]:
     """
     Fetches all 5 datasets (latest, forward 48h, today, month, year),
@@ -2209,6 +2322,8 @@ def fetch_consolidated_data(
             api_key = DEFAULT_API_KEY
 
     cache_file = get_cache_file_path(installation, cache_dir=cache_dir)
+    sell_target_hours = parse_target_hours(sell_target_hours, energy_defaults.SELL_TARGET_HOURS)
+    ev_target_hours = parse_target_hours(ev_target_hours, "auto")
 
     # 1. Smart cache lookup
     if use_cache:
@@ -2219,6 +2334,7 @@ def fetch_consolidated_data(
             and "current" in cached
             and "today" in cached
             and "all_prices" in cached
+            and cache_is_reusable(cached, sell_target_hours, ev_target_hours)
         ):
             # Resolve latest dispatch parameters (zero network overhead, cache-first)
             (
@@ -2317,7 +2433,8 @@ def fetch_consolidated_data(
     now = datetime.now(timezone.utc)
     now_hour = now.replace(minute=0, second=0, microsecond=0).strftime('%Y-%m-%dT%H:%M:%SZ')
     now_iso = now.strftime('%Y-%m-%dT%H:%M:%SZ')
-    midnight_utc = now.replace(hour=0, minute=0, second=0, microsecond=0).strftime('%Y-%m-%dT%H:%M:%SZ')
+    # "Today" is the Europe/Warsaw calendar day (Warsaw 00:00 is 22:00/23:00 UTC of the previous day)
+    midnight_utc = datetime.now(WARSAW_TZ).replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     month_start_utc = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).strftime('%Y-%m-%dT%H:%M:%SZ')
     year_start_utc = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0).strftime('%Y-%m-%dT%H:%M:%SZ')
     forward_end = (now + timedelta(hours=hours_ahead)).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -2426,7 +2543,9 @@ def fetch_consolidated_data(
 
     frames_today = [f for f in all_frames if get_frame_warsaw_date(f) == today_date]
     frames_tomorrow = [f for f in all_frames if get_frame_warsaw_date(f) == tomorrow_date]
-    has_tomorrow_pricing = len(frames_tomorrow) >= 12
+    # Require full-day coverage (23/24/25 h across DST) before deriving TOU dispatch from a day's prices
+    today_complete = warsaw_day_covered(frames_today, today_date)
+    has_tomorrow_pricing = warsaw_day_covered(frames_tomorrow, tomorrow_date)
 
     # Resolve effective SOC parameters
     (
@@ -2453,10 +2572,16 @@ def fetch_consolidated_data(
 
     # Dispatch windows for TODAY (stable across all 24h of the current day)
     target_today_data = {"frames": frames_today} if frames_today else (forward_data if (isinstance(forward_data, dict) and forward_data.get("frames")) else today_data)
-    ev_window_today = find_ev_best_window(target_today_data, target_hours="auto", now_dt=now_warsaw)
+    ev_window_today = find_ev_best_window(target_today_data, target_hours=ev_target_hours, now_dt=now_warsaw)
     pb_window_today = find_powerbank_best_window(target_today_data, target_hours="auto", allow_disjoint=False, now_dt=now_warsaw)
-    sell_window_today = find_best_sell_window(target_today_data, target_hours=energy_defaults.SELL_TARGET_HOURS)
-    tou_today = generate_deye_tou_schedule(
+    sell_window_today = find_best_sell_window(target_today_data, target_hours=sell_target_hours)
+    tou_error = None
+    if not today_complete:
+        tou_error = (
+            f"Niepełne ceny Pstryk na dziś ({len(frames_today)} h, luki w danych) — "
+            "nie wyliczono harmonogramu TOU (zachowano dotychczasowy)."
+        )
+    tou_today = [] if tou_error else generate_deye_tou_schedule(
         current_soc=eff_current_soc,
         max_soc=eff_max_soc,
         min_soc=eff_min_soc,
@@ -2476,9 +2601,9 @@ def fetch_consolidated_data(
     if has_tomorrow_pricing:
         target_tomorrow_data = {"frames": frames_tomorrow}
         tomorrow_ref_dt = now_warsaw + timedelta(days=1)
-        ev_window_tomorrow = find_ev_best_window(target_tomorrow_data, target_hours="auto", now_dt=tomorrow_ref_dt)
+        ev_window_tomorrow = find_ev_best_window(target_tomorrow_data, target_hours=ev_target_hours, now_dt=tomorrow_ref_dt)
         pb_window_tomorrow = find_powerbank_best_window(target_tomorrow_data, target_hours="auto", allow_disjoint=False, now_dt=tomorrow_ref_dt)
-        sell_window_tomorrow = find_best_sell_window(target_tomorrow_data, target_hours=energy_defaults.SELL_TARGET_HOURS)
+        sell_window_tomorrow = find_best_sell_window(target_tomorrow_data, target_hours=sell_target_hours)
         tou_tomorrow = generate_deye_tou_schedule(
             current_soc=eff_current_soc,
             max_soc=eff_max_soc,
@@ -2572,6 +2697,10 @@ def fetch_consolidated_data(
         "best_sell_window_tomorrow": sell_window_tomorrow,
         "deye_tou_schedule_tomorrow": tou_tomorrow,
         "has_tomorrow_pricing": has_tomorrow_pricing,
+        "price_coverage_complete": today_complete,
+        "_warsaw_date": today_date.isoformat(),
+        "_sell_target_hours": sell_target_hours,
+        "_ev_target_hours": ev_target_hours,
         "battery_model": battery_model.to_dict(),
         "installation": installation,
         "current": current_obj,
@@ -2582,7 +2711,10 @@ def fetch_consolidated_data(
         "frames": forward_data.get("frames", []),
     }
 
-    if use_cache:
+    if tou_error:
+        consolidated["tou_error"] = tou_error
+    elif use_cache:
+        # Degraded (incomplete-coverage) payloads are never cached, so the next run retries the fetch
         write_cache(cache_file, consolidated)
 
     return consolidated
@@ -2617,9 +2749,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--morning-reserve-margin", type=int, default=energy_defaults.DEFAULT_MORNING_RESERVE_MARGIN, help="Morning reserve SOC margin above min_soc in percent")
     parser.add_argument("--nominal-voltage", type=float, default=None, help="Nominal battery pack voltage in Volts (dynamically resolved from Deye/env if omitted)")
     parser.add_argument("--pre-peak-margin", type=int, default=energy_defaults.DEFAULT_PRE_PEAK_MARGIN, help="Pre-peak daytime autokonsumpcja margin in percent")
+    parser.add_argument("--sell-target-hours", default=str(energy_defaults.SELL_TARGET_HOURS), help='Battery sell/discharge window length in hours (int or HA value like "3h")')
+    parser.add_argument("--ev-target-hours", default="auto", help='EV charging window hours: "auto" (2h weekday / 4h weekend), int, or HA value like "3h" / "Auto 2h/4h"')
     parser.add_argument("--loss-buffer-pct", type=float, default=energy_defaults.DEFAULT_LOSS_BUFFER_PCT, help="Charging energy loss buffer percentage")
 
     args = parser.parse_args(argv)
+    sell_hours = parse_target_hours(args.sell_target_hours, energy_defaults.SELL_TARGET_HOURS)
+    ev_hours = parse_target_hours(args.ev_target_hours, "auto")
 
     if args.apply_battery_safety_limits:
         try:
@@ -2635,24 +2771,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(json.dumps(res, indent=2))
         return 0
 
-    if args.set_charge_current is not None:
-        try:
-            import solarman_v5_client
-            res = solarman_v5_client.set_charge_current(host=args.inverter_host, port=args.inverter_port, current_a=args.set_charge_current)
-        except Exception:
-            import deye_cloud_client
-            res = deye_cloud_client.set_charge_current_cloud(current_a=args.set_charge_current)
-        print(json.dumps(res, indent=2))
-        return 0 if res.get("success") else 1
-
-    if args.restore_charge_current:
-        base_curr = int(energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT)
-        try:
-            import solarman_v5_client
-            res = solarman_v5_client.set_charge_current(host=args.inverter_host, port=args.inverter_port, current_a=base_curr)
-        except Exception:
-            import deye_cloud_client
-            res = deye_cloud_client.set_charge_current_cloud(current_a=base_curr)
+    if args.set_charge_current is not None or args.restore_charge_current:
+        target_a = args.set_charge_current if args.set_charge_current is not None else int(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A)
+        res = set_charge_current_with_fallback(args.inverter_host, args.inverter_port, target_a)
         print(json.dumps(res, indent=2))
         return 0 if res.get("success") else 1
 
@@ -2675,6 +2796,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             nominal_voltage=args.nominal_voltage,
             pre_peak_margin=args.pre_peak_margin,
             loss_buffer_pct=args.loss_buffer_pct,
+            sell_target_hours=sell_hours,
+            ev_target_hours=ev_hours,
         )
         if not isinstance(data, dict) or "error" in data:
             print(f"Błąd pobierania danych: {data.get('error') if isinstance(data, dict) else data}")
@@ -2698,8 +2821,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         for s in slots:
             slot_num = s.get("slot", 0)
             time_str = s.get("time", "--:--")
-            pwr = s.get("power_w", 5000)
-            approx_a = round(pwr / eff_v)
+            pwr = s.get("display_power_w") if s.get("display_power_w") is not None else s.get("power_w", 5000)
+            approx_a = s.get("display_current_a") if s.get("display_current_a") is not None else round(pwr / eff_v)
             soc = s.get("target_soc", 0)
             grid = "TAK" if s.get("grid_charge") else "NIE"
             label = s.get("label", "")
@@ -2726,9 +2849,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             nominal_voltage=args.nominal_voltage,
             pre_peak_margin=args.pre_peak_margin,
             loss_buffer_pct=args.loss_buffer_pct,
+            sell_target_hours=sell_hours,
+            ev_target_hours=ev_hours,
         )
         print(json.dumps(sync_res, indent=2))
-        return 0
+        return 0 if (sync_res.get("success") or sync_res.get("unchanged")) else 1
 
     debug_info = {}
     if not resolved_key:
@@ -2760,6 +2885,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         nominal_voltage=args.nominal_voltage,
         pre_peak_margin=args.pre_peak_margin,
         loss_buffer_pct=args.loss_buffer_pct,
+        sell_target_hours=sell_hours,
+        ev_target_hours=ev_hours,
     )
 
     if isinstance(result, dict):

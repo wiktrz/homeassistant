@@ -28,6 +28,60 @@ import pstryk_engine
 import energy_defaults
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_io(monkeypatch, tmp_path):
+    """No test may reach the real inverter (Modbus) or Deye Cloud, or write runtime files into config/."""
+    import socket
+
+    def _blocked(*args, **kwargs):
+        raise OSError("network access disabled in unit tests")
+
+    monkeypatch.setattr(socket.socket, "connect", _blocked)
+    monkeypatch.setattr(socket.socket, "connect_ex", _blocked)
+    monkeypatch.setattr(socket, "create_connection", _blocked)
+    monkeypatch.setattr(pstryk_engine, "LAST_TOU_SYNC_PATHS", [str(tmp_path / ".deye_tou_last_sync.json")])
+    monkeypatch.setenv("DEYE_CACHE_FILE", str(tmp_path / ".deye_inverter_cache.json"))
+
+
+WARSAW = pstryk_engine.WARSAW_TZ
+
+
+def freeze_now(monkeypatch, aware_dt):
+    """Freezes pstryk_engine's datetime.now() at aware_dt."""
+    class _FixedDT(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return aware_dt.astimezone(tz) if tz else aware_dt.astimezone().replace(tzinfo=None)
+    monkeypatch.setattr(pstryk_engine, "datetime", _FixedDT)
+
+
+def warsaw_day_frames(day, price_fn=lambda h: 0.5, skip_hours=()):
+    """Hourly pricing frames covering one full Warsaw calendar day (23/24/25 h across DST)."""
+    t = datetime(day.year, day.month, day.day, tzinfo=WARSAW).astimezone(timezone.utc)
+    nd = day + timedelta(days=1)
+    end = datetime(nd.year, nd.month, nd.day, tzinfo=WARSAW).astimezone(timezone.utc)
+    frames = []
+    while t < end:
+        h = t.astimezone(WARSAW).hour
+        if h not in skip_hours:
+            p = price_fn(h)
+            frames.append({
+                "start": t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "end": (t + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "metrics": {"pricing": {"price_gross": p, "price_net": round(p / 1.23, 4), "price_prosumer_gross": p}},
+            })
+        t += timedelta(hours=1)
+    return frames
+
+
+def warsaw_today_iso():
+    return datetime.now(WARSAW).date().isoformat()
+
+
+def slot_minutes(slots):
+    return [int(s["time"][:2]) * 60 + int(s["time"][3:]) for s in slots]
+
+
 def load_fixture(name: str) -> dict:
     fixture_path = os.path.join(FIXTURES_DIR, name)
     with open(fixture_path, "r", encoding="utf-8") as f:
@@ -478,7 +532,7 @@ def test_consolidated_null_safety_and_open_frames():
     assert year["monthly"][0]["kwh"] == 0.0
 
 
-def test_consolidated_smart_cache_lifecycle(tmp_path):
+def test_consolidated_smart_cache_lifecycle(tmp_path, monkeypatch):
     """
     Verifies smart file caching in /tmp/pstryk_cache_{installation}.json:
     - 15-minute TTL cache hit returns instantly without API requests.
@@ -487,7 +541,10 @@ def test_consolidated_smart_cache_lifecycle(tmp_path):
     """
     cache_dir = str(tmp_path)
     cache_file = pstryk_engine.get_cache_file_path("gora", cache_dir=cache_dir)
-    hourly_payload = load_fixture("sample_hourly_today.json")
+    # Full Warsaw-day price coverage: degraded (partial) payloads are intentionally never cached
+    freeze_now(monkeypatch, datetime(2026, 9, 24, 12, 0, tzinfo=WARSAW))
+    day = datetime(2026, 9, 24).date()
+    hourly_payload = {"frames": warsaw_day_frames(day) + warsaw_day_frames(day + timedelta(days=1))}
 
     mock_resp = mock.MagicMock()
     mock_resp.status = 200
@@ -707,10 +764,17 @@ def test_generate_deye_tou_schedule_midday_dip():
     assert "Tania Godzina" in slots[2]["label"]
 
 
-def test_sync_deye_inverter_tou_schedule_integration():
+def test_sync_deye_inverter_tou_schedule_integration(tmp_path):
     """Verifies sync_deye_inverter_tou_schedule calls solarman client with 6 slots."""
+    cache_dir = str(tmp_path)
+    pstryk_engine.write_cache(pstryk_engine.get_cache_file_path("dol", cache_dir), {
+        "_warsaw_date": warsaw_today_iso(),
+        "powerbank_best_window": {"start": "2026-10-17T11:00:00Z", "end": "2026-10-17T13:00:00Z", "duration_hours": 2, "is_consecutive": True},
+        "best_sell_window": {"start": "2026-10-17T15:00:00Z", "end": "2026-10-17T18:00:00Z"},
+    })
     with mock.patch("solarman_v5_client.read_inverter_telemetry") as mock_read, \
-         mock.patch("solarman_v5_client.sync_tou_schedule") as mock_sync:
+         mock.patch("solarman_v5_client.sync_tou_schedule") as mock_sync, \
+         mock.patch("solarman_v5_client.set_charge_current", return_value={"success": True}) as mock_set:
         mock_read.return_value = {
             "success": True,
             "config": {"max_charge_soc": 90, "min_discharge_soc": 20},
@@ -718,22 +782,20 @@ def test_sync_deye_inverter_tou_schedule_integration():
         }
         mock_sync.return_value = {"success": True, "message": "OK"}
 
-        res = pstryk_engine.sync_deye_inverter_tou_schedule(host="10.20.2.6", port=8899)
+        res = pstryk_engine.sync_deye_inverter_tou_schedule(host="10.20.2.6", port=8899, cache_dir=cache_dir)
         assert res["success"] is True
         assert len(res["slots"]) == 6
         assert res["soc_limits"]["current_soc"] == 82
         mock_sync.assert_called_once()
+        mock_set.assert_called_once()
 
 
 def test_cli_sync_deye_tou_flag():
     """Verifies CLI flag --sync-deye-tou executes cleanly."""
-    with mock.patch("solarman_v5_client.sync_tou_schedule") as mock_sync, \
-         mock.patch("solarman_v5_client.read_inverter_telemetry") as mock_read:
-        mock_read.return_value = {"success": True, "config": {}, "telemetry": {}}
-        mock_sync.return_value = {"success": True, "message": "OK"}
-
+    with mock.patch("pstryk_engine.sync_deye_inverter_tou_schedule", return_value={"success": True}) as mock_sync:
         ret = pstryk_engine.main(["--sync-deye-tou", "--inverter-host", "127.0.0.1"])
         assert ret == 0
+        assert mock_sync.call_args.kwargs["host"] == "127.0.0.1"
 
 
 def test_cli_apply_battery_safety_limits_flag():
@@ -992,6 +1054,7 @@ def test_sync_deye_inverter_tou_schedule_for_tomorrow(tmp_path):
     """
     cache_dir = str(tmp_path)
     cached_payload = {
+        "_warsaw_date": warsaw_today_iso(),
         "has_tomorrow_pricing": True,
         "powerbank_best_window": {"start": "2026-10-08T11:00:00Z", "end": "2026-10-08T13:00:00Z", "is_consecutive": True},
         "best_sell_window": {"start": "2026-10-08T15:00:00Z", "end": "2026-10-08T19:00:00Z"},
@@ -1000,7 +1063,10 @@ def test_sync_deye_inverter_tou_schedule_for_tomorrow(tmp_path):
     }
     pstryk_engine.write_cache(pstryk_engine.get_cache_file_path("dol", cache_dir), cached_payload)
 
-    with mock.patch("pstryk_engine.solarman_v5_client", None):
+    mock_client = mock.MagicMock()
+    mock_client.read_inverter_telemetry.return_value = {"success": True, "config": {}, "telemetry": {}}
+    mock_client.sync_tou_schedule.return_value = {"success": True}
+    with mock.patch("pstryk_engine.solarman_v5_client", mock_client):
         result = pstryk_engine.sync_deye_inverter_tou_schedule(
             cache_dir=cache_dir,
             for_tomorrow=True,
@@ -1193,7 +1259,7 @@ def test_powerbank_weekend_tolerance_expansion_user_example():
 def test_save_last_tou_sync_result(tmp_path):
     """Verifies that save_last_tou_sync_result persists JSON data properly."""
     test_file = tmp_path / ".deye_tou_last_sync.json"
-    with mock.patch("pstryk_engine.os.path.join", return_value=str(test_file)):
+    with mock.patch("pstryk_engine.LAST_TOU_SYNC_PATHS", [str(test_file)]):
         pstryk_engine.save_last_tou_sync_result({"success": True, "for_tomorrow": False, "slots_count": 6})
     assert test_file.exists()
     with open(test_file, "r", encoding="utf-8") as f:
@@ -1355,6 +1421,7 @@ def test_sync_deye_inverter_tou_schedule_idempotent_skip_and_force(tmp_path):
     pb_win = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2, "is_consecutive": True}
     sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
     fake_cache = {
+        "_warsaw_date": warsaw_today_iso(),
         "current": {}, "today": {}, "all_prices": [],
         "powerbank_best_window": pb_win,
         "best_sell_window": sell_win,
@@ -1380,6 +1447,7 @@ def test_sync_deye_inverter_tou_schedule_idempotent_skip_and_force(tmp_path):
     mock_client.sync_tou_schedule.return_value = {"success": True, "registers_written": 26}
     mock_client.get_configured_inverter_ip.return_value = "10.20.2.6"
     mock_client.get_configured_inverter_port.return_value = 8899
+    mock_client.set_charge_current.return_value = {"success": True}
 
     with mock.patch("pstryk_engine.solarman_v5_client", mock_client):
         # 1. Without force -> diff check matches -> write skipped (unchanged: True)
@@ -1402,7 +1470,7 @@ def test_sync_deye_inverter_tou_schedule_idempotent_skip_and_force(tmp_path):
         mock_client.sync_tou_schedule.assert_called_once()
 
 
-def test_fetch_consolidated_custom_soc_and_battery_model(tmp_path):
+def test_fetch_consolidated_custom_soc_and_battery_model(tmp_path, monkeypatch):
     """
     Asserts that fetch_consolidated_data correctly adopts user-supplied max_soc,
     min_soc, and current_soc into both BatteryModel and the generated TOU schedules.
@@ -1410,21 +1478,10 @@ def test_fetch_consolidated_custom_soc_and_battery_model(tmp_path):
     cache_dir = str(tmp_path / "cache_soc")
     os.makedirs(cache_dir, exist_ok=True)
 
-    dummy_payload = {
-        "frames": [
-            {
-                "start": "2026-10-16T10:00:00Z",
-                "end": "2026-10-16T11:00:00Z",
-                "is_live": False,
-                "metrics": {
-                    "pricing": {"price_gross": 0.80, "price_net": 0.65},
-                    "cost": {"cost_gross": 0.80, "cost_net": 0.65},
-                    "meter_values": {"kwh_import": 1.0, "kwh_export": 0.0},
-                    "carbon": {"carbon_g": 500.0},
-                },
-            }
-        ]
-    }
+    freeze_now(monkeypatch, datetime(2026, 10, 16, 0, 30, tzinfo=WARSAW))
+    day = datetime(2026, 10, 16).date()
+    price = lambda h: 0.3 if 13 <= h < 15 else (1.2 if 18 <= h < 21 else 0.7)
+    dummy_payload = {"frames": warsaw_day_frames(day, price) + warsaw_day_frames(day + timedelta(days=1), price)}
 
     with mock.patch("pstryk_engine.fetch_api", return_value=dummy_payload):
         consolidated = pstryk_engine.fetch_consolidated_data(
@@ -1490,7 +1547,7 @@ def test_dynamic_capacity_scaling_custom_kwh():
     assert charge_doubled["power_w"] == 7170
     assert charge_doubled["target_charge_current_a"] == 50
 
-    # 3. 2h window with 140A charge current:
+    # 3. 2h window with 140A requested charge current (clamped to BATTERY_CHARGE_CURRENT_MAX_CEILING_A = 100A):
     pb_2h = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2, "is_consecutive": True}
     s_doubled_2h = pstryk_engine.generate_deye_tou_schedule(
         current_soc=50, max_soc=90, min_soc=20,
@@ -1502,7 +1559,7 @@ def test_dynamic_capacity_scaling_custom_kwh():
     )
     charge_doubled_2h = [s for s in s_doubled_2h if s["grid_charge"] is True][0]
     assert charge_doubled_2h["power_w"] == 7170
-    assert charge_doubled_2h["target_charge_current_a"] == 140
+    assert charge_doubled_2h["target_charge_current_a"] == 100
 
 
 def test_loss_buffer_percentage_variations():
@@ -1713,11 +1770,12 @@ def test_generate_deye_tou_schedule_variant_b_night_branch():
     assert slots[4]["target_soc"] == 16
     assert "Szczyt Wieczorny" in slots[4]["label"]
 
-    # Slot 6: 20:00 Night Standby on Morning Reserve (16 + 5 = 21%)
+    # Slot 6: 20:00 Night Standby down to safe_min_soc (16%) awaiting next day's 01:00 charging window
     assert slots[5]["slot"] == 6
     assert slots[5]["time"] == "20:00"
     assert slots[5]["grid_charge"] is False
-    assert slots[5]["target_soc"] == 21
+    assert slots[5]["target_soc"] == 16
+    assert "Czuwanie Nocne" in slots[5]["label"]
 
 
 def test_fetch_consolidated_cache_hit_reevaluates_tou(tmp_path):
@@ -1730,6 +1788,7 @@ def test_fetch_consolidated_cache_hit_reevaluates_tou(tmp_path):
     cache_file = os.path.join(cache_dir, "pstryk_cache_dol.json")
 
     mock_cached = {
+        "_warsaw_date": warsaw_today_iso(),
         "current": {"price_gross": 0.85},
         "today": {"hourly": []},
         "all_prices": [{"price_gross": 0.85}],
@@ -1780,6 +1839,511 @@ def test_fetch_consolidated_cache_hit_reevaluates_tou(tmp_path):
     assert sched2[2]["target_soc"] == 66  # Slot 3 updated immediately
     assert sched2[3]["target_soc"] == 66  # Slot 4 updated immediately
 
+
+def test_battery_charge_current_ceiling_clamp_and_discharge_readonly():
+    """
+    Verifies that:
+    1. Register 108 (Max Charge Current) can never exceed BATTERY_CHARGE_CURRENT_MAX_CEILING_A (100A).
+    2. Register 109 (Max Discharge Current) is strictly read-only and never modified.
+    """
+    import energy_defaults
+    import solarman_v5_client
+    import deye_cloud_client
+
+    assert energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A == 100.0
+
+    # 1. Modulation clamp
+    with mock.patch("solarman_v5_client.set_charge_current", return_value={"success": True}):
+        mod_res = pstryk_engine.check_and_apply_charge_current_modulation(
+            slots=[],
+            base_charge_current=150.0,
+            next_cycle_target_a=140,
+        )
+    assert mod_res["desired_a"] <= 100
+
+    # 2. Solarman client clamp
+    with mock.patch("solarman_v5_client.write_single_register") as mock_write, \
+         mock.patch("solarman_v5_client.load_deye_cache", return_value={"config": {"max_charge_current": 50}}):
+        mock_write.return_value = {"success": True, "message": "OK"}
+        res = solarman_v5_client.set_charge_current(host="10.20.2.6", current_a=150)
+        assert res["current_a"] == 100
+        # Verify written register is 108 (REG_MAX_CHARGE_CURRENT), never 109
+        mock_write.assert_called_once()
+        assert mock_write.call_args[0][2] == 108
+        assert mock_write.call_args[0][3] == 100
+
+    # 3. Deye cloud client clamp
+    with mock.patch("deye_cloud_client.call_deye_api") as mock_cloud, \
+         mock.patch("solarman_v5_client.load_deye_cache", return_value={"config": {"max_charge_current": 50}}):
+        mock_cloud.return_value = (True, {"code": "0", "success": True}, "OK")
+        res_cloud = deye_cloud_client.set_charge_current_cloud(
+            current_a=160,
+            cfg={"app_id": "test", "app_secret": "test", "email": "test", "inverter_sn": "2603160727"}
+        )
+        assert res_cloud["current_a"] == 100
+        mock_cloud.assert_called_once()
+        payload = mock_cloud.call_args[1]["data"]
+        assert payload["value"] == 100
+
+
+
+# ---------------------------------------------------------------------------
+# Regression tests: Reg 108 ratchet (A3), night modulation (B4), slot ordering (B1/B6),
+# Warsaw day/weekday (B3/B7), price coverage (B5), target-hours CLI (A4), cloud fallback (B8)
+# ---------------------------------------------------------------------------
+
+def win(h1, h2, day=(2026, 10, 17)):
+    """Window dict for Warsaw hours h1..h2 (h2 may be 24) as UTC ISO strings."""
+    base = datetime(*day, tzinfo=WARSAW)
+    iso = lambda h: (base + timedelta(hours=h)).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return {"start": iso(h1), "end": iso(h2), "duration_hours": h2 - h1, "is_consecutive": True}
+
+
+def assert_valid_schedule(slots):
+    mins = slot_minutes(slots)
+    assert len(slots) == 6
+    assert [s["slot"] for s in slots] == [1, 2, 3, 4, 5, 6]
+    assert all(0 <= m < 1440 for m in mins)
+    assert all(mins[i] < mins[i + 1] for i in range(5)), mins
+
+
+def test_charge_current_base_ignores_live_reg108_value():
+    """A3: a lowered live Reg 108 (50 A) must not scale the base; 4h window -> 100*2/4 = 50 A, base stays 100 A."""
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        max_soc=90, min_soc=20, best_pb_window=win(9, 13), best_sell_window=win(17, 20), max_charge_current=50.0,
+    )
+    charge = [s for s in slots if s["grid_charge"]][0]
+    assert charge["target_charge_current_a"] == 50
+    assert charge["base_charge_current_a"] == 100
+
+
+def test_reg108_does_not_ratchet_across_repeated_syncs(tmp_path, monkeypatch):
+    """A3: repeated syncs feeding back the previously written Reg 108 (and legacy --max-charge-current) never decrease it."""
+    cache_dir = str(tmp_path)
+    pstryk_engine.write_cache(pstryk_engine.get_cache_file_path("dol", cache_dir), {
+        "_warsaw_date": "2026-10-17", "powerbank_best_window": win(9, 13), "best_sell_window": win(17, 20),
+    })
+    freeze_now(monkeypatch, datetime(2026, 10, 17, 10, 0, tzinfo=WARSAW))  # inside the 4h window
+    written = [50]
+    client = mock.MagicMock()
+    client.get_configured_inverter_ip.return_value = "127.0.0.1"
+    client.get_configured_inverter_port.return_value = 8899
+    client.read_inverter_telemetry.side_effect = lambda **kw: {
+        "success": True, "config": {"max_charge_current": written[-1]}, "telemetry": {}, "active_tou": {}}
+    client.sync_tou_schedule.return_value = {"success": True}
+
+    def _set(host=None, port=None, current_a=None):
+        written.append(current_a)
+        return {"success": True}
+    client.set_charge_current.side_effect = _set
+    with mock.patch("pstryk_engine.solarman_v5_client", client):
+        for _ in range(4):
+            pstryk_engine.sync_deye_inverter_tou_schedule(cache_dir=cache_dir, max_charge_current=written[-1], force=True)
+    assert written[1:] == [50, 50, 50, 50]
+
+    # Daytime outside the window restores the 100 A ceiling, not the live/CLI value
+    freeze_now(monkeypatch, datetime(2026, 10, 17, 15, 0, tzinfo=WARSAW))
+    with mock.patch("pstryk_engine.solarman_v5_client", client):
+        res = pstryk_engine.sync_deye_inverter_tou_schedule(cache_dir=cache_dir, max_charge_current=50, force=True)
+    assert res["charge_current_modulation"]["desired_a"] == 100
+
+
+def _modulate(monkeypatch, slots, hh, mm, next_cycle=None):
+    freeze_now(monkeypatch, datetime(2026, 10, 17, hh, mm, tzinfo=WARSAW))
+    client = mock.MagicMock()
+    client.set_charge_current.return_value = {"success": True}
+    with mock.patch("pstryk_engine.solarman_v5_client", client):
+        return pstryk_engine.check_and_apply_charge_current_modulation(slots=slots, next_cycle_target_a=next_cycle)["desired_a"]
+
+
+def test_modulation_night_branches_keep_next_cycle_target(monkeypatch):
+    """B4: 00:00 -> night window start keeps the pre-set target instead of resetting to 100 A."""
+    slots = pstryk_engine.generate_deye_tou_schedule(max_soc=90, min_soc=20, best_pb_window=win(1, 5), best_sell_window=win(17, 20))
+    assert [s for s in slots if s["grid_charge"]][0]["target_charge_current_a"] == 50
+    assert _modulate(monkeypatch, slots, 0, 30, next_cycle=50) == 50   # gap before window (was 100)
+    assert _modulate(monkeypatch, slots, 3, 0, next_cycle=80) == 50    # inside window
+    assert _modulate(monkeypatch, slots, 12, 0, next_cycle=50) == 100  # daytime solar
+    assert _modulate(monkeypatch, slots, 22, 0, next_cycle=67) == 67   # after today's charge: next cycle pre-set
+
+
+def test_modulation_window_wrapping_midnight(monkeypatch):
+    """B4: a charge slot ending at 00:00 (20-24) is not treated as 'already passed' in the evening."""
+    slots = pstryk_engine.generate_deye_tou_schedule(max_soc=90, min_soc=20, best_pb_window=win(20, 24), best_sell_window=win(17, 20))
+    assert_valid_schedule(slots)
+    assert _modulate(monkeypatch, slots, 19, 30, next_cycle=80) == 50  # before tonight's window (was 80)
+    assert _modulate(monkeypatch, slots, 23, 30, next_cycle=80) == 50  # inside window
+
+
+@pytest.mark.parametrize("pb,sell", [((19, 21), (17, 20)), ((22, 24), (17, 20)), ((20, 24), (17, 21))])
+def test_schedule_evening_and_night_charge_windows_ordered(pb, sell):
+    """B1: evening/night charge windows produce a valid strictly ordered schedule with the charge slot at window start."""
+    slots = pstryk_engine.generate_deye_tou_schedule(max_soc=90, min_soc=20, best_pb_window=win(*pb), best_sell_window=win(*sell))
+    assert_valid_schedule(slots)
+    charge = [s for s in slots if s["grid_charge"]]
+    assert charge and charge[0]["time"] == f"{pb[0]:02d}:00"
+    # Evening peak discharge happens before the charge window
+    peak = [s for s in slots if "Szczyt Wieczorny" in s["label"]][0]
+    assert slot_minutes([peak])[0] < pb[0] * 60
+
+
+@pytest.mark.parametrize("pb", [(2, 4), (13, 15)])
+def test_schedule_sell_window_ending_at_midnight(pb):
+    """B1: a sell window ending 24:00 must not produce an out-of-order slot 6 at 00:00."""
+    slots = pstryk_engine.generate_deye_tou_schedule(max_soc=90, min_soc=20, best_pb_window=win(*pb), best_sell_window=win(21, 24))
+    assert_valid_schedule(slots)
+    assert [s for s in slots if s["grid_charge"]][0]["time"] == f"{pb[0]:02d}:00"
+    peak = [s for s in slots if s["time"] == "21:00"][0]
+    assert peak["target_soc"] == 20
+
+
+@pytest.mark.parametrize("pb", [(2, 4), (13, 15)])
+def test_schedule_morning_sell_window_keeps_evening_peak(pb):
+    """B6: a morning sell window places its discharge slot at 07:00 and still protects the 17:00 evening peak."""
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        max_soc=90, min_soc=20, pre_peak_margin=20, best_pb_window=win(*pb), best_sell_window=win(7, 10))
+    assert_valid_schedule(slots)
+    by_time = {s["time"]: s for s in slots}
+    assert by_time["07:00"]["target_soc"] == 20 and not by_time["07:00"]["grid_charge"]
+    assert by_time["10:00"]["target_soc"] == 40  # hold pre-peak reserve after the sale
+    assert by_time["17:00"]["target_soc"] == 20 and "Szczyt Wieczorny" in by_time["17:00"]["label"]
+    charge_m = slot_minutes([s for s in slots if s["grid_charge"]])[0]
+    assert charge_m == pb[0] * 60
+    assert 7 * 60 < 17 * 60 and charge_m < 17 * 60
+
+
+def test_slots_carry_nominal_voltage_for_cloud_write():
+    slots = pstryk_engine.generate_deye_tou_schedule(max_soc=90, min_soc=20, nominal_voltage=51.2)
+    assert all(s["voltage"] == 51.2 for s in slots)
+
+
+def _consolidated_mock(frames, calls=None):
+    def _fetch(url, params, api_key, timeout=10):
+        if calls is not None:
+            calls.append(params)
+        if params.get("temporal") == "latest":
+            return {"frames": frames[:1]}
+        if params.get("resolution") in ("day", "month"):
+            return {"frames": []}
+        ws, we = params.get("window_start"), params.get("window_end")
+        return {"frames": [f for f in frames if ws <= f["start"] < we]}
+    return _fetch
+
+
+def test_today_window_starts_at_warsaw_midnight_saturday(monkeypatch, tmp_path):
+    """B3: at Saturday 00:30 Warsaw, today's query starts at Warsaw midnight (Fri 22:00Z), not UTC midnight."""
+    freeze_now(monkeypatch, datetime(2026, 10, 24, 0, 30, tzinfo=WARSAW))
+    sat = datetime(2026, 10, 24).date()
+    frames = warsaw_day_frames(sat) + warsaw_day_frames(sat + timedelta(days=1))
+    calls = []
+    with mock.patch("pstryk_engine.fetch_api", side_effect=_consolidated_mock(frames, calls)):
+        res = pstryk_engine.fetch_consolidated_data(api_key="sk-T", use_cache=False, cache_dir=str(tmp_path))
+    today_q = [c for c in calls if c.get("metrics") == "meter_values,cost,pricing,carbon"][0]
+    assert today_q["window_start"] == "2026-10-23T22:00:00Z"
+    assert res["price_coverage_complete"] is True
+    assert len(res["deye_tou_schedule_today"]) == 6
+    # B7: Saturday in Warsaw -> EV auto = 4h
+    assert res["ev_best_window_today"]["duration_hours"] == 4
+
+
+def test_ev_weekday_uses_warsaw_calendar():
+    """B7: frames starting Fri 22:00Z are Saturday in Warsaw -> weekend 4h window."""
+    frames = warsaw_day_frames(datetime(2026, 10, 24).date())
+    assert frames[0]["start"] == "2026-10-23T22:00:00Z"
+    assert pstryk_engine.find_ev_best_window({"frames": frames}, target_hours="auto")["duration_hours"] == 4
+
+
+def test_incomplete_price_coverage_blocks_tou_and_cache(monkeypatch, tmp_path):
+    """B5: missing forward hours -> no TOU, no cache write, and sync refuses to write."""
+    freeze_now(monkeypatch, datetime(2026, 10, 21, 12, 30, tzinfo=WARSAW))
+    day = datetime(2026, 10, 21).date()
+    frames = warsaw_day_frames(day, skip_hours=range(13, 24))
+    cache_dir = str(tmp_path)
+    with mock.patch("pstryk_engine.fetch_api", side_effect=_consolidated_mock(frames)):
+        res = pstryk_engine.fetch_consolidated_data(api_key="sk-T", use_cache=True, cache_dir=cache_dir)
+    assert res["price_coverage_complete"] is False
+    assert res["deye_tou_schedule_today"] == []
+    assert "tou_error" in res
+    assert not os.path.exists(pstryk_engine.get_cache_file_path("dol", cache_dir))
+
+    client = mock.MagicMock()
+    client.read_inverter_telemetry.return_value = {"success": True, "config": {}, "telemetry": {}}
+    with mock.patch("pstryk_engine.fetch_api", side_effect=_consolidated_mock(frames)), \
+         mock.patch("pstryk_engine.resolve_api_key", return_value=("sk-T", "test")), \
+         mock.patch("pstryk_engine.solarman_v5_client", client):
+        sync = pstryk_engine.sync_deye_inverter_tou_schedule(cache_dir=cache_dir)
+    assert sync["success"] is False
+    assert "Niepełne" in sync["error"]
+    client.sync_tou_schedule.assert_not_called()
+    client.set_charge_current.assert_not_called()
+
+
+@pytest.mark.parametrize("raw,default,expected", [
+    ("3h", 3, 3), ("4", 3, 4), (5, 3, 5), ("Auto 2h/4h", "auto", "auto"), ("auto", "auto", "auto"),
+    ("Auto", 3, 3), ("", 3, 3), (None, "auto", "auto"), ("garbage", 3, 3), ("0h", 3, 3),
+])
+def test_parse_target_hours(raw, default, expected):
+    assert pstryk_engine.parse_target_hours(raw, default) == expected
+
+
+def test_cli_target_hours_threaded_to_both_modes():
+    """A4: --sell-target-hours / --ev-target-hours accept raw input_select values in both modes."""
+    with mock.patch("pstryk_engine.resolve_api_key", return_value=("sk-T", "test")), \
+         mock.patch("pstryk_engine.fetch_consolidated_data", return_value={}) as mock_fetch:
+        pstryk_engine.main(["--sell-target-hours", "4h", "--ev-target-hours", "Auto 2h/4h"])
+    assert mock_fetch.call_args.kwargs["sell_target_hours"] == 4
+    assert mock_fetch.call_args.kwargs["ev_target_hours"] == "auto"
+    with mock.patch("pstryk_engine.sync_deye_inverter_tou_schedule", return_value={"success": True}) as mock_sync:
+        pstryk_engine.main(["--sync-deye-tou", "--sell-target-hours", "2h", "--ev-target-hours", "3h"])
+    assert mock_sync.call_args.kwargs["sell_target_hours"] == 2
+    assert mock_sync.call_args.kwargs["ev_target_hours"] == 3
+    with mock.patch("pstryk_engine.resolve_api_key", return_value=("sk-T", "test")), \
+         mock.patch("pstryk_engine.fetch_consolidated_data", return_value={}) as mock_fetch:
+        pstryk_engine.main([])
+    assert mock_fetch.call_args.kwargs["sell_target_hours"] == energy_defaults.SELL_TARGET_HOURS
+    assert mock_fetch.call_args.kwargs["ev_target_hours"] == "auto"
+
+
+def test_target_hours_applied_to_windows_and_cache(monkeypatch, tmp_path):
+    """A4: hours reach find_best_sell_window / find_ev_best_window; a cache built with other hours is not reused."""
+    freeze_now(monkeypatch, datetime(2026, 10, 21, 0, 30, tzinfo=WARSAW))
+    day = datetime(2026, 10, 21).date()
+    frames = warsaw_day_frames(day) + warsaw_day_frames(day + timedelta(days=1))
+    cache_dir = str(tmp_path)
+    with mock.patch("pstryk_engine.fetch_api", side_effect=_consolidated_mock(frames)):
+        r1 = pstryk_engine.fetch_consolidated_data(api_key="sk-T", cache_dir=cache_dir, sell_target_hours=2, ev_target_hours=3)
+        r2 = pstryk_engine.fetch_consolidated_data(api_key="sk-T", cache_dir=cache_dir, sell_target_hours=2, ev_target_hours=3)
+        r3 = pstryk_engine.fetch_consolidated_data(api_key="sk-T", cache_dir=cache_dir, sell_target_hours=4, ev_target_hours="auto")
+    assert r1["best_sell_window_today"]["duration_hours"] == 2
+    assert r1["ev_best_window_today"]["duration_hours"] == 3
+    assert r2.get("_cache_hit") is True
+    assert r3.get("_cache_hit") is not True
+    assert r3["best_sell_window_today"]["duration_hours"] == 4
+    assert r3["ev_best_window_today"]["duration_hours"] == 2  # Wednesday auto
+
+
+def test_set_charge_current_cloud_fallback(monkeypatch):
+    """B8: cloud fallback runs when the local client raises or reports cloud_attempted False, at most once otherwise."""
+    import solarman_v5_client
+    import deye_cloud_client
+    cloud = mock.MagicMock(return_value={"success": True, "source": "cloud"})
+    monkeypatch.setattr(deye_cloud_client, "set_charge_current_cloud", cloud)
+
+    monkeypatch.setattr(solarman_v5_client, "set_charge_current", mock.MagicMock(side_effect=OSError("down")))
+    assert pstryk_engine.main(["--set-charge-current", "60"]) == 0
+    assert cloud.call_count == 1
+
+    monkeypatch.setattr(solarman_v5_client, "set_charge_current", mock.MagicMock(return_value={"success": False, "cloud_attempted": False}))
+    assert pstryk_engine.main(["--restore-charge-current"]) == 0
+    assert cloud.call_count == 2
+    assert cloud.call_args.kwargs["current_a"] == 100
+
+    # Client already tried the cloud internally (its default on failure) -> no second cloud call
+    monkeypatch.setattr(solarman_v5_client, "set_charge_current", mock.MagicMock(return_value={"success": False}))
+    assert pstryk_engine.main(["--set-charge-current", "60"]) == 1
+    assert cloud.call_count == 2
+
+
+def test_tou_sync_does_not_double_call_cloud(tmp_path):
+    """Coordinator item: solarman sync_tou_schedule already falls back to cloud; engine must not call cloud again."""
+    import deye_cloud_client
+    cache_dir = str(tmp_path)
+    pstryk_engine.write_cache(pstryk_engine.get_cache_file_path("dol", cache_dir), {
+        "_warsaw_date": warsaw_today_iso(), "powerbank_best_window": win(13, 15), "best_sell_window": win(17, 20)})
+    client = mock.MagicMock()
+    client.read_inverter_telemetry.return_value = {"success": True, "config": {}, "telemetry": {}}
+    client.sync_tou_schedule.return_value = {"success": False, "error": "local and cloud failed"}
+    client.set_charge_current.return_value = {"success": True}
+    with mock.patch("pstryk_engine.solarman_v5_client", client), \
+         mock.patch.object(deye_cloud_client, "sync_tou_schedule") as cloud_sync:
+        res = pstryk_engine.sync_deye_inverter_tou_schedule(cache_dir=cache_dir, force=True)
+    assert res["success"] is False
+    cloud_sync.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Code-review round: H1 / M1 / M2 / M3 / M6 / L5 / L7
+# ---------------------------------------------------------------------------
+
+def _hm(m):
+    return f"{(m // 60) % 24:02d}:{m % 60:02d}"
+
+
+def test_schedule_property_all_windows():
+    """
+    H1/M6 property test over every (charge start 0-23, duration 1-6) x (sell start 0-23, duration 1-5)
+    x calibration: 6 strictly increasing slots, SOC within [min, max], every charge hour inside a grid-charge
+    slot, and every sell hour (not overlapping the charge window) inside a min-SOC discharge slot.
+    """
+    min_soc, max_soc = 20, 90
+    failures = []
+    for calib in (False, True):
+        top = 100 if calib else max_soc
+        for ps in range(24):
+            for pd in range(1, 7):
+                pe = ps + pd
+                if pe > 24:
+                    continue
+                for ss in range(24):
+                    for sd in range(1, 6):
+                        se = ss + sd
+                        if se > 24:
+                            continue
+                        slots = pstryk_engine.generate_deye_tou_schedule(
+                            max_soc=max_soc, min_soc=min_soc, calibration_active=calib,
+                            best_pb_window={"start": _hm(ps * 60), "end": _hm(pe * 60), "duration_hours": pd},
+                            best_sell_window={"start": _hm(ss * 60), "end": _hm(se * 60)},
+                            max_discharge_current=140, nominal_voltage=51.2, max_charge_current=100,
+                        )
+                        ts = slot_minutes(slots)
+                        key = (calib, ps, pd, ss, sd)
+                        if len(slots) != 6 or any(ts[i] >= ts[i + 1] for i in range(5)) or not all(0 <= t < 1440 for t in ts):
+                            failures.append((key, "order", ts))
+                            continue
+                        if any(not (min_soc <= s["target_soc"] <= top) for s in slots):
+                            failures.append((key, "soc", [s["target_soc"] for s in slots]))
+
+                        def active(m):
+                            idx = [i for i, t in enumerate(ts) if t <= m]
+                            return slots[idx[-1] if idx else 5]
+
+                        if any(not active(h * 60)["grid_charge"] for h in range(ps, pe)):
+                            failures.append((key, "charge", ts))
+                        if not (ss < pe and se > ps):
+                            if any(active(h * 60)["target_soc"] != min_soc or active(h * 60)["grid_charge"] for h in range(ss, se)):
+                                failures.append((key, "sell", ts))
+    assert not failures, f"{len(failures)} failures, e.g. {failures[:5]}"
+
+
+def test_h1_charge_survives_trimmed_sell_collision():
+    """H1 repro: charge 01-03 + sell 00-01 must keep a grid-charge slot at 01:00."""
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        max_soc=90, min_soc=20, best_pb_window={"start": "01:00", "end": "03:00", "duration_hours": 2},
+        best_sell_window={"start": "00:00", "end": "01:00"})
+    assert [s["time"] for s in slots if s["grid_charge"]][:1] == ["01:00"]
+
+
+def test_m6_discharge_starts_at_sell_start():
+    """M6 repro: charge 17-18 + sell 18-19 -> discharge slot at 18:00, not 19:00."""
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        max_soc=90, min_soc=20, best_pb_window={"start": "17:00", "end": "18:00", "duration_hours": 1},
+        best_sell_window={"start": "18:00", "end": "19:00"})
+    by_time = {s["time"]: s for s in slots}
+    assert by_time["17:00"]["grid_charge"] is True
+    assert by_time["18:00"]["target_soc"] == 20 and not by_time["18:00"]["grid_charge"]
+
+
+def test_m1_charge_ceiling_is_hard_capped_at_100(monkeypatch):
+    import importlib
+    try:
+        monkeypatch.setenv("BATTERY_MAX_CHARGE_CURRENT", "140")
+        monkeypatch.setenv("BATTERY_CHARGE_CURRENT_A", "140")
+        importlib.reload(energy_defaults)
+        assert energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT == 140.0
+        assert energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A == 100.0
+    finally:
+        monkeypatch.undo()
+        importlib.reload(energy_defaults)
+    assert energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A <= 100.0
+
+
+@pytest.mark.parametrize("day,skip,expected", [
+    ((2026, 10, 25), (), True),                         # DST end: 25 frames
+    ((2026, 10, 25), "drop_one", True),                 # DST end: API returns only 24 frames
+    ((2026, 3, 29), (), True),                          # DST start: 23 frames
+    ((2026, 10, 21), (), True),                         # normal 24 frames
+    ((2026, 10, 21), range(9, 12), False),              # 3h gap
+    ((2026, 10, 21), range(20, 24), False),             # missing tail
+    ((2026, 10, 21), (0,), False),                      # missing start
+])
+def test_m2_span_based_day_coverage(day, skip, expected):
+    d = datetime(*day).date()
+    frames = warsaw_day_frames(d, skip_hours=() if skip == "drop_one" else skip)
+    if skip == "drop_one":
+        frames = frames[:2] + frames[3:]  # one of the doubled 02:00 hours missing
+        assert len(frames) == 24
+    assert pstryk_engine.warsaw_day_covered(frames, d) is expected
+
+
+def test_m2_dst_day_with_24_frames_still_computes_tou(monkeypatch, tmp_path):
+    freeze_now(monkeypatch, datetime(2026, 10, 25, 0, 30, tzinfo=WARSAW))
+    d = datetime(2026, 10, 25).date()
+    today = warsaw_day_frames(d)
+    frames = today[:2] + today[3:] + warsaw_day_frames(d + timedelta(days=1))
+    with mock.patch("pstryk_engine.fetch_api", side_effect=_consolidated_mock(frames)):
+        res = pstryk_engine.fetch_consolidated_data(api_key="sk-T", use_cache=False, cache_dir=str(tmp_path))
+    assert res["price_coverage_complete"] is True
+    assert len(res["deye_tou_schedule_today"]) == 6
+    assert res["has_tomorrow_pricing"] is True
+
+
+def test_m3_no_next_cycle_preset_before_evening(monkeypatch):
+    """M3: between the end of today's night window and 19:00 Reg 108 stays at base (100 A)."""
+    slots = pstryk_engine.generate_deye_tou_schedule(max_soc=90, min_soc=20, best_pb_window=win(1, 5), best_sell_window=win(17, 20))
+    assert _modulate(monkeypatch, slots, 5, 2, next_cycle=50) == 100
+    # Night window that ended before 05:00 (02-04): 04:30 is not daytime but still before the evening
+    slots_24 = pstryk_engine.generate_deye_tou_schedule(max_soc=90, min_soc=20, best_pb_window=win(2, 4), best_sell_window=win(17, 20))
+    assert _modulate(monkeypatch, slots_24, 4, 0, next_cycle=50) == 100
+    assert _modulate(monkeypatch, slots_24, 4, 30, next_cycle=50) == 100
+    assert _modulate(monkeypatch, slots_24, 19, 0, next_cycle=50) == 50
+
+
+def test_l5_cache_from_previous_warsaw_day_is_a_miss(monkeypatch, tmp_path):
+    """L5: at 00:00:30 a cache written yesterday (still within TTL) must not be reused."""
+    cache_dir = str(tmp_path)
+    d = datetime(2026, 10, 21).date()
+    frames = warsaw_day_frames(d) + warsaw_day_frames(d + timedelta(days=1)) + warsaw_day_frames(d + timedelta(days=2))
+    freeze_now(monkeypatch, datetime(2026, 10, 21, 23, 59, 50, tzinfo=WARSAW))
+    with mock.patch("pstryk_engine.fetch_api", side_effect=_consolidated_mock(frames)):
+        r1 = pstryk_engine.fetch_consolidated_data(api_key="sk-T", cache_dir=cache_dir)
+        assert r1["_warsaw_date"] == "2026-10-21"
+        freeze_now(monkeypatch, datetime(2026, 10, 22, 0, 0, 30, tzinfo=WARSAW))
+        r2 = pstryk_engine.fetch_consolidated_data(api_key="sk-T", cache_dir=cache_dir)
+    assert r2.get("_cache_hit") is not True
+    assert r2["_warsaw_date"] == "2026-10-22"
+
+
+def test_l7_next_cycle_target_from_fresh_data(monkeypatch, tmp_path):
+    """L7: with no usable cache, the next-cycle Reg 108 target comes from the freshly fetched payload."""
+    freeze_now(monkeypatch, datetime(2026, 10, 17, 22, 0, tzinfo=WARSAW))
+    fresh = {
+        "price_coverage_complete": True,
+        "powerbank_best_window": win(2, 4), "best_sell_window": win(17, 20),
+        "deye_tou_schedule_tomorrow": [{"grid_charge": True, "target_charge_current_a": 67}],
+    }
+    client = mock.MagicMock()
+    client.read_inverter_telemetry.return_value = {"success": True, "config": {}, "telemetry": {}}
+    client.sync_tou_schedule.return_value = {"success": True}
+    client.set_charge_current.return_value = {"success": True}
+    with mock.patch("pstryk_engine.solarman_v5_client", client), \
+         mock.patch("pstryk_engine.resolve_api_key", return_value=("sk-T", "test")), \
+         mock.patch("pstryk_engine.fetch_consolidated_data", return_value=fresh):
+        res = pstryk_engine.sync_deye_inverter_tou_schedule(cache_dir=str(tmp_path), force=True)
+    assert res["charge_current_modulation"]["desired_a"] == 67
+
+
+@pytest.mark.parametrize("strip_end", [False, True])
+def test_m2_total_missing_hours_capped_at_one(strip_end):
+    """M2': isolated 1h holes add up; every other hour missing must fail, one hole in total is tolerated."""
+    d = datetime(2026, 10, 21).date()
+
+    def frames_for(skip):
+        fr = warsaw_day_frames(d, skip_hours=skip)
+        if strip_end:
+            for f in fr:
+                f.pop("end")
+        return fr
+
+    assert pstryk_engine.warsaw_day_covered(frames_for(range(1, 24, 2)), d) is False   # 12 of 24 missing
+    assert pstryk_engine.warsaw_day_covered(frames_for((7, 15)), d) is False            # 2 separate holes
+    assert pstryk_engine.warsaw_day_covered(frames_for((12,)), d) is True               # documented 1h tolerance
+    assert pstryk_engine.warsaw_day_covered(frames_for((23,)), d) is False              # last hour must be covered
+    dst = datetime(2026, 10, 25).date()
+    fr = warsaw_day_frames(dst)
+    fr = fr[:2] + fr[3:]
+    if strip_end:
+        for f in fr:
+            f.pop("end")
+    assert len(fr) == 24 and pstryk_engine.warsaw_day_covered(fr, dst) is True          # 25h DST day as 24 frames
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

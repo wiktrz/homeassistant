@@ -390,3 +390,102 @@ def test_cli_set_safety_limits_flag():
 
 
 
+
+
+def test_cloud_tou_non_charging_mid_soc_slot_and_no_charge_current():
+    """R1/R2: non-charging slot with 30<SOC<80 gets a label; TOU power is not reported as charge current."""
+    tou = {"success": True, "data": {"touAction": "on", "timeUseSettingItems": [
+        {"time": "0100", "power": 7000, "soc": 40, "enableGridCharge": False},
+        {"time": "0500", "power": 7000, "soc": 90, "enableGridCharge": True},
+    ]}}
+
+    def fake_api(path, method="GET", data=None, cfg=None, **kw):
+        return (True, tou, "OK") if path == "/v1.0/config/tou" else (False, {}, "skip")
+
+    cfg = {"api_key": "k", "inverter_sn": "SN1"}
+    with mock.patch("deye_cloud_client.call_deye_api", side_effect=fake_api), \
+         mock.patch("deye_cloud_client.get_deye_cloud_token", return_value="t", create=True):
+        res = deye_cloud_client.read_inverter_telemetry(cfg=cfg, force_refresh=True, cache_path=os.devnull)
+    slots = res["active_tou"]["slots"]
+    assert slots[0]["label"] == "Autokonsumpcja PV"
+    assert all(s["charge_current_a"] is None for s in slots)
+
+
+def _fake_clock(step_sleep=True):
+    clock = {"t": 1000.0}
+    return clock, mock.patch("solarman_v5_client.time.monotonic", side_effect=lambda: clock["t"]), \
+        mock.patch("solarman_v5_client.time.sleep", side_effect=lambda x: clock.__setitem__("t", clock["t"] + x))
+
+
+def test_slow_but_healthy_requests_never_start_deadline():
+    """H2: successful-but-slow requests (30 x 3s) must not trip the budget."""
+    clock, p_mono, p_sleep = _fake_clock()
+
+    def slow_sock(*a, **kw):
+        clock["t"] += 3.0
+        m = mock.MagicMock()
+        m.__enter__.return_value.recv.return_value = b"ok"
+        return m
+
+    with p_mono, p_sleep, mock.patch("solarman_v5_client.socket.socket", side_effect=slow_sock):
+        for _ in range(30):
+            ok, _, _ = solarman_v5_client.send_command("10.0.0.1", 8899, b"x")
+            assert ok
+    assert solarman_v5_client._deadline is None
+    assert clock["t"] - 1000.0 >= 90
+
+
+def test_first_failed_attempt_starts_deadline_then_fails_fast():
+    import socket as _socket
+    clock, p_mono, p_sleep = _fake_clock()
+    attempts = []
+
+    def fake_sock(*a, **kw):
+        attempts.append(1)
+        clock["t"] += 5.0
+        raise _socket.timeout()
+
+    with p_mono, p_sleep, mock.patch("solarman_v5_client.socket.socket", side_effect=fake_sock):
+        ok, _, _ = solarman_v5_client.send_command("10.0.0.1", 8899, b"x", timeout=5, retries=8)
+        assert not ok
+        # started when the first attempt failed (t=1005), not at entry
+        assert solarman_v5_client._deadline == 1005.0 + solarman_v5_client.LOCAL_TIME_BUDGET_S
+        n = len(attempts)
+        assert n < 9  # budget cut the retries short
+        solarman_v5_client.set_deadline()  # later entry point must not extend it
+        assert solarman_v5_client._deadline == 1030.0
+        ok, _, _ = solarman_v5_client.send_command("10.0.0.1", 8899, b"x", timeout=5, retries=8)
+        assert not ok and len(attempts) == n
+
+
+def test_tou_sync_skips_local_writes_when_deadline_active():
+    solarman_v5_client._deadline = 12345.0
+    slots = [{"time": "01:00"}] * 6
+    with mock.patch("solarman_v5_client.write_single_register") as m_w, \
+         mock.patch("deye_cloud_client.get_deye_cloud_config", return_value={"api_key": "k"}), \
+         mock.patch("deye_cloud_client.sync_tou_schedule", return_value={"success": True}) as m_cloud:
+        res = solarman_v5_client.sync_tou_schedule(slots)
+    m_w.assert_not_called()
+    m_cloud.assert_called_once()
+    assert res["success"] is True and res["cloud_attempted"] is True
+
+
+def test_set_charge_current_cloud_idempotency_honours_ttl():
+    """L1: cache lookup must not ignore TTL."""
+    with mock.patch("solarman_v5_client.load_deye_cache", return_value=None) as m_cache, \
+         mock.patch("deye_cloud_client.call_deye_api", return_value=(True, {"success": True}, "OK")):
+        deye_cloud_client.set_charge_current_cloud(30, cfg={"inverter_sn": "SN1"})
+    assert m_cache.call_args_list[0] == mock.call()
+
+
+def test_solarman_failures_report_cloud_attempted():
+    fail = {"success": False, "message": "down"}
+    with mock.patch("solarman_v5_client.write_single_register", return_value=fail), \
+         mock.patch("solarman_v5_client.load_deye_cache", return_value=None), \
+         mock.patch("deye_cloud_client.set_charge_current_cloud", return_value={"success": False}):
+        assert solarman_v5_client.set_charge_current(30)["cloud_attempted"] is True
+    slots = [{"time": "01:00"}] * 6
+    with mock.patch("solarman_v5_client.write_single_register", return_value=fail), \
+         mock.patch("deye_cloud_client.get_deye_cloud_config", return_value={}):
+        assert solarman_v5_client.sync_tou_schedule(slots)["cloud_attempted"] is False
+    assert solarman_v5_client.sync_tou_schedule([])["cloud_attempted"] is False

@@ -58,3 +58,6 @@ config/.env
 !config/.env.example
 
 
+
+# Deye runtime state written by engine/clients (TOU sync result, inverter cache)
+config/.deye_*

@@ -1189,25 +1189,53 @@ sync_deye_inverter_tou:
       data:
         operation: deye_tou_sync
     - action: shell_command.sync_deye_inverter_tou
+      continue_on_error: true
       data:
         calibration: "{{ is_state('input_boolean.deye_battery_calibration_in_progress', 'on') }}"
         tomorrow: "{{ tomorrow | default(false) }}"
         force: "{{ force | default(false) }}"
-    - delay: "00:00:02"
-    - action: homeassistant.update_entity
-      target:
-        entity_id: sensor.deye_inverter_status
-    - action: script.clear_ui_operation_pending
-      data:
-        operation: deye_tou_sync
-    - action: persistent_notification.create
-      data:
-        title: "⚡ Deye TOU: Synchronizacja Zakończona"
-        message: >-
-          Harmonogram Time-of-Use został przesłany do falownika Deye ({% if tomorrow | default(false) %}na Jutro{% else %}na Dziś{% endif %}).
-          Odczekano 2s na potwierdzenie przez Deye Cloud. Status: {{ states('sensor.deye_tou_active_schedule') }}.
-        notification_id: deye_tou_sync_status
-  mode: single
+      response_variable: sync_exec_res
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ sync_exec_res is defined and sync_exec_res is mapping and sync_exec_res.get('returncode') == 0 }}"
+          sequence:
+            - action: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.deye_tou_last_synced_date
+              data:
+                datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+            - action: homeassistant.update_entity
+              target:
+                entity_id:
+                  - sensor.deye_tou_last_sync
+                  - sensor.deye_inverter_status
+                  - sensor.pstryk_price_meter_dol
+                  - sensor.pstryk_price_meter_gora
+            - action: script.clear_ui_operation_pending
+              data:
+                operation: deye_tou_sync
+            - action: persistent_notification.create
+              data:
+                title: "⚡ Deye TOU: Synchronizacja Zakończona"
+                message: >-
+                  Harmonogram Time-of-Use został pomyślnie przesłany do falownika Deye ({% if tomorrow | default(false) %}na Jutro{% else %}na Dziś{% endif %}).
+                  Zaktualizowano status falownika oraz encje cenowe Pstryk.
+                notification_id: deye_tou_sync_status
+      default:
+        - action: script.clear_ui_operation_pending
+          data:
+            operation: deye_tou_sync
+        - action: persistent_notification.create
+          data:
+            title: "⚠️ Deye TOU: Błąd Synchronizacji"
+            message: >-
+              Wystąpił błąd podczas przesyłania harmonogramu TOU do falownika Deye ({% if tomorrow | default(false) %}na Jutro{% else %}na Dziś{% endif %}).
+              Kod błędu: {{ sync_exec_res.get('returncode') if sync_exec_res is defined and sync_exec_res is mapping else 'brak odpowiedzi' }}.
+              Sprawdź połączenie z falownikiem.
+            notification_id: deye_tou_sync_status
+  mode: queued
+  max: 2
   icon: mdi:sync
 
 sync_deye_inverter_soc:
@@ -1291,11 +1319,14 @@ finish_deye_battery_calibration:
 
 refresh_deye_inverter_status:
   alias: Odśwież Status Falownika Deye
-  description: Wymusza natychmiastowy odczyt telemetrii i rejestrów konfiguracyjnych falownika Deye.
+  description: Wymusza natychmiastowy odczyt telemetrii i rejestrów konfiguracyjnych falownika Deye z pominięciem pamięci podręcznej.
   sequence:
+    - action: shell_command.force_refresh_deye_inverter_status
     - action: homeassistant.update_entity
       target:
-        entity_id: sensor.deye_inverter_status
+        entity_id:
+          - sensor.deye_inverter_status
+          - sensor.deye_tou_last_sync
   mode: single
   icon: mdi:refresh
 

@@ -74,7 +74,7 @@ config/
 │   │       └── confirmable_notification.yaml
 │   └── template/
 │       └── inverted_binary_sensor.yaml
-├── pstryk_pricing.py     # Energy pricing script
+├── pstryk_pricing.py     # Legacy/unused (pstryk_engine.py is the engine)
 └── pstryk_engine.py      # Dynamic energy & metering engine (caching, aggregations, unit-tested)
 
 data/
@@ -175,7 +175,7 @@ homeassistant:
 - Sunrise/sunset and morning wake-up scheduling
 
 ### Dynamic Energy Pricing (Pstryk)
-- Hourly dynamic pricing via `config/pstryk_pricing.py`
+- Hourly dynamic pricing via `config/pstryk_engine.py` (`pstryk_pricing.py` is legacy/unused)
 - Sensors: `sensor.pstryk_price_meter_dol`, `_gora`, `sensor.pstryk_best_window_dol`, `_gora`
 - Binary sensors: `binary_sensor.pstryk_in_best_window_dol`, `_gora`
 - Automations:

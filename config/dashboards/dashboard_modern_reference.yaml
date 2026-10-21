@@ -657,6 +657,9 @@ views:
               icon: mdi:calendar-sync
             - type: section
               label: Parametry Dyspozycji (Suwaki Edytowalne)
+            - entity: input_boolean.deye_battery_installed
+              name: Magazyn Energii Zainstalowany
+              icon: mdi:battery-plus-variant
             - entity: input_number.deye_battery_max_charge_soc
               name: Docelowy Max SOC Ładowania (Suwak)
               icon: mdi:battery-arrow-up
@@ -697,7 +700,7 @@ views:
           | Slot | Godzina | Tryb / Prąd / Moc | Cel SOC | Sieć | Opis Działania |
           |:---:|:---:|:---|:---:|:---:|:---|
           {% for s in slots -%}
-          | **{{ s.slot }}** | `{{ s.time }}` | {% if s.grid_charge %}**⚡ Ładowanie: {{ s.target_charge_current_a if s.target_charge_current_a is defined else planned_a }}{% if (s.target_charge_current_a if s.target_charge_current_a is defined else planned_a) != '-' %} A{% endif %}**{% else %}Oddawanie: {{ s.power_w if s.power_w is defined else 5000 }} W{% if nom_v > 0 %} (~{{ ((s.power_w if s.power_w is defined else 5000) / nom_v) | round(0) }} A){% endif %}{% endif %} | {{ s.target_soc }}% | {{ '**⚡ TAK**' if s.grid_charge else 'NIE' }} | {{ s.label if s.label else ('Najtańsze Ładowanie' if s.grid_charge else ('Czuwanie Przed Szczytem' if s.target_soc >= 80 else 'Autokonsumpcja PV')) }} |
+          | **{{ s.slot }}** | `{{ s.time }}` | {% if s.grid_charge %}**⚡ Ładowanie: {{ s.target_charge_current_a if s.target_charge_current_a is defined and s.target_charge_current_a is not none else (s.charge_current_a if s.charge_current_a is defined and s.charge_current_a is not none else planned_a) }}{% if (s.target_charge_current_a if s.target_charge_current_a is defined and s.target_charge_current_a is not none else (s.charge_current_a if s.charge_current_a is defined and s.charge_current_a is not none else planned_a)) != '-' %} A{% endif %}**{% else %}Oddawanie: {{ s.display_power_w if s.display_power_w is defined and s.display_power_w is not none else (s.power_w if s.power_w is defined else 7170) }} W (~{{ s.display_current_a if s.display_current_a is defined and s.display_current_a is not none else (s.discharge_current_a if s.discharge_current_a is defined and s.discharge_current_a is not none else (((s.power_w if s.power_w is defined else 7170) / (nom_v if nom_v > 0 else 51.2)) | round(0))) }} A){% endif %} | {{ s.target_soc }}% | {{ '**⚡ TAK**' if s.grid_charge else 'NIE' }} | {{ s.label if s.label else ('Najtańsze Ładowanie' if s.grid_charge else ('Czuwanie Przed Szczytem' if s.target_soc >= 80 else 'Autokonsumpcja PV')) }} |
           {% endfor %}
 
           ---
@@ -714,7 +717,7 @@ views:
           | Slot | Godzina | Tryb / Prąd / Moc | Cel SOC | Sieć | Opis Działania |
           |:---:|:---:|:---|:---:|:---:|:---|
           {% for st in tom_slots -%}
-          | **{{ st.slot }}** | `{{ st.time }}` | {% if st.grid_charge %}**⚡ Ładowanie: {{ st.target_charge_current_a if st.target_charge_current_a is defined else planned_a }}{% if (st.target_charge_current_a if st.target_charge_current_a is defined else planned_a) != '-' %} A{% endif %}**{% else %}Oddawanie: {{ st.power_w if st.power_w is defined else 5000 }} W{% if nom_v > 0 %} (~{{ ((st.power_w if st.power_w is defined else 5000) / nom_v) | round(0) }} A){% endif %}{% endif %} | {{ st.target_soc }}% | {{ '**⚡ TAK**' if st.grid_charge else 'NIE' }} | {{ st.label if st.label else ('Najtańsze Ładowanie' if st.grid_charge else 'Autokonsumpcja PV') }} |
+          | **{{ st.slot }}** | `{{ st.time }}` | {% if st.grid_charge %}**⚡ Ładowanie: {{ st.target_charge_current_a if st.target_charge_current_a is defined and st.target_charge_current_a is not none else (st.charge_current_a if st.charge_current_a is defined and st.charge_current_a is not none else planned_a) }}{% if (st.target_charge_current_a if st.target_charge_current_a is defined and st.target_charge_current_a is not none else (st.charge_current_a if st.charge_current_a is defined and st.charge_current_a is not none else planned_a)) != '-' %} A{% endif %}**{% else %}Oddawanie: {{ st.display_power_w if st.display_power_w is defined and st.display_power_w is not none else (st.power_w if st.power_w is defined else 7170) }} W (~{{ st.display_current_a if st.display_current_a is defined and st.display_current_a is not none else (st.discharge_current_a if st.discharge_current_a is defined and st.discharge_current_a is not none else (((st.power_w if st.power_w is defined else 7170) / (nom_v if nom_v > 0 else 51.2)) | round(0))) }} A){% endif %} | {{ st.target_soc }}% | {{ '**⚡ TAK**' if st.grid_charge else 'NIE' }} | {{ st.label if st.label else ('Najtańsze Ładowanie' if st.grid_charge else 'Autokonsumpcja PV') }} |
           {% endfor %}
           {%- endif %}
           {%- else -%}

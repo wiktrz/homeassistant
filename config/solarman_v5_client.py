@@ -27,6 +27,7 @@ import energy_defaults
 DEFAULT_INVERTER_IP = energy_defaults.DEFAULT_INVERTER_IP
 DEFAULT_INVERTER_PORT = energy_defaults.DEFAULT_INVERTER_PORT
 DEFAULT_TIMEOUT = energy_defaults.DEFAULT_SOCKET_TIMEOUT
+LOCAL_TIME_BUDGET_S = 25.0
 CONFIG_FILENAME = ".deye_inverter_config.json"
 CACHE_FILENAME = ".deye_inverter_cache.json"
 CACHE_TTL_SECONDS = energy_defaults.DEYE_CACHE_TTL
@@ -121,13 +122,28 @@ def build_solarman_v5_frame(modbus_payload: bytes, serial_number: int = 0) -> by
     return full_body + struct.pack("BB", checksum, 0x15)
 
 
+_deadline: Optional[float] = None
+
+
+def set_deadline(seconds: Optional[float] = LOCAL_TIME_BUDGET_S) -> None:
+    """Starts the per-process budget for local socket failure handling (first failed attempt) so the cloud fallback can run inside HA's 60s limit."""
+    global _deadline
+    if not seconds:
+        _deadline = None  # explicit clear (tests)
+    elif _deadline is None:  # once per process: later entry points must not extend the budget
+        _deadline = time.monotonic() + seconds
+
+
 def send_command(host: str, port: int, frame: bytes, timeout: float = DEFAULT_TIMEOUT, retries: int = 3) -> Tuple[bool, bytes, str]:
     """Sends raw frame to inverter stick logger and awaits response with retries and backoff."""
     last_err = ""
     for attempt in range(retries + 1):
+        remaining = None if _deadline is None else _deadline - time.monotonic()
+        if remaining is not None and remaining <= 0:
+            return False, b"", last_err or f"Local time budget exhausted for {host}:{port}"
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(timeout)
+                s.settimeout(timeout if remaining is None else min(timeout, remaining))
                 s.connect((host, port))
                 s.sendall(frame)
                 response = s.recv(1024)
@@ -139,10 +155,12 @@ def send_command(host: str, port: int, frame: bytes, timeout: float = DEFAULT_TI
             last_err = f"Connection timed out ({timeout}s) to {host}:{port}"
         except ConnectionRefusedError:
             last_err = f"Connection refused by {host}:{port}"
+            set_deadline()
             break
         except OSError as e:
             last_err = f"Socket error connecting to {host}:{port}: {e}"
 
+        set_deadline()  # first failed attempt starts the budget; a healthy run never sets it
         if attempt < retries:
             time.sleep(0.5)
     return False, b"", last_err
@@ -545,7 +563,7 @@ def set_charge_current(
     port = get_configured_inverter_port(port)
 
     # 1. Determine safe boundaries
-    base_max = int(energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT)
+    base_max = int(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A)
     target_a = int(current_a) if current_a is not None else base_max
     clamped_a = max(10, min(base_max, target_a))
 
@@ -588,8 +606,10 @@ def set_charge_current(
         }
 
     # 4. Fallback to Deye Cloud OpenAPI if local connection failed
+    cloud_attempted = False
     try:
         import deye_cloud_client
+        cloud_attempted = True
         cloud_res = deye_cloud_client.set_charge_current_cloud(clamped_a)
         if cloud_res.get("success"):
             if cached and isinstance(cached, dict):
@@ -613,6 +633,7 @@ def set_charge_current(
         "previous_a": prev_a,
         "host": host,
         "port": port,
+        "cloud_attempted": cloud_attempted,
         "error": res.get("error", "Failed to write register 108 via Modbus and Cloud fallback"),
     }
 
@@ -915,6 +936,8 @@ def read_inverter_telemetry(
                 label = "Szczyt Cenowy (Autokonsumpcja)"
             else:
                 label = "Autokonsumpcja PV"
+            nom_v = float(config.get("nominal_voltage") or energy_defaults.FALLBACK_BATTERY_NOMINAL_VOLTAGE)
+            eff_current = int(round(power / nom_v)) if nom_v > 0 else 0
             active_tou["slots"].append({
                 "slot": i + 1,
                 "time": time_str,
@@ -922,6 +945,14 @@ def read_inverter_telemetry(
                 "target_soc": soc,
                 "grid_charge": charge,
                 "label": label,
+                "active_power_w": power,
+                "active_current_a": eff_current,
+                "charge_current_a": None,  # TOU power is a power limit, not charge current; dashboards fall back to planned current
+                "charge_power_w": power if charge else 0,
+                "discharge_current_a": eff_current if not charge else 0,
+                "discharge_power_w": power if not charge else 0,
+                "display_current_a": eff_current,
+                "display_power_w": power,
             })
 
     overall_success = cfg_res["success"] or telem_res["success"]
@@ -983,19 +1014,28 @@ def sync_tou_schedule(
         return {
             "success": False,
             "error": f"TOU schedule requires exactly 6 slots, got {len(slots)}",
+            "cloud_attempted": False,
         }
 
     results = {}
     overall_success = True
+    cloud_attempted = False
 
     # 1. Enable TOU master switch
-    res_en = write_single_register(host, port, REG_TOU_ENABLE, 1)
-    results["tou_enable"] = res_en
-    if not res_en["success"]:
+    if _deadline is not None:
+        # Local I/O already failed in this run: never start a TOU write sequence that is degraded.
         overall_success = False
+        results["tou_enable"] = {"success": False, "message": "Skipped local TOU writes: local link already failing"}
+    else:
+        res_en = write_single_register(host, port, REG_TOU_ENABLE, 1)
+        results["tou_enable"] = res_en
+        if not res_en["success"]:
+            overall_success = False
 
     # 2. Write each of the 6 slots
     for i, slot in enumerate(slots):
+        if not overall_success:
+            break  # fail fast: each failed write costs ~20s of retries; HA shell_command limit is 60s
         time_str = slot.get("time", "00:00")
         parts = time_str.split(":")
         hh = int(parts[0]) if len(parts) > 0 else 0
@@ -1032,12 +1072,24 @@ def sync_tou_schedule(
             import deye_cloud_client
             cloud_cfg = deye_cloud_client.get_deye_cloud_config()
             if cloud_cfg.get("api_key") or cloud_cfg.get("app_id") or cloud_cfg.get("email"):
+                cloud_attempted = True
                 cloud_res = deye_cloud_client.sync_tou_schedule(slots, cfg=cloud_cfg)
                 if isinstance(cloud_res, dict):
+                    cloud_res["cloud_attempted"] = True
                     cloud_res["local_fallback_message"] = "Local Modbus port 8899 unreachable; fallback to Deye Cloud OpenAPI"
                     return cloud_res
         except Exception as e:
             results["cloud_fallback_error"] = str(e)
+
+    if overall_success:
+        try:
+            cached = load_deye_cache(ignore_ttl=True)
+            if cached and isinstance(cached, dict):
+                cached["active_tou"] = {"enabled": True, "slots": slots}
+                cached["timestamp"] = datetime.now().isoformat()
+                save_deye_cache(cached)
+        except Exception:
+            pass
 
     return {
         "success": overall_success,
@@ -1045,6 +1097,7 @@ def sync_tou_schedule(
         "port": port,
         "slots_count": len(slots),
         "results": results,
+        "cloud_attempted": cloud_attempted,
     }
 
 

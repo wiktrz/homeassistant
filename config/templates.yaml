@@ -651,8 +651,7 @@
         {% if not installed or cap <= 0 %}
           0.0
         {% else %}
-          {% set inv_max = states('sensor.deye_inverter_max_charge_soc') | float(0) %}
-          {% set max_soc = inv_max if inv_max > 0 else (states('input_number.deye_battery_max_charge_soc') | default('90', true) | float(90)) %}
+          {% set max_soc = states('input_number.deye_battery_max_charge_soc') | default('90', true) | float(90) %}
           {% set inv_min = states('sensor.deye_inverter_min_discharge_soc') | float(0) %}
           {% set min_soc = inv_min if inv_min > 0 else (states('input_number.deye_battery_min_discharge_soc') | default('20', true) | float(20)) %}
           {{ (((max_soc - min_soc) / 100.0) * cap) | round(2) }}
@@ -660,8 +659,7 @@
       attributes:
         total_capacity_kwh: "{{ states('sensor.powerbank_total_capacity_kwh') | float(0.0) }}"
         operating_range_soc: >-
-          {% set inv_max = states('sensor.deye_inverter_max_charge_soc') | float(0) %}
-          {% set max_soc = inv_max if inv_max > 0 else (states('input_number.deye_battery_max_charge_soc') | default('90', true) | float(90)) %}
+          {% set max_soc = states('input_number.deye_battery_max_charge_soc') | default('90', true) | float(90) %}
           {% set inv_min = states('sensor.deye_inverter_min_discharge_soc') | float(0) %}
           {% set min_soc = inv_min if inv_min > 0 else (states('input_number.deye_battery_min_discharge_soc') | default('20', true) | float(20)) %}
           {{ max_soc | int }}% - {{ min_soc | int }}%

@@ -484,13 +484,24 @@ def read_inverter_telemetry(
                 label = "Szczyt Cenowy (Autokonsumpcja)"
             else:
                 label = "Autokonsumpcja PV"
+            pwr = int(itm.get("power", 5000))
+            nom_v = float(config_data.get("nominal_voltage") or energy_defaults.FALLBACK_BATTERY_NOMINAL_VOLTAGE)
+            eff_current = int(round(pwr / nom_v)) if nom_v > 0 else 0
             active_tou["slots"].append({
                 "slot": i + 1,
                 "time": time_str,
-                "power_w": itm.get("power", 5000),
+                "power_w": pwr,
                 "target_soc": soc,
                 "grid_charge": charge,
                 "label": label,
+                "active_power_w": pwr,
+                "active_current_a": eff_current,
+                "charge_current_a": None,  # TOU power is a power limit, not charge current; dashboards fall back to planned current
+                "charge_power_w": pwr if charge else 0,
+                "discharge_current_a": eff_current if not charge else 0,
+                "discharge_power_w": pwr if not charge else 0,
+                "display_current_a": eff_current,
+                "display_power_w": pwr,
             })
 
     # 4. System Mode Query via POST /v1.0/config/system
@@ -617,6 +628,17 @@ def sync_tou_schedule(
     elif ok:
         app_success = True
 
+    if app_success:
+        try:
+            import solarman_v5_client
+            cached = solarman_v5_client.load_deye_cache(ignore_ttl=True)
+            if cached and isinstance(cached, dict):
+                cached["active_tou"] = {"enabled": True, "slots": slots}
+                cached["timestamp"] = datetime.now().isoformat()
+                solarman_v5_client.save_deye_cache(cached)
+        except Exception:
+            pass
+
     return {
         "success": app_success,
         "source": "deye_cloud_openapi",
@@ -637,9 +659,26 @@ def set_charge_current_cloud(current_a: Optional[int] = None, cfg: Optional[Dict
     if not target_sn:
         return {"success": False, "message": "Missing target inverter serial number (DEYE_INVERTER_SN)"}
 
-    base_max = int(energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT)
+    base_max = int(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A)
     target_a = int(current_a) if current_a is not None else base_max
     clamped_a = max(10, min(base_max, target_a))
+
+    # Check cache for idempotency
+    try:
+        import solarman_v5_client
+        cached = solarman_v5_client.load_deye_cache()
+        if cached and isinstance(cached, dict):
+            cfg_cached = cached.get("config", {})
+            if cfg_cached and cfg_cached.get("max_charge_current") == clamped_a:
+                return {
+                    "success": True,
+                    "unchanged": True,
+                    "source": "deye_cloud_openapi",
+                    "current_a": clamped_a,
+                    "message": f"Register 108 already set to {clamped_a}A (cloud write skipped, idempotent)",
+                }
+    except Exception:
+        pass
 
     payload = {
         "deviceSn": target_sn,
@@ -657,8 +696,19 @@ def set_charge_current_cloud(current_a: Optional[int] = None, cfg: Optional[Dict
     elif ok:
         app_success = True
 
+    if app_success:
+        try:
+            import solarman_v5_client
+            cached = solarman_v5_client.load_deye_cache(ignore_ttl=True)
+            if cached and isinstance(cached, dict):
+                cached.setdefault("config", {})["max_charge_current"] = clamped_a
+                solarman_v5_client.save_deye_cache(cached)
+        except Exception:
+            pass
+
     return {
         "success": app_success,
+        "unchanged": False,
         "source": "deye_cloud_openapi",
         "current_a": clamped_a,
         "response": res,

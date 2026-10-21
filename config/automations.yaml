@@ -2769,7 +2769,7 @@
             - condition: template
               value_template: "{{ trigger.id == 'failure_check_0300' }}"
             - condition: template
-              value_template: "{{ states('input_datetime.deye_tou_last_synced_date') != now().strftime('%Y-%m-%d') }}"
+              value_template: "{{ states('input_datetime.deye_tou_last_synced_date')[:10] != now().strftime('%Y-%m-%d') }}"
           sequence:
             - action: persistent_notification.create
               data:
@@ -2792,14 +2792,9 @@
                     - condition: template
                       value_template: "{{ now().hour > 0 or now().minute >= 30 }}"
                     - condition: template
-                      value_template: "{{ states('input_datetime.deye_tou_last_synced_date') != now().strftime('%Y-%m-%d') }}"
+                      value_template: "{{ states('input_datetime.deye_tou_last_synced_date')[:10] != now().strftime('%Y-%m-%d') }}"
           sequence:
             - action: script.sync_deye_inverter_tou
-            - action: input_datetime.set_datetime
-              target:
-                entity_id: input_datetime.deye_tou_last_synced_date
-              data:
-                date: "{{ now().strftime('%Y-%m-%d') }}"
   mode: single
 
 - id: deye_battery_calibration_periodic_scheduler
@@ -3121,9 +3116,10 @@
     - trigger: time
       at: "00:00:30"
   conditions:
-    - condition: state
-      entity_id: input_boolean.deye_battery_installed
-      state: "on"
+    - condition: template
+      value_template: >-
+        {% set tlm = state_attr('sensor.deye_inverter_status', 'telemetry') %}
+        {{ is_state('input_boolean.deye_battery_installed', 'on') or (tlm and tlm.battery_installed) }}
   actions:
     - action: script.sync_deye_inverter_tou
       data:
@@ -3139,13 +3135,15 @@
         - input_number.deye_battery_max_charge_soc
         - input_number.deye_morning_reserve_margin_pct
         - input_number.deye_pre_peak_margin_pct
-        - sensor.deye_inverter_max_charge_current
+        - input_select.battery_discharge_target_hours
+        - input_select.ev_charging_target_hours
       for:
         seconds: 5
   conditions:
-    - condition: state
-      entity_id: input_boolean.deye_battery_installed
-      state: "on"
+    - condition: template
+      value_template: >-
+        {% set tlm = state_attr('sensor.deye_inverter_status', 'telemetry') %}
+        {{ is_state('input_boolean.deye_battery_installed', 'on') or (tlm and tlm.battery_installed) }}
     - condition: state
       entity_id: binary_sensor.deye_battery_critical_parameters_pending
       state: "off"
@@ -3155,7 +3153,8 @@
     - action: script.sync_deye_inverter_tou
       data:
         tomorrow: false
-  mode: restart
+  mode: queued
+  max: 2
 
 - id: auto_clear_stale_pending_ui_operations
   alias: "UI: Automatyczne Czyszczenie Zawieszonych Operacji UI"
@@ -3176,11 +3175,10 @@
 
 - id: deye_sync_sliders_from_inverter
   alias: "Deye: Automatyczna Synchronizacja Suwaków z Rejestrów Falownika"
-  description: "Synchronizuje wartości pomocników input_number (Max SOC, Min SOC, Shutdown SOC) po odebraniu świeżej telemetrii z falownika Deye, eliminując rozbieżności zmiennych lokalnych."
+  description: "Synchronizuje wartości pomocników input_number (Min SOC, Shutdown SOC; Max SOC pozostaje wartością z suwaka, bo Reg 112 nie jest zapisywany) po odebraniu świeżej telemetrii z falownika Deye, eliminując rozbieżności zmiennych lokalnych."
   triggers:
     - trigger: state
       entity_id:
-        - sensor.deye_inverter_max_charge_soc
         - sensor.deye_inverter_min_discharge_soc
         - sensor.deye_inverter_shutdown_soc
   conditions:
@@ -3192,15 +3190,6 @@
         {{ trigger.to_state.state not in ['unknown', 'unavailable', 'None', ''] and (trigger.to_state.state | int(0)) > 0 }}
   actions:
     - choose:
-        - conditions:
-            - condition: template
-              value_template: "{{ trigger.entity_id == 'sensor.deye_inverter_max_charge_soc' and (states('input_number.deye_battery_max_charge_soc') | int(0)) != (trigger.to_state.state | int) }}"
-          sequence:
-            - action: input_number.set_value
-              target:
-                entity_id: input_number.deye_battery_max_charge_soc
-              data:
-                value: "{{ trigger.to_state.state | int }}"
         - conditions:
             - condition: template
               value_template: "{{ trigger.entity_id == 'sensor.deye_inverter_min_discharge_soc' and (states('input_number.deye_battery_min_discharge_soc') | int(0)) != (trigger.to_state.state | int) }}"
@@ -3234,9 +3223,10 @@
       to: "off"
       id: window_end
   conditions:
-    - condition: state
-      entity_id: input_boolean.deye_battery_installed
-      state: "on"
+    - condition: template
+      value_template: >-
+        {% set tlm = state_attr('sensor.deye_inverter_status', 'telemetry') %}
+        {{ is_state('input_boolean.deye_battery_installed', 'on') or (tlm and tlm.battery_installed) }}
   actions:
     - choose:
         - conditions:
