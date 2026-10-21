@@ -1486,6 +1486,40 @@ def generate_deye_tou_schedule(
         name = "Szczyt Wieczorny" if a >= 960 else "Szczyt Cenowy"
         return f"{name} (Autokonsumpcja) ({to_time_str(a)}-{to_time_str(b)})"
 
+    def _is_price_elevated_at(m: int) -> bool:
+        """Checks if grid retail buy price at minute m is elevated (warranting immediate discharge)."""
+        if not pricing_data or not isinstance(pricing_data, dict):
+            return 780 <= m < 1320
+        frames = pricing_data.get("frames", [])
+        if not frames:
+            return 780 <= m < 1320
+        hour_fmt = to_time_str(m)
+        matching = [f for f in frames if format_hhmm(f.get("start")) == hour_fmt]
+        if not matching:
+            return 780 <= m < 1320
+
+        def _p(f):
+            p_metrics = (f.get("metrics") or {}).get("pricing") or {}
+            if p_metrics.get("price_gross") is not None:
+                return float(p_metrics["price_gross"])
+            if p_metrics.get("price_net") is not None:
+                return round(float(p_metrics["price_net"]) * energy_defaults.VAT_MULTIPLIER, 4)
+            return 0.0
+
+        p_curr = _p(matching[0])
+        valid_prices = [_p(f) for f in frames if _p(f) > 0]
+        if not valid_prices:
+            return 780 <= m < 1320
+        day_mean = sum(valid_prices) / len(valid_prices)
+        charge_p = None
+        if isinstance(best_pb_window, dict) and best_pb_window.get("average_price"):
+            try:
+                charge_p = float(best_pb_window["average_price"])
+            except (ValueError, TypeError):
+                pass
+        threshold = min(day_mean, charge_p * 1.15) if charge_p else day_mean
+        return p_curr >= threshold
+
     # Event = (minute, target_soc, grid_charge, label, role)
     Event = Tuple[int, int, bool, str, str]
 
@@ -1514,9 +1548,13 @@ def generate_deye_tou_schedule(
             next_r = next(roles[(i + j) % 6] for j in range(1, 7) if roles[(i + j) % 6] in bounds)
             soc, _, _, role = by_m[m]
             if prev_r == "charge" and next_r == "peak" and soc != safe_max_soc:
-                by_m[m] = (safe_max_soc, False, "Czuwanie po Ładowaniu (Hold do Szczytu)", role)
+                if not (780 <= m < 1320 or _is_price_elevated_at(m)):
+                    by_m[m] = (safe_max_soc, False, "Czuwanie po Ładowaniu (Hold do Szczytu)", role)
             elif (prev_r == "peak" or prev_r is None) and next_r == "charge" and m > 0 and soc != safe_min_soc:
                 by_m[m] = (safe_min_soc, False, "Autokonsumpcja do Min SOC (przed Ładowaniem)", role)
+            elif prev_r == "peak" and m > 720 and soc != safe_min_soc:
+                # Post-peak evening/night standby strictly at safe_min_soc (no pointless 20%)
+                by_m[m] = (safe_min_soc, False, "Czuwanie Nocne", role)
         return [_build_slot_dict(n + 1, m, *by_m[m]) for n, m in enumerate(times)]
 
     if has_disjoint_midday:
@@ -1532,7 +1570,7 @@ def generate_deye_tou_schedule(
             (t3, safe_max_soc, True, _charge_label(t3, t4, "Tania Godzina Dzienna"), "charge"),
             (t4, pre_peak_soc, False, "Ochrona Rezerwy (Hold)", "reserve"),
             (t5, safe_min_soc, False, _peak_label(t5, t6), "peak"),
-            (t6, morning_reserve_soc, False, "Czuwanie Nocne", "reserve"),
+            (t6, safe_min_soc, False, "Czuwanie Nocne", "other"),
         ]
     elif len(parsed_peaks) >= 2 and (parsed_peaks[1][0] - parsed_peaks[0][1] >= 120):
         # 2 peaks separated by >= 2 hours:
@@ -1543,21 +1581,27 @@ def generate_deye_tou_schedule(
         p2_start, p2_end = parsed_peaks[1]
 
         if pb_start_m < p1_start:
+            post_soc = safe_min_soc if _is_price_elevated_at(pb_end_m) else safe_max_soc
+            post_label = _peak_label(pb_end_m, p1_end) if post_soc == safe_min_soc else "Ochrona Rezerwy (Hold do Szczytu)"
+            post_role = "peak" if post_soc == safe_min_soc else "other"
             events = [
                 (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
-                (pb_end_m, safe_max_soc, False, "Ochrona Rezerwy (Hold do Szczytu)", "other"),
+                (pb_end_m, post_soc, False, post_label, post_role),
                 (p1_start, pre_peak_soc, False, _peak_label(p1_start, p1_end), "peak"),
                 (p1_end, pre_peak_soc, False, "Ochrona Rezerwy (Hold)", "reserve"),
                 (p2_start, safe_min_soc, False, _peak_label(p2_start, p2_end), "peak"),
                 (p2_end, safe_min_soc, False, "Czuwanie Nocne", "other"),
             ]
         elif p1_end <= pb_start_m and pb_end_m <= p2_start:
+            post_soc = safe_min_soc if (pb_start_m >= 480 or _is_price_elevated_at(pb_end_m)) else safe_max_soc
+            post_label = _peak_label(pb_end_m, p2_end) if post_soc == safe_min_soc else "Ochrona Rezerwy (Hold do Szczytu)"
+            post_role = "peak" if post_soc == safe_min_soc else "other"
             events = [
                 (0, morning_reserve_soc, False, "Ochrona Rezerwy (Hold)", "reserve"),
                 (p1_start, safe_min_soc, False, _peak_label(p1_start, p1_end), "peak"),
                 (p1_end, safe_min_soc, False, "Czuwanie Nocne", "other"),
                 (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
-                (pb_end_m, safe_max_soc, False, "Ochrona Rezerwy (Hold do Szczytu)", "other"),
+                (pb_end_m, post_soc, False, post_label, post_role),
                 (p2_start, safe_min_soc, False, _peak_label(p2_start, p2_end), "peak"),
                 (p2_end, safe_min_soc, False, "Czuwanie Nocne", "other"),
             ]
@@ -1567,9 +1611,9 @@ def generate_deye_tou_schedule(
                 (p1_start, pre_peak_soc, False, _peak_label(p1_start, p1_end), "peak"),
                 (p1_end, pre_peak_soc, False, "Ochrona Rezerwy (Hold)", "reserve"),
                 (p2_start, safe_min_soc, False, _peak_label(p2_start, p2_end), "peak"),
-                (p2_end, morning_reserve_soc, False, "Czuwanie Nocne", "other"),
+                (p2_end, safe_min_soc, False, "Czuwanie Nocne", "other"),
                 (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
-                (pb_end_m, morning_reserve_soc, False, "Czuwanie Nocne", "other"),
+                (pb_end_m, safe_max_soc, False, "Czuwanie Nocne (Hold)", "other"),
             ]
     else:
         # Single peak
@@ -1582,13 +1626,16 @@ def generate_deye_tou_schedule(
                 p_end = max(p_end, p_start + 60)
 
         if pb_start_m < p_start:
+            post_soc = safe_min_soc if (pb_start_m >= 480 or _is_price_elevated_at(pb_end_m)) else safe_max_soc
+            post_label = _peak_label(pb_end_m, p_end) if post_soc == safe_min_soc else "Ochrona Rezerwy (Hold do Szczytu)"
+            post_role = "peak" if post_soc == safe_min_soc else "other"
             if pb_start_m < 480:
                 if p_end <= 960:
                     # Morning peak followed by evening peak
                     p2_start = max(1020, p_end + 120)
                     events = [
                         (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
-                        (pb_end_m, safe_max_soc, False, "Ochrona Rezerwy (Hold do Szczytu)", "other"),
+                        (pb_end_m, post_soc, False, post_label, post_role),
                         (p_start, safe_min_soc, False, _peak_label(p_start, p_end), "peak"),
                         (p_end, pre_peak_soc, False, "Ochrona Rezerwy (Hold)", "reserve"),
                         (p2_start, safe_min_soc, False, _peak_label(p2_start, min(1440, p2_start + 180)), "peak"),
@@ -1597,7 +1644,7 @@ def generate_deye_tou_schedule(
                 else:
                     events = [
                         (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
-                        (pb_end_m, safe_max_soc, False, "Ochrona Rezerwy (Hold do Szczytu)", "other"),
+                        (pb_end_m, post_soc, False, post_label, post_role),
                         (p_start, safe_min_soc, False, _peak_label(p_start, p_end), "peak"),
                         (p_end, safe_min_soc, False, "Czuwanie Nocne", "other"),
                     ]
@@ -1607,9 +1654,9 @@ def generate_deye_tou_schedule(
                     (0, morning_reserve_soc, False, "Rezerwa na Szczyt Poranny (Hold)", "reserve"),
                     (morning_start, safe_min_soc, False, _peak_label(morning_start, morning_start + 180), "peak"),
                     (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
-                    (pb_end_m, safe_max_soc, False, "Ochrona Rezerwy (Hold do Szczytu)", "other"),
+                    (pb_end_m, post_soc, False, post_label, post_role),
                     (p_start, safe_min_soc, False, _peak_label(p_start, p_end), "peak"),
-                    (p_end, morning_reserve_soc, False, "Czuwanie Nocne", "reserve"),
+                    (p_end, safe_min_soc, False, "Czuwanie Nocne", "other"),
                 ]
         else:
             # p_end <= pb_start_m (peak is before charge)
@@ -1622,16 +1669,19 @@ def generate_deye_tou_schedule(
                     (refill_start, pre_peak_soc, False, "Ochrona Rezerwy (Hold)", "reserve"),
                     (p_start, safe_min_soc, False, _peak_label(p_start, p_end), "peak"),
                     (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
-                    (pb_end_m, safe_max_soc, False, "Ochrona Rezerwy (Hold do Szczytu)", "other"),
+                    (pb_end_m, safe_max_soc, False, "Czuwanie Nocne (Hold)", "other"),
                 ]
             else:
                 p2_start = max(1020, pb_end_m + 120)
+                post_soc = safe_min_soc if (pb_start_m >= 480 or _is_price_elevated_at(pb_end_m)) else safe_max_soc
+                post_label = _peak_label(pb_end_m, p2_start) if post_soc == safe_min_soc else "Ochrona Rezerwy (Hold do Szczytu)"
+                post_role = "peak" if post_soc == safe_min_soc else "other"
                 events = [
                     (0, morning_reserve_soc, False, "Rezerwa na Szczyt Poranny (Hold)", "reserve"),
                     (p_start, safe_min_soc, False, _peak_label(p_start, p_end), "peak"),
                     (p_end, safe_min_soc, False, "Autokonsumpcja do Min SOC (przed Ładowaniem)", "other"),
                     (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
-                    (pb_end_m, safe_max_soc, False, "Ochrona Rezerwy (Hold do Szczytu)", "other"),
+                    (pb_end_m, post_soc, False, post_label, post_role),
                     (p2_start, safe_min_soc, False, _peak_label(p2_start, min(1440, p2_start + 180)), "peak"),
                 ]
 

@@ -905,12 +905,12 @@ def test_generate_deye_tou_schedule_midday_charge_13_15():
     assert slots[2]["target_soc"] == 90
     assert "Najtańsze Ładowanie" in slots[2]["label"]
 
-    # Slot 4: hold the cheap midday charge (max_soc 90%) until the evening peak
+    # Slot 4: immediate self-consumption down to min_soc (20%) after midday charge (no 90% hold during elevated prices)
     assert slots[3]["slot"] == 4
     assert slots[3]["time"] == "15:00"
     assert slots[3]["grid_charge"] is False
-    assert slots[3]["target_soc"] == 90
-    assert "Hold do Szczytu" in slots[3]["label"]
+    assert slots[3]["target_soc"] == 20
+    assert "Szczyt" in slots[3]["label"]
 
     # Slot 5: 100% peak coverage down to 20%
     assert slots[4]["slot"] == 5
@@ -1506,9 +1506,9 @@ def test_fetch_consolidated_custom_soc_and_battery_model(tmp_path, monkeypatch):
         assert tou_slots[0]["target_soc"] == 25  # Slot 1: morning reserve (15 + 10)
         assert tou_slots[1]["target_soc"] == 15  # Slot 2: min_soc
         assert tou_slots[2]["target_soc"] == 80  # Slot 3: max_soc
-        assert tou_slots[3]["target_soc"] == 80  # Slot 4: hold max_soc after the midday charge until the peak
+        assert tou_slots[3]["target_soc"] == 15  # Slot 4: immediate discharge down to min_soc (15) during elevated prices
         assert tou_slots[4]["target_soc"] == 15  # Slot 5: evening peak discharge down to min_soc
-        assert tou_slots[5]["target_soc"] == 25  # Slot 6: night standby reserve (15 + 10)
+        assert tou_slots[5]["target_soc"] == 15  # Slot 6: post-peak standby strictly at min_soc (15)
 
 
 def test_dynamic_capacity_scaling_custom_kwh():
@@ -1590,30 +1590,30 @@ def test_custom_morning_reserve_margin_and_clamping():
     pb_win = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2, "is_consecutive": True}
     sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
 
-    # 1. 5% margin with min_soc = 20 -> 25%
+    # 1. 5% margin with min_soc = 20 -> 25% morning reserve (Slot 1); post-peak slot (Slot 6) stays min_soc = 20
     s_5 = pstryk_engine.generate_deye_tou_schedule(
         min_soc=20, max_soc=90, morning_reserve_margin=5,
         best_pb_window=pb_win, best_sell_window=sell_win,
     )
     assert s_5[0]["target_soc"] == 25
-    assert s_5[5]["target_soc"] == 25
+    assert s_5[5]["target_soc"] == 20
 
-    # 2. 15% margin with min_soc = 20 -> 35%
+    # 2. 15% margin with min_soc = 20 -> 35% morning reserve (Slot 1); post-peak slot (Slot 6) stays min_soc = 20
     s_15 = pstryk_engine.generate_deye_tou_schedule(
         min_soc=20, max_soc=90, morning_reserve_margin=15,
         best_pb_window=pb_win, best_sell_window=sell_win,
     )
     assert s_15[0]["target_soc"] == 35
-    assert s_15[5]["target_soc"] == 35
+    assert s_15[5]["target_soc"] == 20
 
     # 3. 25% margin with min_soc = 20 and max_soc = 40 (clamped to 50 max_soc lower bound in generate)
-    # min_soc + margin = 20 + 25 = 45 -> clamped to safe_max_soc (50)
+    # min_soc + margin = 20 + 25 = 45 -> clamped to safe_max_soc (50) for Slot 1; Slot 6 stays min_soc = 20
     s_clamp = pstryk_engine.generate_deye_tou_schedule(
         min_soc=20, max_soc=50, morning_reserve_margin=35,
         best_pb_window=pb_win, best_sell_window=sell_win,
     )
     assert s_clamp[0]["target_soc"] == 50
-    assert s_clamp[5]["target_soc"] == 50
+    assert s_clamp[5]["target_soc"] == 20
 
 
 def test_custom_nominal_voltage_and_power_scaling():
@@ -2227,7 +2227,7 @@ def test_schedule_property_all_windows():
                                 continue
                             prev_k = prevs[0]
                             next_k = next(kinds[(i + j) % 6] for j in range(1, 7) if kinds[(i + j) % 6] in ("charge", "peak"))
-                            if prev_k == "charge" and next_k == "peak" and slots[i]["target_soc"] != top:
+                            if prev_k == "charge" and next_k == "peak" and not (780 <= ts[i] < 1320) and slots[i]["target_soc"] != top:
                                 failures.append((key, "hold-after-charge", ts, [x["target_soc"] for x in slots]))
                             if prev_k == "peak" and next_k == "charge" and slots[i]["target_soc"] != min_soc:
                                 failures.append((key, "min-before-charge", ts, [x["target_soc"] for x in slots]))
@@ -2373,9 +2373,9 @@ def _sched(slots):
 def test_live_bug_sell_before_charge_holds_after_charge_and_drains_before_charge():
     """
     Live repro (min 10, max 90, margins 10/10, sell 06-09, charge 13-15):
-    was 00:00 20 | 06:00 10 | 09:00 20 | 13:00 90 G | 15:00 20 | 17:00 10.
-    (a) 15:00 must hold 90 until the 17:00 peak; (b) 09:00 must be min (next event is a cheap refill);
-    (c) 00:00 keeps the morning reserve before the 06:00 sale.
+    After 13:00-15:00 charge, prices at 15:00 are elevated, so autokonsumpcja starts immediately at 15:00 (target 10%).
+    (a) 15:00 starts autokonsumpcja down to min_soc; (b) 09:00 is min_soc before cheap refill;
+    (c) 00:00 keeps morning reserve before 06:00 sale.
     """
     slots = pstryk_engine.generate_deye_tou_schedule(
         max_soc=90, min_soc=10, morning_reserve_margin=10, pre_peak_margin=10,
@@ -2383,19 +2383,19 @@ def test_live_bug_sell_before_charge_holds_after_charge_and_drains_before_charge
         best_sell_window={"start": "06:00", "end": "09:00"})
     assert _sched(slots) == [
         ("00:00", 20, False), ("06:00", 10, False), ("09:00", 10, False),
-        ("13:00", 90, True), ("15:00", 90, False), ("17:00", 10, False),
+        ("13:00", 90, True), ("15:00", 10, False), ("17:00", 10, False),
     ]
 
 
-def test_midday_charge_13_15_sell_17_20_holds_max_until_peak():
-    """Most common case: after the 13-15 charge the battery holds max until the 17:00 sell window."""
+def test_midday_charge_13_15_sell_17_20_immediate_autoconsumption_and_min_post_peak():
+    """Midday charge 13-15 with evening peak: immediate autokonsumpcja at 15:00 (no 90% hold during high prices) and min_soc post peak."""
     slots = pstryk_engine.generate_deye_tou_schedule(
         max_soc=90, min_soc=10, morning_reserve_margin=10, pre_peak_margin=10,
         best_pb_window={"start": "13:00", "end": "15:00", "duration_hours": 2},
         best_sell_window={"start": "17:00", "end": "20:00"})
     assert _sched(slots) == [
         ("00:00", 20, False), ("06:00", 10, False), ("13:00", 90, True),
-        ("15:00", 90, False), ("17:00", 10, False), ("20:00", 20, False),
+        ("15:00", 10, False), ("17:00", 10, False), ("20:00", 10, False),
     ]
 
 
@@ -2459,6 +2459,99 @@ def test_s3_late_charge_midnight_slot_is_set_by_branch_not_wrap():
     assert s0["time"] == "00:00"
     assert s0["label"] not in STRETCH_LABELS
     assert s0["role"] != "charge"
+
+def test_midday_charge_elevated_price_starts_immediate_discharge():
+    """
+    Verifies that when midday charge finishes at 15:00 and retail price is elevated (e.g. 1.48 zł/kWh),
+    autokonsumpcja starts immediately at 15:00 with target_soc = safe_min_soc (10%).
+    Ensures that no wasteful 90% hold is created between 15:00 and 17:00.
+    """
+    frames = []
+    # Build 24 hours of mock pricing: cheap at 13-15 (0.84), high at 15-21 (1.48 to 1.60), normal elsewhere (1.10)
+    for h in range(24):
+        p = 0.84 if 13 <= h < 15 else (1.55 if 17 <= h < 21 else (1.48 if 15 <= h < 17 else 1.10))
+        frames.append({
+            "start": f"2026-10-21T{h:02d}:00:00+02:00",
+            "end": f"2026-10-21{(h+1)%24:02d}:00:00+02:00",
+            "metrics": {"pricing": {"price_gross": p, "price_net": p / 1.23}},
+        })
+    pricing = {"frames": frames}
+
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        max_soc=90,
+        min_soc=10,
+        morning_reserve_margin=10,
+        pre_peak_margin=10,
+        best_pb_window={"start": "13:00", "end": "15:00", "duration_hours": 2, "average_price": 0.84},
+        best_sell_window={"start": "17:00", "end": "21:00"},
+        pricing_data=pricing,
+    )
+
+    sched = [(s["time"], s["target_soc"], s["grid_charge"]) for s in slots]
+    # Slot at 15:00 must start discharging immediately down to 10% (no 90% hold)
+    slot_15 = [s for s in slots if s["time"] == "15:00"][0]
+    assert slot_15["target_soc"] == 10
+    assert slot_15["grid_charge"] is False
+    # Post-peak slot at 21:00 must stay strictly at min_soc (10%), not at morning reserve (20%)
+    slot_21 = [s for s in slots if s["time"] == "21:00"][0]
+    assert slot_21["target_soc"] == 10
+    assert slot_21["grid_charge"] is False
+    # No hold at 90% exists after charging
+    holds_at_90 = [s for s in slots if s["target_soc"] == 90 and not s["grid_charge"]]
+    assert len(holds_at_90) == 0
+
+
+def test_post_peak_standby_strictly_uses_min_soc():
+    """
+    Verifies that after the evening peak has passed, post-peak evening and night standby
+    strictly targets safe_min_soc (10%), rejecting unnecessary 20% morning reserve hold.
+    """
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        max_soc=90,
+        min_soc=10,
+        morning_reserve_margin=10,
+        pre_peak_margin=10,
+        best_pb_window={"start": "02:00", "end": "05:00", "duration_hours": 3},
+        best_sell_window={"start": "17:00", "end": "21:00"},
+    )
+    last_slot = slots[-1]
+    assert last_slot["time"] == "21:00"
+    assert last_slot["target_soc"] == 10
+    assert last_slot["grid_charge"] is False
+
+
+def test_night_charge_cheap_hour_preserves_hold_until_peak():
+    """
+    Verifies that when night charge ends at 05:00 and hours 05:00-07:00 are cheap,
+    the 90% hold is preserved to protect battery energy for the expensive morning peak at 07:00.
+    """
+    frames = []
+    for h in range(24):
+        # 03-05 cheap (0.86), 05-07 still cheap (0.88), 07-10 morning peak (1.85), normal (1.20)
+        p = 0.86 if 3 <= h < 5 else (0.88 if 5 <= h < 7 else (1.85 if 7 <= h < 10 else 1.20))
+        frames.append({
+            "start": f"2026-10-22T{h:02d}:00:00+02:00",
+            "end": f"2026-10-22{(h+1)%24:02d}:00:00+02:00",
+            "metrics": {"pricing": {"price_gross": p, "price_net": p / 1.23}},
+        })
+    pricing = {"frames": frames}
+
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        max_soc=90,
+        min_soc=10,
+        morning_reserve_margin=10,
+        pre_peak_margin=10,
+        best_pb_window={"start": "03:00", "end": "05:00", "duration_hours": 2, "average_price": 0.86},
+        best_sell_window={"start": "07:00", "end": "10:00"},
+        pricing_data=pricing,
+    )
+
+    slot_05 = [s for s in slots if s["time"] == "05:00"][0]
+    # At 05:00, prices are cheap (0.88 < 0.86 * 1.15 and < mean 1.20), so 90% hold is preserved until 07:00 peak
+    assert slot_05["target_soc"] == 90
+    assert slot_05["grid_charge"] is False
+    assert "Hold do Szczytu" in slot_05["label"]
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
