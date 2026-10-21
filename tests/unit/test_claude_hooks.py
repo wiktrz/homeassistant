@@ -13,7 +13,8 @@ VALIDATOR = os.path.join(REPO, "scripts", "check_duplicate_variable.py")
 
 
 def sh(cwd, *args):
-    subprocess.run(args, cwd=cwd, check=True, capture_output=True)
+    env = dict(os.environ, HOME=str(cwd))
+    subprocess.run(args, cwd=cwd, check=True, capture_output=True, env=env)
 
 
 @pytest.fixture
@@ -34,6 +35,7 @@ def repo(tmp_path):
 def run(repo, mode, payload):
     env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
     env["HA_GUARD_ROOT"] = str(repo)
+    env["HOME"] = str(repo)
     r = subprocess.run([sys.executable, GUARD, mode], input=json.dumps(payload), capture_output=True,
                        text=True, env=env, timeout=30)
     assert r.returncode == 0, r.stderr

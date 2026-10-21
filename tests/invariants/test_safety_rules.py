@@ -266,6 +266,59 @@ def test_register_write_safety_policies():
     assert hasattr(solarman_v5_client, "set_charge_current")
 
 
+def test_tou_zero_grid_export_and_no_generation(monkeypatch):
+    """
+    INVARIANT: ZERO GRID EXPORT & NO GENERATOR TRIGGERING.
+    Asserts that enableSell is strictly False and enableGeneration is strictly False
+    across all TOU schedule slots sent to Deye Cloud OpenAPI, ensuring zero grid export
+    and no generator triggering.
+    """
+    import sys
+    config_dir = os.path.join(REPO_ROOT, "config")
+    if config_dir not in sys.path:
+        sys.path.insert(0, config_dir)
+    import deye_cloud_client
+
+    captured_payloads = []
+
+    def mock_call_deye_api(endpoint, method="GET", data=None, params=None, cfg=None):
+        if data:
+            captured_payloads.append(data)
+        return True, {"code": "1000000", "msg": "SUCCESS"}, "SUCCESS"
+
+    monkeypatch.setattr(deye_cloud_client, "call_deye_api", mock_call_deye_api)
+
+    # 1. Test with adversarial input slots attempting to enable sell or generator
+    adversarial_slots = [
+        {"time": f"{i*4:02d}:00", "power": 5000, "soc": 80, "enableSell": True, "enableGeneration": True, "grid_charge": True}
+        for i in range(6)
+    ]
+    res = deye_cloud_client.sync_tou_schedule(adversarial_slots, cfg={"inverter_sn": "TEST_SN"})
+    assert res.get("success") is True, f"sync_tou_schedule failed: {res}"
+    assert len(captured_payloads) == 1
+    items = captured_payloads[0].get("timeUseSettingItems", [])
+    assert len(items) == 6
+    for idx, item in enumerate(items, 1):
+        assert item.get("enableSell") is False, f"Slot {idx} has enableSell != False: {item}"
+        assert item.get("enableGeneration") is False, f"Slot {idx} has enableGeneration != False: {item}"
+
+    # 2. Test with standard generated schedule from pstryk_engine
+    try:
+        import pstryk_engine
+        gen_slots = pstryk_engine.generate_deye_tou_schedule()
+        for idx, s in enumerate(gen_slots, 1):
+            assert s.get("enableSell", False) is False, f"Generated slot {idx} has enableSell=True"
+            assert s.get("enableGeneration", False) is False, f"Generated slot {idx} has enableGeneration=True"
+        captured_payloads.clear()
+        res2 = deye_cloud_client.sync_tou_schedule(gen_slots, cfg={"inverter_sn": "TEST_SN"})
+        assert res2.get("success") is True
+        for idx, item in enumerate(captured_payloads[0].get("timeUseSettingItems", []), 1):
+            assert item.get("enableSell") is False, f"Formatted slot {idx} has enableSell != False"
+            assert item.get("enableGeneration") is False, f"Formatted slot {idx} has enableGeneration != False"
+    except ImportError:
+        pass
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 

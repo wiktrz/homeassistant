@@ -176,13 +176,6 @@ EV_WINDOW_WEEKEND_HOURS = 4
 PB_BASE_HOURS = 2
 PB_MAX_WEEKEND_HOURS = 5
 SELL_TARGET_HOURS = 3
-# TOU day boundaries (Europe/Warsaw local hours): morning peak starts; later PV refills toward the pre-peak reserve
-MORNING_PEAK_START_HOUR = 6
-PRE_PEAK_RESERVE_START_HOUR = 10
-EVENING_PEAK_START_HOUR = 17  # default evening peak / sell window start (also the peak that must stay protected)
-# Reg 108 charge-current schedule: daytime band starts at 05:00 (full base current for PV); from 19:00 the next cycle is pre-set
-REG108_DAYTIME_START_HOUR = 5
-REG108_EVENING_PRESET_HOUR = 19
 # Max total price-frame holes (hours) tolerated by warsaw_day_covered
 PRICE_COVERAGE_MAX_MISSING_HOURS = 1
 # Wall-clock budget (s) for local Modbus reads, started on the first failure

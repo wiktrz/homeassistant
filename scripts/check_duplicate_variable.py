@@ -93,6 +93,20 @@ def search_existing_definitions(term: str) -> None:
         print(f"\n💡 Found {matches_found} existing candidate(s). REUSE existing definitions where possible!\n")
 
 
+def safe_ast_unparse(node: ast.AST) -> str:
+    """Safe ast.unparse helper with Python 3.8 fallback."""
+    if hasattr(ast, "unparse"):
+        return ast.unparse(node)
+    if isinstance(node, ast.Call):
+        func_name = getattr(node.func, "attr", getattr(node.func, "id", "call"))
+        args_str = ", ".join(
+            repr(getattr(a, "value", str(a))) if isinstance(a, ast.Constant) else type(a).__name__
+            for a in node.args
+        )
+        return f"{func_name}({args_str})"
+    return ast.dump(node)
+
+
 def find_get_literal_fallbacks(fpath: str) -> List[str]:
     """Flag `.get(<key>, <non-zero int/float literal>)`: fallbacks must come from energy_defaults."""
     rel_path = os.path.relpath(fpath, REPO_ROOT)
@@ -108,8 +122,12 @@ def find_get_literal_fallbacks(fpath: str) -> List[str]:
                 and len(n.args) == 2 and isinstance(n.args[1], ast.Constant)
                 and isinstance(n.args[1].value, (int, float)) and not isinstance(n.args[1].value, bool)
                 and n.args[1].value != 0):
-            out.append(f"{rel_path}:{n.lineno} [GET FALLBACK LITERAL: {n.args[1].value}]: {ast.unparse(n)}")
+            out.append(f"{rel_path}:{n.lineno} [GET FALLBACK LITERAL: {n.args[1].value}]: {safe_ast_unparse(n)}")
     return out
+
+
+# Alias for backward and forward compatibility
+check_inline_get_fallbacks = find_get_literal_fallbacks
 
 
 def validate_no_duplicate_defaults() -> List[str]:

@@ -102,15 +102,19 @@ To protect the Deye Wi-Fi logger and SD card / flash storage, all Deye reads imp
 - between two peaks: keep the branch reserve (morning reserve $\min(\text{max\_soc}, \text{min\_soc} + \text{margin})$, default +10%, or pre-peak $\min(\text{max\_soc}, \text{min\_soc} + \text{pre\_peak\_margin})$).
 - "Previous" does not wrap past 00:00; "next" may wrap to today's first events.
 
-**Morning boundaries:** `MORNING_PEAK_START_HOUR = 6` and `PRE_PEAK_RESERVE_START_HOUR = 10`. Evening/late charge windows (ending after 17:00) hold Max SOC overnight until 06:00, then the morning reserve, then pre-peak from 10:00, so PV can refill the battery.
+**Dynamic Peak & Charging Placement (Zero Hardcoded Boundaries, Strictly No-PV):**
+The installation is strictly a No-PV battery storage system. There are no fixed clock boundaries (`06:00`, `10:00`, `12:00`, `17:00`) or "PV refill" heuristics. All slot start times and durations adapt dynamically to market prices:
+- **Discharge Peak Ranking:** Driven strictly by gross retail buy price (`price_gross`), NOT prosumer sell price (`price_prosumer_gross`), because zero-export self-consumption (`enableSell: false`) is enforced.
+- **Dynamic Dual Peaks:** When 2 distinct price peaks are separated by $\ge 2$ hours, Peak 1 discharges down to `pre_peak_soc`, the intervening valley holds reserve on grid power, and Peak 2 discharges fully down to `safe_min_soc`.
+- **Dynamic Charging Duration:** Derived dynamically by `determine_dynamic_charge_hours` from current SOC, target SOC, and pack capacity without hardcoded weekday limits.
 
 Reference schedules (min 10, max 90, margins 10; `G` = grid charge):
 
-| Charge / Sell window | Schedule |
+| Charge / Peak window | Schedule |
 |:---|:---|
 | 13-15 / 06-09 | `00:00 20 \| 06:00 10 \| 09:00 10 \| 13:00 90G \| 15:00 90 \| 17:00 10` |
-| 13-15 / 17-20 | `00:00 20 \| 06:00 10 \| 13:00 90G \| 15:00 90 \| 17:00 10 \| 20:00 20` |
-| 19-21 / 17-19 | `00:00 90 \| 06:00 20 \| 10:00 20 \| 17:00 10 \| 19:00 90G \| 21:00 90` |
+| 13-15 / 17-20 | `00:00 20 \| 06:00 10 \| 13:00 90G \| 15:00 90 \| 17:00 10 \| 20:00 10` |
+| 19-21 / 17-19 | `00:00 90 \| 08:00 20 \| 12:00 20 \| 17:00 10 \| 19:00 90G \| 21:00 90` |
 
 **Price coverage:** TOU is neither written nor cached unless the Europe/Warsaw day is covered (`warsaw_day_covered()`: first frame at/before 00:00, last end at/after the next 00:00, at most 1h (`PRICE_COVERAGE_MAX_MISSING_HOURS`) missing in total; handles DST days returned as 24 frames). The cache stores `_warsaw_date` and target hours and is reused only on a match.
 

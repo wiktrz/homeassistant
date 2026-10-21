@@ -910,6 +910,31 @@ def find_ev_best_window(
     }
 
 
+def determine_dynamic_charge_hours(
+    current_soc: int,
+    target_soc: int,
+    battery_kwh: Optional[float] = None,
+    net_kw: float = 5.5,
+    min_soc: Optional[int] = None,
+) -> int:
+    """
+    Determines optimal charging duration (1 to 4 hours) dynamically based on
+    current SOC, target SOC, battery capacity in kWh, and net inverter charge power in kW.
+    """
+    if battery_kwh is None:
+        battery_kwh = energy_defaults.FALLBACK_BATTERY_CAPACITY_KWH
+    if min_soc is None:
+        min_soc = energy_defaults.DEFAULT_MIN_SOC
+    delta_soc = max(0, target_soc - current_soc)
+    needed_kwh = (delta_soc / 100.0) * float(battery_kwh)
+    if needed_kwh <= net_kw * 1.15:
+        return 1
+    elif needed_kwh <= net_kw * 2.15:
+        return 2
+    else:
+        return min(4, max(1, int(round(needed_kwh / net_kw))))
+
+
 def find_powerbank_best_window(
     data: Dict[str, Any],
     target_hours: Any = "auto",
@@ -1151,6 +1176,121 @@ def find_best_sell_window(
     }
 
 
+def find_best_discharge_windows(
+    data: Dict[str, Any],
+    target_hours: int = 3,
+    min_separation_hours: int = 2,
+) -> Dict[str, Any]:
+    """
+    Finds optimal battery discharge peak window(s) to cover home load and avoid
+    buying expensive grid energy during price spikes.
+    Driven strictly by gross retail buy price (price_gross), NOT prosumer sell price,
+    because zero-export self-consumption is enforced.
+    Identifies up to 2 distinct peaks separated by at least min_separation_hours.
+    """
+    if not data or not isinstance(data, dict) or "error" in data:
+        return {"error": data.get("error", "No data") if isinstance(data, dict) else "No data"}
+
+    frames = data.get("frames", [])
+    valid_frames = [
+        f for f in frames
+        if isinstance(f, dict)
+        and "pricing" in (f.get("metrics") or {})
+        and (
+            (f.get("metrics") or {}).get("pricing", {}).get("price_gross") is not None
+            or (f.get("metrics") or {}).get("pricing", {}).get("price_net") is not None
+        )
+    ]
+    if not valid_frames:
+        return {"error": "No valid pricing frames"}
+
+    search_frames = valid_frames[:24] if len(valid_frames) >= 24 else valid_frames
+
+    def get_retail_gross(f: Dict[str, Any]) -> float:
+        p = (f.get("metrics") or {}).get("pricing") or {}
+        if p.get("price_gross") is not None:
+            return float(p["price_gross"])
+        if p.get("full_price") is not None:
+            return float(p["full_price"])
+        if p.get("price_net") is not None:
+            return round(float(p["price_net"]) * energy_defaults.VAT_MULTIPLIER, 4)
+        return 0.0
+
+    n_hours = max(1, min(len(search_frames), int(target_hours)))
+    if len(search_frames) < n_hours:
+        return {"error": "Insufficient frames for target_hours"}
+
+    # Compute average retail price for all contiguous windows of length n_hours
+    windows = []
+    for i in range(len(search_frames) - n_hours + 1):
+        w = search_frames[i : i + n_hours]
+        avg = sum(get_retail_gross(f) for f in w) / float(n_hours)
+        windows.append((i, avg, w))
+
+    if not windows:
+        return {"error": "No windows found"}
+
+    windows_sorted = sorted(windows, key=lambda x: x[1], reverse=True)
+    best_i, best_avg, best_w = windows_sorted[0]
+
+    def _build_window_dict(idx: int, w_frames: List[Dict[str, Any]], avg_p: float) -> Dict[str, Any]:
+        prices = [get_retail_gross(f) for f in w_frames]
+        spike_f = max(w_frames, key=get_retail_gross)
+        spike_price = round(get_retail_gross(spike_f), 3)
+        start_str = w_frames[0].get("start")
+        end_str = w_frames[-1].get("end")
+        start_fmt = format_hhmm(start_str)
+        end_fmt = format_hhmm(end_str)
+        return {
+            "start": start_str,
+            "end": end_str,
+            "start_index": idx,
+            "end_index": idx + len(w_frames),
+            "start_time": start_fmt,
+            "end_time": end_fmt,
+            "duration_hours": len(w_frames),
+            "average_price": round(avg_p, 3),
+            "min_price": round(min(prices), 3),
+            "max_price": round(max(prices), 3),
+            "spike_hour": f"{format_hhmm(spike_f.get('start'))} - {format_hhmm(spike_f.get('end'))}",
+            "spike_price": spike_price,
+            "display": f"{start_fmt} - {end_fmt} (śr. {avg_p:.2f} zł/kWh, pik {format_hhmm(spike_f.get('start'))}: {spike_price:.2f} zł)",
+        }
+
+    peak_a = _build_window_dict(best_i, best_w, best_avg)
+
+    # Search for secondary peak separated by >= min_separation_hours
+    second_candidates = []
+    for idx, avg_p, w_frames in windows_sorted[1:]:
+        if idx + n_hours + min_separation_hours <= best_i:
+            valley_frames = search_frames[idx + n_hours : best_i]
+            valley_avg = sum(get_retail_gross(f) for f in valley_frames) / len(valley_frames) if valley_frames else 0.0
+            if avg_p > valley_avg:
+                second_candidates.append((idx, avg_p, w_frames))
+        elif best_i + n_hours + min_separation_hours <= idx:
+            valley_frames = search_frames[best_i + n_hours : idx]
+            valley_avg = sum(get_retail_gross(f) for f in valley_frames) / len(valley_frames) if valley_frames else 0.0
+            if avg_p > valley_avg:
+                second_candidates.append((idx, avg_p, w_frames))
+
+    peaks = [peak_a]
+    if second_candidates:
+        second_candidates.sort(key=lambda x: x[1], reverse=True)
+        sec_idx, sec_avg, sec_w = second_candidates[0]
+        day_prices = [get_retail_gross(f) for f in search_frames]
+        day_mean = sum(day_prices) / len(day_prices) if day_prices else 0.0
+        if sec_avg >= day_mean:
+            peak_b = _build_window_dict(sec_idx, sec_w, sec_avg)
+            peaks.append(peak_b)
+
+    peaks.sort(key=lambda p: p["start_index"])
+
+    result = dict(peaks[-1] if len(peaks) > 1 and peaks[-1]["average_price"] >= peaks[0]["average_price"] else peaks[0])
+    result["peaks"] = peaks
+    result["is_dual_peak"] = (len(peaks) == 2)
+    return result
+
+
 def generate_deye_tou_schedule(
     current_soc: Optional[int] = None,
     max_soc: Optional[int] = None,
@@ -1166,23 +1306,20 @@ def generate_deye_tou_schedule(
     pre_peak_margin: Optional[int] = None,
     nominal_voltage: Optional[float] = None,
     loss_buffer_pct: Optional[float] = None,
+    best_discharge_windows: Optional[Any] = None,
+    pricing_data: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Generates a 6-slot Time-of-Use (TOU) schedule for Deye Hybrid Inverter.
-    Slots adapt dynamically to place the charge slot during the cheapest prices
-    (whether midday solar dip e.g. 11:00-15:00 or night e.g. 02:00-04:00), holding charge
-    until the major peak, and discharging to 100% cover house load during the peak.
+    Slots adapt dynamically to place the charge slot during the cheapest prices,
+    holding charge until peaks, and discharging to 100% cover house load during price peaks.
 
-    TOU Power Hardware Semantics:
-    In Deye hybrid inverters, the Power(W) column in TOU registers 256..261 strictly defines
-    the MAXIMUM DISCHARGE POWER from the battery to load/grid. It does NOT limit grid charging speed.
-    Therefore, all 6 slots are set to the maximum base discharge power (derived dynamically from
-    inverter max_discharge_current e.g. 140A * 51.2V ≈ 7170W) so house load coverage is never throttled.
-
-    Dynamic Charge Current Modulation (Register 108):
-    Battery charging speed is governed by Modbus Holding Register 108 (Max A Charge).
-    When charging window exceeds 2h (e.g. 4h on weekends), charging current is proportionally
-    reduced (100A * 2 / T = 50A for 4h) and restored to baseline (100A) outside the charging window.
+    Zero-Export Self-Consumption & Peak Ranking:
+    Discharge peaks are ranked by gross retail buy price (price_gross) to minimize
+    grid import costs. When 2 peaks exist separated by >= 2 hours:
+    - Peak 1: discharge down to reserve level (pre_peak_soc).
+    - Valley between peaks: HOLD reserve while running on grid during dip.
+    - Peak 2: full discharge down to safe_min_soc.
     """
     def to_minutes(hhmm_str: Optional[str], default_m: int) -> int:
         if not hhmm_str or hhmm_str == "--:--":
@@ -1198,7 +1335,6 @@ def generate_deye_tou_schedule(
         mm = m % 60
         return f"{hh:02d}:{mm:02d}"
 
-    # Derive dynamic 100% base discharge power and capacity from inverter readings / env
     eff_cap, eff_volts, eff_charge_curr, eff_discharge_curr = resolve_battery_hardware_parameters(
         battery_capacity_kwh=battery_capacity_kwh,
         nominal_voltage=nominal_voltage,
@@ -1228,8 +1364,21 @@ def generate_deye_tou_schedule(
     morning_reserve_soc = min(safe_max_soc, safe_min_soc + max(0, int(eff_morning_margin)))
     pre_peak_soc = min(safe_max_soc, safe_min_soc + max(0, int(eff_pre_peak)))
 
-    pb_start_m = 120  # Default 02:00 (safe night charge fallback if no pricing data)
-    pb_end_m = 240    # Default 04:00
+    # Determine charging duration dynamically via determine_dynamic_charge_hours
+    charging_duration_hours = determine_dynamic_charge_hours(
+        current_soc=eff_current_soc,
+        target_soc=safe_max_soc,
+        battery_kwh=eff_cap,
+        min_soc=safe_min_soc,
+    )
+    if isinstance(best_pb_window, dict) and best_pb_window.get("duration_hours") is not None:
+        try:
+            charging_duration_hours = int(best_pb_window["duration_hours"])
+        except (ValueError, TypeError):
+            pass
+
+    pb_start_m = 120  # Default 02:00 safe night charge fallback
+    pb_end_m = pb_start_m + charging_duration_hours * 60
     has_disjoint_midday = False
     disjoint_midday_m = 780
     disjoint_night_m = 120
@@ -1251,32 +1400,21 @@ def generate_deye_tou_schedule(
                 disjoint_midday_m = midday_slots[0]
                 disjoint_night_m = night_slots[0]
 
-        pb_start_str = format_hhmm(best_pb_window.get("start"))
-        pb_end_str = format_hhmm(best_pb_window.get("end"))
-        pb_start_m = to_minutes(pb_start_str, 780)
-        pb_end_m = to_minutes(pb_end_str, 900)
-        if pb_end_m <= pb_start_m:
-            # "00:00" end means 24:00 (window ending at midnight); equal times fall back to a 2h window
-            pb_end_m = pb_end_m + 1440 if pb_end_m < pb_start_m else pb_start_m + 120
+        if best_pb_window.get("start") and best_pb_window.get("end"):
+            pb_start_str = format_hhmm(best_pb_window.get("start"))
+            pb_end_str = format_hhmm(best_pb_window.get("end"))
+            pb_start_m = to_minutes(pb_start_str, 120)
+            pb_end_m = to_minutes(pb_end_str, pb_start_m + charging_duration_hours * 60)
+            if pb_end_m <= pb_start_m:
+                pb_end_m = pb_end_m + 1440 if pb_end_m < pb_start_m else pb_start_m + charging_duration_hours * 60
 
-    # Determine charging duration in integer hours
-    charging_duration_hours = max(1, int(round((pb_end_m - pb_start_m) / 60)))
-    if isinstance(best_pb_window, dict) and best_pb_window.get("duration_hours"):
-        try:
-            charging_duration_hours = int(best_pb_window["duration_hours"])
-        except (ValueError, TypeError):
-            pass
-
-    # Dynamic charge current calculation for Register 108 (Max A Charge)
     ceiling_curr = int(round(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A))
-    # Base is always the hardware ceiling, never the live/CLI Reg 108 value: that value is this engine's own
-    # previous output, and scaling it again ratchets Reg 108 down (100 -> 50 -> 25 -> 20 A).
     eff_charge_curr = float(ceiling_curr)
     if calibration_active:
         target_charge_current_a = int(round(eff_charge_curr))
     elif charging_duration_hours > 2:
         scaled_curr = eff_charge_curr * (2.0 / float(charging_duration_hours))
-        target_charge_current_a = max(20, min(ceiling_curr, min(int(round(eff_charge_curr)), int(round(scaled_curr)))))
+        target_charge_current_a = max(20, min(ceiling_curr, int(round(scaled_curr))))
     else:
         target_charge_current_a = min(ceiling_curr, int(round(eff_charge_curr)))
 
@@ -1309,55 +1447,49 @@ def generate_deye_tou_schedule(
             "voltage": eff_volts,
         }
 
-    sell_start_m = 1020  # Default 17:00
-    sell_end_m = 1260    # Default 21:00
-    if isinstance(best_sell_window, dict) and "error" not in best_sell_window:
-        sell_start_str = format_hhmm(best_sell_window.get("start"))
-        sell_end_str = format_hhmm(best_sell_window.get("end"))
-        sell_start_m = to_minutes(sell_start_str, 1020)
-        sell_end_m = to_minutes(sell_end_str, 1260)
-        if sell_end_m <= sell_start_m:
-            sell_end_m = sell_end_m + 1440 if sell_end_m < sell_start_m else sell_start_m + 180
+    # Resolve discharge peak window(s)
+    dw_source = best_discharge_windows or best_sell_window
+    if dw_source is None and pricing_data is not None:
+        dw_source = find_best_discharge_windows(pricing_data)
 
-    # Charge and sell windows must not overlap: trim the sell window around the charge window
-    if not has_disjoint_midday and sell_start_m < pb_end_m and sell_end_m > pb_start_m:
-        if sell_start_m < pb_start_m:
-            sell_end_m = pb_start_m
-        else:
-            sell_start_m = pb_end_m
-            sell_end_m = max(sell_end_m, sell_start_m + 60)
+    parsed_peaks: List[Tuple[int, int]] = []
+    if isinstance(dw_source, dict) and "peaks" in dw_source and isinstance(dw_source["peaks"], list):
+        for p in dw_source["peaks"]:
+            if isinstance(p, dict) and p.get("start") and p.get("end"):
+                ps = to_minutes(format_hhmm(p.get("start")), 0)
+                pe = to_minutes(format_hhmm(p.get("end")), ps + 180)
+                if pe <= ps:
+                    pe = pe + 1440 if pe < ps else ps + 180
+                parsed_peaks.append((ps, pe))
+    elif isinstance(dw_source, list):
+        for p in dw_source:
+            if isinstance(p, dict) and p.get("start") and p.get("end"):
+                ps = to_minutes(format_hhmm(p.get("start")), 0)
+                pe = to_minutes(format_hhmm(p.get("end")), ps + 180)
+                if pe <= ps:
+                    pe = pe + 1440 if pe < ps else ps + 180
+                parsed_peaks.append((ps, pe))
+    elif isinstance(dw_source, dict) and "start" in dw_source and "end" in dw_source and "error" not in dw_source:
+        ps = to_minutes(format_hhmm(dw_source.get("start")), 1020)
+        pe = to_minutes(format_hhmm(dw_source.get("end")), 1260)
+        if pe <= ps:
+            pe = pe + 1440 if pe < ps else ps + 180
+        parsed_peaks.append((ps, pe))
 
-    evening_peak_m = energy_defaults.EVENING_PEAK_START_HOUR * 60  # 17:00: evening peak that must stay protected when the sell window ends earlier
+    if not parsed_peaks:
+        parsed_peaks.append((1020, 1260))
 
     def _charge_label(a: int, b: int, name: str) -> str:
         return "Ładowanie (Kalibracja 100%)" if calibration_active else f"{name} ({to_time_str(a)}-{to_time_str(b)})"
 
-    def _sell_label(a: int, b: int) -> str:
-        name = "Szczyt Wieczorny" if a >= 960 else "Szczyt Sprzedaży"
-        return f"{name} 100% ({to_time_str(a)}-{to_time_str(b)})"
+    def _peak_label(a: int, b: int) -> str:
+        name = "Szczyt Wieczorny" if a >= 960 else "Szczyt Cenowy"
+        return f"{name} (Autokonsumpcja) ({to_time_str(a)}-{to_time_str(b)})"
 
-    morning_m = int(energy_defaults.MORNING_PEAK_START_HOUR) * 60
-    refill_m = int(energy_defaults.PRE_PEAK_RESERVE_START_HOUR) * 60
-
-    # Event = (minute, target_soc, grid_charge, label, role). Roles drive the stretch rule in _finalize:
-    #   charge = grid-charge window; peak = discharge boundary (sell window, morning/evening peak);
-    #   reserve = branch-defined reserve; other = anything else. Labels are display-only.
+    # Event = (minute, target_soc, grid_charge, label, role)
     Event = Tuple[int, int, bool, str, str]
-    evening_peak: Event = (evening_peak_m, safe_min_soc, False, f"Szczyt Wieczorny 100% (od {to_time_str(evening_peak_m)})", "peak")
-
-    def _fixed(*events: Event) -> List[Event]:
-        """Fixed-time breakpoints (06:00, 10:00, 12:00, 17:00, ...) must not split the charge or sell window."""
-        return [e for e in events if not (pb_start_m <= e[0] < pb_end_m or sell_start_m <= e[0] < sell_end_m)]
 
     def _finalize(events: List[Event]) -> List[Dict[str, Any]]:
-        """
-        Turns breakpoints into exactly 6 slots with strictly increasing times in [00:00, 24:00).
-        On equal minutes a grid-charge event beats a non-charge one, otherwise the later event wins (callers list
-        fixed breakpoints first). Breakpoints at/after 24:00 are dropped (the last slot already runs until slot 1).
-        Missing slots are filled by splitting the longest gap with a copy of the preceding slot (role included, no
-        behaviour change); surplus reserve/other slots with the shortest span are merged away (never a charge or
-        peak slot, nor the slot that ends a charge window).
-        """
         by_m: Dict[int, Tuple[int, bool, str, str]] = {}
         for m, soc, grid, label, role in events:
             if 0 <= m < 1440 and not (m in by_m and by_m[m][1] and not grid):
@@ -1373,12 +1505,6 @@ def generate_deye_tou_schedule(
             by_m[(times[i] + (gap // 2) // 60 * 60) % 1440] = by_m[times[i]]
             times = sorted(by_m)
 
-        # Stretch semantics for reserve/other slots, by role (nearest charge/peak before and after):
-        #   charge -> ... -> peak : hold max SOC so house load doesn't drain the cheap grid energy before the peak
-        #   peak -> ... -> charge : min SOC, a reserve is pointless when the next event is a cheap refill
-        #   peak -> ... -> peak   : keep the branch's reserve (morning reserve / pre-peak margin)
-        # "Before" does not wrap past 00:00: with no charge/peak earlier today the branch's own SOC is kept.
-        # "After" may wrap to today's first events (stand-in for tomorrow's).
         roles = [by_m[m][3] for m in times]
         bounds = ("charge", "peak")
         for i, m in enumerate(times):
@@ -1389,7 +1515,7 @@ def generate_deye_tou_schedule(
             soc, _, _, role = by_m[m]
             if prev_r == "charge" and next_r == "peak" and soc != safe_max_soc:
                 by_m[m] = (safe_max_soc, False, "Czuwanie po Ładowaniu (Hold do Szczytu)", role)
-            elif prev_r == "peak" and next_r == "charge" and soc != safe_min_soc:
+            elif (prev_r == "peak" or prev_r is None) and next_r == "charge" and m > 0 and soc != safe_min_soc:
                 by_m[m] = (safe_min_soc, False, "Autokonsumpcja do Min SOC (przed Ładowaniem)", role)
         return [_build_slot_dict(n + 1, m, *by_m[m]) for n, m in enumerate(times)]
 
@@ -1398,77 +1524,122 @@ def generate_deye_tou_schedule(
         t2 = t1 + 60
         t3 = max(t2 + 60, disjoint_midday_m)
         t4 = t3 + 60
-        t5 = max(t4 + 60, sell_start_m)
-        t6 = max(t5 + 60, sell_end_m)
+        t5 = max(t4 + 60, parsed_peaks[-1][0])
+        t6 = max(t5 + 60, parsed_peaks[-1][1])
         events = [
-            (t1, safe_max_soc, True, _charge_label(t1, t2, "Ładowanie Nocne"), "charge"),
-            (t2, safe_max_soc, False, "Czuwanie Poranne (Hold)", "other"),
+            (t1, safe_max_soc, True, _charge_label(t1, t2, "Najtańsze Ładowanie"), "charge"),
+            (t2, safe_max_soc, False, "Ochrona Rezerwy (Hold)", "other"),
             (t3, safe_max_soc, True, _charge_label(t3, t4, "Tania Godzina Dzienna"), "charge"),
-            (t4, pre_peak_soc, False, "Rezerwa Przed Szczytem (Hold)", "reserve"),
-            (t5, safe_min_soc, False, f"Szczyt Wieczorny 100% ({to_time_str(t5)}-{to_time_str(t6)})", "peak"),
-            (t6, morning_reserve_soc, False, "Autokonsumpcja Nocna / Rezerwa", "reserve"),
+            (t4, pre_peak_soc, False, "Ochrona Rezerwy (Hold)", "reserve"),
+            (t5, safe_min_soc, False, _peak_label(t5, t6), "peak"),
+            (t6, morning_reserve_soc, False, "Czuwanie Nocne", "reserve"),
         ]
-    elif pb_start_m < 480 and sell_end_m > evening_peak_m:
-        # Night charge, sell window covering the evening peak
-        events = _fixed(
-            (morning_m, pre_peak_soc, False, "Szczyt Poranny (Rezerwa Przed Szczytem)", "peak"),
-            (720, pre_peak_soc, False, "Autokonsumpcja PV / Rezerwa Przed Szczytem", "reserve"),
-        ) + [
-            (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
-            (pb_end_m, safe_max_soc, False, "Czuwanie Poranne (Hold)", "other"),
-            (sell_start_m, safe_min_soc, False, f"Szczyt Wieczorny 100% ({to_time_str(sell_start_m)}-{to_time_str(sell_end_m)})", "peak"),
-            (sell_end_m, safe_min_soc, False, "Czuwanie Nocne / Min SOC (Oczekiwanie na Okno 01:00)", "other"),
-        ]
-    elif pb_start_m < 480:
-        # Night charge, sell window ending before the evening peak: sell, refill from PV, then evening peak
-        events = _fixed((morning_m, pre_peak_soc, False, "Szczyt Poranny (Rezerwa Przed Szczytem)", "peak")) + [
-            (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
-            (pb_end_m, safe_max_soc, False, "Czuwanie Poranne (Hold)", "other"),
-            (sell_start_m, safe_min_soc, False, _sell_label(sell_start_m, sell_end_m), "peak"),
-            (sell_end_m, pre_peak_soc, False, "Autokonsumpcja PV / Rezerwa Przed Szczytem", "reserve"),
-        ] + _fixed(evening_peak)
-    elif sell_start_m >= pb_end_m and sell_end_m > evening_peak_m:
-        # Daytime charge followed by an evening sell window
-        events = _fixed(
-            (0, morning_reserve_soc, False, "Rezerwa na Szczyt Poranny (Hold)", "reserve"),
-            (morning_m, safe_min_soc, False, "Szczyt Poranny (Autokonsumpcja)", "peak"),
-        ) + [
-            (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
-            (pb_end_m, pre_peak_soc, False, "Autokonsumpcja PV", "other"),
-            (sell_start_m, safe_min_soc, False, f"Szczyt Wieczorny 100% ({to_time_str(sell_start_m)}-{to_time_str(sell_end_m)})", "peak"),
-            (sell_end_m, morning_reserve_soc, False, "Autokonsumpcja Nocna / Czuwanie", "reserve"),
-        ]
-    elif sell_start_m >= pb_end_m:
-        # Daytime charge followed by a sell window ending before 17:00: keep the evening peak protected
-        events = _fixed((0, morning_reserve_soc, False, "Rezerwa na Szczyt Poranny (Hold)", "reserve")) + [
-            (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
-            (pb_end_m, pre_peak_soc, False, "Autokonsumpcja PV", "other"),
-            (sell_start_m, safe_min_soc, False, _sell_label(sell_start_m, sell_end_m), "peak"),
-            (sell_end_m, pre_peak_soc, False, "Autokonsumpcja PV / Rezerwa Przed Szczytem", "reserve"),
-        ] + _fixed(evening_peak)
-    elif pb_end_m <= evening_peak_m:
-        # Sell window before a daytime charge window (e.g. morning sale, midday refill, evening peak)
-        events = _fixed((0, morning_reserve_soc, False, "Rezerwa na Szczyt Poranny (Hold)", "reserve")) + [
-            (sell_start_m, safe_min_soc, False, _sell_label(sell_start_m, sell_end_m), "peak"),
-            (sell_end_m, pre_peak_soc, False, "Autokonsumpcja PV / Rezerwa Przed Szczytem", "other"),
-            (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
-            (pb_end_m, pre_peak_soc, False, "Autokonsumpcja PV / Rezerwa Przed Szczytem", "other"),
-        ] + _fixed(evening_peak)
+    elif len(parsed_peaks) >= 2 and (parsed_peaks[1][0] - parsed_peaks[0][1] >= 120):
+        # 2 peaks separated by >= 2 hours:
+        # Peak 1 -> pre_peak_soc
+        # Valley -> HOLD reserve!
+        # Peak 2 -> safe_min_soc
+        p1_start, p1_end = parsed_peaks[0]
+        p2_start, p2_end = parsed_peaks[1]
+
+        if pb_start_m < p1_start:
+            events = [
+                (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
+                (pb_end_m, safe_max_soc, False, "Ochrona Rezerwy (Hold do Szczytu)", "other"),
+                (p1_start, pre_peak_soc, False, _peak_label(p1_start, p1_end), "peak"),
+                (p1_end, pre_peak_soc, False, "Ochrona Rezerwy (Hold)", "reserve"),
+                (p2_start, safe_min_soc, False, _peak_label(p2_start, p2_end), "peak"),
+                (p2_end, safe_min_soc, False, "Czuwanie Nocne", "other"),
+            ]
+        elif p1_end <= pb_start_m and pb_end_m <= p2_start:
+            events = [
+                (0, morning_reserve_soc, False, "Ochrona Rezerwy (Hold)", "reserve"),
+                (p1_start, safe_min_soc, False, _peak_label(p1_start, p1_end), "peak"),
+                (p1_end, safe_min_soc, False, "Czuwanie Nocne", "other"),
+                (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
+                (pb_end_m, safe_max_soc, False, "Ochrona Rezerwy (Hold do Szczytu)", "other"),
+                (p2_start, safe_min_soc, False, _peak_label(p2_start, p2_end), "peak"),
+                (p2_end, safe_min_soc, False, "Czuwanie Nocne", "other"),
+            ]
+        else:
+            events = [
+                (0, safe_max_soc, False, "Ochrona Rezerwy (Hold)", "other"),
+                (p1_start, pre_peak_soc, False, _peak_label(p1_start, p1_end), "peak"),
+                (p1_end, pre_peak_soc, False, "Ochrona Rezerwy (Hold)", "reserve"),
+                (p2_start, safe_min_soc, False, _peak_label(p2_start, p2_end), "peak"),
+                (p2_end, morning_reserve_soc, False, "Czuwanie Nocne", "other"),
+                (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
+                (pb_end_m, morning_reserve_soc, False, "Czuwanie Nocne", "other"),
+            ]
     else:
-        # Evening/late charge after the sell window (e.g. 19-21, 22-24): hold the charge overnight until the
-        # morning peak (explicit 00:00 hold + 06:00 boundary), then let PV refill to the pre-peak reserve.
-        events = _fixed(
-            (0, safe_max_soc, False, "Czuwanie Nocne (Hold do Szczytu Porannego)", "other"),
-            (morning_m, morning_reserve_soc, False, "Szczyt Poranny (Autokonsumpcja do Rezerwy)", "peak"),
-            (refill_m, pre_peak_soc, False, "Autokonsumpcja PV / Rezerwa Przed Szczytem", "reserve"),
-        ) + [
-            (sell_start_m, safe_min_soc, False, _sell_label(sell_start_m, sell_end_m), "peak"),
-            (sell_end_m, pre_peak_soc, False, "Autokonsumpcja PV / Rezerwa Przed Szczytem", "other"),
-            (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
-            (pb_end_m, morning_reserve_soc, False, "Autokonsumpcja Nocna / Czuwanie", "other"),
-        ]
+        # Single peak
+        p_start, p_end = parsed_peaks[0]
+        if p_start < pb_end_m and p_end > pb_start_m:
+            if p_start < pb_start_m:
+                p_end = pb_start_m
+            else:
+                p_start = pb_end_m
+                p_end = max(p_end, p_start + 60)
+
+        if pb_start_m < p_start:
+            if pb_start_m < 480:
+                if p_end <= 960:
+                    # Morning peak followed by evening peak
+                    p2_start = max(1020, p_end + 120)
+                    events = [
+                        (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
+                        (pb_end_m, safe_max_soc, False, "Ochrona Rezerwy (Hold do Szczytu)", "other"),
+                        (p_start, safe_min_soc, False, _peak_label(p_start, p_end), "peak"),
+                        (p_end, pre_peak_soc, False, "Ochrona Rezerwy (Hold)", "reserve"),
+                        (p2_start, safe_min_soc, False, _peak_label(p2_start, min(1440, p2_start + 180)), "peak"),
+                        (min(1440, p2_start + 180), safe_min_soc, False, "Czuwanie Nocne", "other"),
+                    ]
+                else:
+                    events = [
+                        (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
+                        (pb_end_m, safe_max_soc, False, "Ochrona Rezerwy (Hold do Szczytu)", "other"),
+                        (p_start, safe_min_soc, False, _peak_label(p_start, p_end), "peak"),
+                        (p_end, safe_min_soc, False, "Czuwanie Nocne", "other"),
+                    ]
+            else:
+                morning_start = (pb_start_m // 2 // 60) * 60
+                events = [
+                    (0, morning_reserve_soc, False, "Rezerwa na Szczyt Poranny (Hold)", "reserve"),
+                    (morning_start, safe_min_soc, False, _peak_label(morning_start, morning_start + 180), "peak"),
+                    (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
+                    (pb_end_m, safe_max_soc, False, "Ochrona Rezerwy (Hold do Szczytu)", "other"),
+                    (p_start, safe_min_soc, False, _peak_label(p_start, p_end), "peak"),
+                    (p_end, morning_reserve_soc, False, "Czuwanie Nocne", "reserve"),
+                ]
+        else:
+            # p_end <= pb_start_m (peak is before charge)
+            if p_start >= 720:
+                morning_start = (p_start // 2 // 60) * 60
+                refill_start = morning_start + 240
+                events = [
+                    (0, safe_max_soc, False, "Czuwanie Nocne (Hold do Szczytu Porannego)", "other"),
+                    (morning_start, morning_reserve_soc, False, "Szczyt Poranny (Autokonsumpcja do Rezerwy)", "peak"),
+                    (refill_start, pre_peak_soc, False, "Ochrona Rezerwy (Hold)", "reserve"),
+                    (p_start, safe_min_soc, False, _peak_label(p_start, p_end), "peak"),
+                    (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
+                    (pb_end_m, safe_max_soc, False, "Ochrona Rezerwy (Hold do Szczytu)", "other"),
+                ]
+            else:
+                p2_start = max(1020, pb_end_m + 120)
+                events = [
+                    (0, morning_reserve_soc, False, "Rezerwa na Szczyt Poranny (Hold)", "reserve"),
+                    (p_start, safe_min_soc, False, _peak_label(p_start, p_end), "peak"),
+                    (p_end, safe_min_soc, False, "Autokonsumpcja do Min SOC (przed Ładowaniem)", "other"),
+                    (pb_start_m, safe_max_soc, True, _charge_label(pb_start_m, pb_end_m, "Najtańsze Ładowanie"), "charge"),
+                    (pb_end_m, safe_max_soc, False, "Ochrona Rezerwy (Hold do Szczytu)", "other"),
+                    (p2_start, safe_min_soc, False, _peak_label(p2_start, min(1440, p2_start + 180)), "peak"),
+                ]
 
     return _finalize(events)
+
+
+# Core engine dispatch alias
+calculate_deye_tou_schedule = generate_deye_tou_schedule
 
 
 LAST_TOU_SYNC_PATHS = [
@@ -1538,23 +1709,18 @@ def check_and_apply_charge_current_modulation(
 ) -> Dict[str, Any]:
     """
     Checks if current time in Warsaw is within a scheduled charging window (grid_charge == True).
-    - If in charging window: applies target_charge_current_a (e.g. 50A for a 4h window).
-    - If outside charging window during daytime (05:00-19:00): maintains base_charge_current (100A)
-      to protect rooftop solar PV charging without throttling.
-    - After today's charging has passed: from 19:00 pre-configures Register 108 to next_cycle_target_a
-      for the upcoming cycle; before 19:00 keeps base_charge_current.
-    - At night before today's charging window (incl. 00:00 -> window start): keeps today's window target.
+    - Inside charging window: clamped current min(100, max(20, round(100.0 * (2.0 / float(charging_duration_hours))))).
+      (For 2h window -> 100A; for 1h window -> 100A; for 3h window -> 67A; for 4h -> 50A).
+    - Outside charging window: strictly 100A baseline (ceiling_curr).
     - Hard clamped to BATTERY_CHARGE_CURRENT_MAX_CEILING_A (100A).
     - Idempotent: writes to Register 108 only when changed, protecting inverter EEPROM.
-    base_charge_current is accepted for backward compatibility but ignored: the base is always the
-    ceiling, never the live Reg 108 value (feeding Reg 108 back in ratchets it down 100 -> 50 -> 25 -> 20 A).
     """
     now_warsaw = datetime.now(WARSAW_TZ)
     now_m = now_warsaw.hour * 60 + now_warsaw.minute
     ceiling_curr = int(round(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A))
     base_curr = ceiling_curr
     in_charging_window = False
-    target_curr = base_curr
+    charging_duration_hours = 2
 
     def _t2m(t_str: str) -> int:
         try:
@@ -1564,49 +1730,48 @@ def check_and_apply_charge_current_modulation(
             return 0
 
     has_grid_charge = False
+    earliest_start_m = 1440
     latest_end_m = 0
+    charge_target_a = ceiling_curr
+
     for idx, s in enumerate(slots):
         if s.get("grid_charge"):
             has_grid_charge = True
-            s_target = s.get("target_charge_current_a")
-            if s_target is not None:
-                target_curr = min(ceiling_curr, int(s_target))
             s_start = _t2m(s.get("time", "00:00"))
             next_s = slots[(idx + 1) % len(slots)]
             s_end = _t2m(next_s.get("time", "00:00"))
-            # A slot whose end is <= its start wraps past midnight (e.g. last slot 22:00 -> slot 1 00:00)
+            dur = max(1, int(round((s_end + 1440 - s_start if s_end <= s_start else s_end - s_start) / 60)))
+            earliest_start_m = min(earliest_start_m, s_start)
             latest_end_m = max(latest_end_m, s_end + 1440 if s_end <= s_start else s_end)
+            s_target = s.get("target_charge_current_a")
+            if s_target is not None:
+                charge_target_a = min(ceiling_curr, int(s_target))
+            else:
+                charge_target_a = min(100, max(20, int(round(100.0 * (2.0 / float(dur))))))
+
             if s_end <= s_start:
                 if now_m >= s_start or now_m < s_end:
                     in_charging_window = True
+                    charging_duration_hours = dur
                     break
             else:
                 if s_start <= now_m < s_end:
                     in_charging_window = True
+                    charging_duration_hours = dur
                     break
 
     today_charging_passed = has_grid_charge and not in_charging_window and (now_m >= latest_end_m)
-    is_daytime_solar = energy_defaults.REG108_DAYTIME_START_HOUR * 60 <= now_m < energy_defaults.REG108_EVENING_PRESET_HOUR * 60
 
     if in_charging_window:
-        desired_a = target_curr
-    elif is_daytime_solar:
-        # Daytime: keep full 100A so rooftop solar PV can charge battery at max rate
-        desired_a = base_curr
-    elif today_charging_passed:
-        # After today's charging: pre-set next cycle's target only in the evening (>= 19:00); before that
-        # (e.g. 04:00 after a 02-04 window) stay at base, avoiding extra EEPROM writes around 05:00.
-        if now_m >= energy_defaults.REG108_EVENING_PRESET_HOUR * 60 and next_cycle_target_a is not None:
-            desired_a = min(ceiling_curr, int(next_cycle_target_a))
-        else:
-            desired_a = base_curr
-    elif has_grid_charge:
-        # Night before today's charging window (00:00 -> window start, or evening before a late window)
-        desired_a = target_curr
+        desired_a = min(100, max(20, int(round(100.0 * (2.0 / float(charging_duration_hours))))))
+    elif has_grid_charge and now_m < earliest_start_m:
+        desired_a = charge_target_a
+    elif today_charging_passed and next_cycle_target_a is not None and now_m >= 1140:
+        desired_a = min(ceiling_curr, int(next_cycle_target_a))
     else:
         desired_a = base_curr
 
-    # Enforce absolute ceiling clamp at all times (never > 100 A)
+    # Enforce absolute ceiling clamp at all times (never > 100 A, never < 20 A)
     desired_a = max(20, min(ceiling_curr, desired_a))
 
     mod_res = set_charge_current_with_fallback(host, port, desired_a)
@@ -2401,7 +2566,8 @@ def fetch_consolidated_data(
             # Re-evaluate TOU schedule today with latest dispatch settings
             pb_w_today = cached.get("powerbank_best_window")
             sell_w_today = cached.get("best_sell_window")
-            if pb_w_today and sell_w_today:
+            discharge_w_today = cached.get("best_discharge_windows")
+            if pb_w_today and (sell_w_today or discharge_w_today):
                 cached["deye_tou_schedule_today"] = generate_deye_tou_schedule(
                     current_soc=c_current_soc,
                     max_soc=c_max_soc,
@@ -2416,6 +2582,7 @@ def fetch_consolidated_data(
                     nominal_voltage=c_voltage,
                     pre_peak_margin=c_pre_peak_margin,
                     loss_buffer_pct=c_loss_buffer_pct,
+                    best_discharge_windows=discharge_w_today,
                 )
                 cached["deye_tou_schedule"] = cached["deye_tou_schedule_today"]
 
@@ -2423,7 +2590,8 @@ def fetch_consolidated_data(
             if cached.get("has_tomorrow_pricing"):
                 pb_w_tom = cached.get("powerbank_best_window_tomorrow")
                 sell_w_tom = cached.get("best_sell_window_tomorrow")
-                if pb_w_tom and sell_w_tom:
+                discharge_w_tom = cached.get("best_discharge_windows_tomorrow")
+                if pb_w_tom and (sell_w_tom or discharge_w_tom):
                     cached["deye_tou_schedule_tomorrow"] = generate_deye_tou_schedule(
                         current_soc=c_current_soc,
                         max_soc=c_max_soc,
@@ -2438,6 +2606,7 @@ def fetch_consolidated_data(
                         nominal_voltage=c_voltage,
                         pre_peak_margin=c_pre_peak_margin,
                         loss_buffer_pct=c_loss_buffer_pct,
+                        best_discharge_windows=discharge_w_tom,
                     )
 
             # Re-evaluate battery model
@@ -2613,6 +2782,7 @@ def fetch_consolidated_data(
     target_today_data = {"frames": frames_today} if frames_today else (forward_data if (isinstance(forward_data, dict) and forward_data.get("frames")) else today_data)
     ev_window_today = find_ev_best_window(target_today_data, target_hours=ev_target_hours, now_dt=now_warsaw)
     pb_window_today = find_powerbank_best_window(target_today_data, target_hours="auto", allow_disjoint=False, now_dt=now_warsaw)
+    discharge_windows_today = find_best_discharge_windows(target_today_data, target_hours=sell_target_hours)
     sell_window_today = find_best_sell_window(target_today_data, target_hours=sell_target_hours)
     tou_error = None
     if not today_complete:
@@ -2634,6 +2804,8 @@ def fetch_consolidated_data(
         nominal_voltage=eff_voltage,
         pre_peak_margin=eff_pre_peak_margin,
         loss_buffer_pct=eff_loss_buffer_pct,
+        best_discharge_windows=discharge_windows_today,
+        pricing_data=target_today_data,
     )
 
     # Dispatch windows for TOMORROW (published ~12:00 Warsaw time)
@@ -2642,6 +2814,7 @@ def fetch_consolidated_data(
         tomorrow_ref_dt = now_warsaw + timedelta(days=1)
         ev_window_tomorrow = find_ev_best_window(target_tomorrow_data, target_hours=ev_target_hours, now_dt=tomorrow_ref_dt)
         pb_window_tomorrow = find_powerbank_best_window(target_tomorrow_data, target_hours="auto", allow_disjoint=False, now_dt=tomorrow_ref_dt)
+        discharge_windows_tomorrow = find_best_discharge_windows(target_tomorrow_data, target_hours=sell_target_hours)
         sell_window_tomorrow = find_best_sell_window(target_tomorrow_data, target_hours=sell_target_hours)
         tou_tomorrow = generate_deye_tou_schedule(
             current_soc=eff_current_soc,
@@ -2657,6 +2830,8 @@ def fetch_consolidated_data(
             nominal_voltage=eff_voltage,
             pre_peak_margin=eff_pre_peak_margin,
             loss_buffer_pct=eff_loss_buffer_pct,
+            best_discharge_windows=discharge_windows_tomorrow,
+            pricing_data=target_tomorrow_data,
         )
     else:
         pending_msg = "Oczekiwanie na publikację (ok. 12:00)"

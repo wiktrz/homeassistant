@@ -81,6 +81,13 @@
 - **Conditional Rows vs Conditional Cards:** Conditional rows inside `type: entities` must define `conditions:` and `row:`, while conditional cards must define `conditions:` and `card:`.
 - **Automated Regression Protection:** Continuously enforced by `tests/invariants/test_dashboard_schemas.py` across all dashboard files in `config/dashboards/*.yaml`.
 
+### Rule 12: Agile Market-Driven Dispatch & Zero Hardcoded Heuristics
+- **Zero Hardcoded Clock Boundaries:** Battery Time-of-Use (TOU) schedules and inverter modulation must **NEVER** use hardcoded time boundaries (e.g. `06:00`, `10:00`, `12:00`, `17:00`, `05:00`, `19:00`). All slots and charging/discharging durations must be derived dynamically from dynamic market pricing (`Pstryk API`), current SOC, target SOC, and user configuration.
+- **Zero Phantom PV Assumptions:** This installation is strictly a **"No-PV"** battery storage system with zero solar panels installed. Code, automations, and documentation must NEVER assume solar generation, "PV refill", or solar-driven daytime charging current modulation.
+- **Retail Buy Price Peak Ranking:** In a zero-export system (`enableSell: false`), discharge peak windows must be ranked strictly by retail gross buy price (`price_gross`), NOT by prosumer sell price (`price_prosumer_gross`), to maximize grid purchase avoidance.
+- **Register 108 Current Modulation Policy:** Dynamic charging current modulation ($I = \min(100, \max(20, \text{round}(100 \times 2 / T)))$) applies strictly inside the dynamic charging window. Outside all charging windows, register 108 must strictly reset to baseline `BATTERY_CHARGE_CURRENT_MAX_CEILING_A` (100A).
+- **Automated Invariant Regression Protection:** Enforced continuously by `tests/invariants/test_no_hardcoded_tou_hours.py`.
+
 ---
 
 ## 2. Hardware Safety & Architectural Invariants

@@ -12,9 +12,14 @@ import subprocess
 import time
 import json
 import uuid
-import jwt
 import re
-import yaml
+try:
+    import yaml
+except ImportError:
+    yaml = None
+import base64
+import hashlib
+import hmac
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CONFIG_DIR = os.path.join(REPO_ROOT, "config")
@@ -37,14 +42,86 @@ TEST_JWT_SECRET = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc
 
 
 def generate_test_token() -> str:
-    """Generates a signed JWT access token accepted by Home Assistant."""
+    """Generates a signed JWT access token accepted by Home Assistant using standard RFC 7519 HS256."""
     now = int(time.time())
+    header = {"alg": "HS256", "typ": "JWT"}
     payload = {
         "iss": TEST_TOKEN_ID,
         "iat": now,
         "exp": now + 315360000,  # 10 years
     }
-    return jwt.encode(payload, TEST_JWT_SECRET, algorithm="HS256")
+    header_json = json.dumps(header, separators=(",", ":")).encode("utf-8")
+    payload_json = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+
+    header_b64 = base64.urlsafe_b64encode(header_json).rstrip(b"=").decode("ascii")
+    payload_b64 = base64.urlsafe_b64encode(payload_json).rstrip(b"=").decode("ascii")
+
+    signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
+    signature = hmac.new(
+        TEST_JWT_SECRET.encode("utf-8"),
+        signing_input,
+        hashlib.sha256,
+    ).digest()
+    sig_b64 = base64.urlsafe_b64encode(signature).rstrip(b"=").decode("ascii")
+
+    return f"{header_b64}.{payload_b64}.{sig_b64}"
+
+
+def sanitize_sandbox_secrets(target_dir: str) -> None:
+    """
+    Sanitizes secrets.yaml in the test sandbox:
+    Sensitive string keys (like pstryk_api_key_dol, pstryk_api_key_gora, Camera_URL,
+    CameraFront_Source) are replaced with dummy test strings so real secrets never leak into /tmp.
+    Numeric values (latitude_home, longitude_home, elevation_home) are strictly preserved.
+    """
+    secrets_file = os.path.join(target_dir, "secrets.yaml")
+    if not os.path.exists(secrets_file):
+        return
+
+    preserved_numeric_keys = ("latitude", "longitude", "elevation")
+    out_lines = []
+
+    with open(secrets_file, "r", encoding="utf-8") as f:
+        for line in f:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                out_lines.append(line)
+                continue
+
+            if ":" in line:
+                key_part, val_part = line.split(":", 1)
+                k = key_part.strip()
+                v = val_part.strip().strip("'\"")
+
+                is_num = False
+                try:
+                    float(v)
+                    is_num = True
+                except ValueError:
+                    is_num = False
+
+                k_lower = k.lower()
+                if is_num and any(p in k_lower for p in preserved_numeric_keys):
+                    out_lines.append(line)
+                elif "camera" in k_lower and "url" in k_lower:
+                    out_lines.append(f'{key_part}: "http://127.0.0.1/dummy_camera"\n')
+                elif "camera" in k_lower and "source" in k_lower:
+                    out_lines.append(f'{key_part}: "rtsp://127.0.0.1/dummy_stream"\n')
+                elif "pstryk_api_key" in k_lower:
+                    out_lines.append(f'{key_part}: "sk-dummy-test-key-00000000000000000000000000"\n')
+                elif "command" in k_lower:
+                    out_lines.append(f'{key_part}: "sh /config/{STUB_SCRIPT_NAME} {k}"\n')
+                elif SECRET_KEY_RE.search(k) or any(s in k_lower for s in ("key", "token", "secret", "password", "user", "url", "source")):
+                    out_lines.append(f'{key_part}: "dummy_test_{k}"\n')
+                elif is_num:
+                    out_lines.append(line)
+                else:
+                    out_lines.append(f'{key_part}: "dummy_{k}"\n')
+            else:
+                out_lines.append(line)
+
+    with open(secrets_file, "w", encoding="utf-8") as f:
+        f.writelines(out_lines)
 
 
 def write_sandbox_env(target_dir: str):
@@ -113,6 +190,7 @@ def create_sandbox(target_dir: str = SANDBOX_DIR) -> str:
     )
     shutil.copytree(CONFIG_DIR, target_dir, dirs_exist_ok=True, ignore=ignore_patterns)
     write_sandbox_env(target_dir)
+    sanitize_sandbox_secrets(target_dir)
     shutil.copy(os.path.join(OVERLAY_DIR, STUB_SCRIPT_NAME), os.path.join(target_dir, STUB_SCRIPT_NAME))
 
     # Ensure .storage directory exists
