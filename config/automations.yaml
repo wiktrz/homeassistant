@@ -3128,12 +3128,11 @@
 
 - id: deye_battery_parameters_change_sync
   alias: "Deye: Synchronizacja Harmonogramu TOU przy Zmianie Parametrów Baterii"
-  description: "Automatycznie przelicza harmonogram TOU i wysyła do falownika Deye po zmianie parametrów dyspozycji (Max SOC, rezerwa przed szczytem) lub zmianie prądu na falowniku, pod warunkiem braku oczekujących zmian progów krytycznych."
+  description: "Automatycznie przelicza harmonogram TOU i wysyła do falownika Deye po zmianie parametrów dyspozycji (Max SOC, długość okna rozładowania/EV) lub zmianie prądu na falowniku, pod warunkiem braku oczekujących zmian progów krytycznych."
   triggers:
     - trigger: state
       entity_id:
         - input_number.deye_battery_max_charge_soc
-        - input_number.deye_pre_peak_margin_pct
         - input_select.battery_discharge_target_hours
         - input_select.ev_charging_target_hours
       for:

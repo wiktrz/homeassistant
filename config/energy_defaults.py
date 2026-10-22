@@ -130,6 +130,12 @@ BATTERY_CHARGE_CURRENT_MAX_CEILING_A = min(100.0, FALLBACK_BATTERY_MAX_CHARGE_CU
 BATTERY_CHARGE_CURRENT_MIN_FLOOR_A = get_default_float("BATTERY_CHARGE_CURRENT_MIN_FLOOR_A")
 # User minimum TOU grid-charge window length in hours (N = max(energy need, this))
 CHARGE_WINDOW_MIN_HOURS = get_default_int("CHARGE_WINDOW_MIN_HOURS")
+# Minute step the peak top-up start (ceil) and duration (round up) snap to
+TOU_SLOT_MINUTE_STEP = get_default_int("TOU_SLOT_MINUTE_STEP")
+# SOC step (%) computed TOU floors snap down to; also the non-charge target_soc diff tolerance (flash-wear hysteresis)
+TOU_FLOOR_SOC_STEP = get_default_int("TOU_FLOOR_SOC_STEP")
+# Step (kW) the household load estimate snaps to before planning
+LOAD_ESTIMATE_STEP_KW = get_default_float("LOAD_ESTIMATE_STEP_KW")
 FALLBACK_BATTERY_MAX_DISCHARGE_CURRENT = get_default_float(
     "BATTERY_MAX_DISCHARGE_CURRENT", alias="BATTERY_DISCHARGE_CURRENT_A"
 )
@@ -147,7 +153,6 @@ DEFAULT_MAX_SOC = get_default_int("DEYE_DEFAULT_MAX_SOC")
 DEFAULT_MIN_SOC = get_default_int("DEYE_DEFAULT_MIN_SOC")
 DEFAULT_SHUTDOWN_SOC = get_default_int("DEYE_DEFAULT_SHUTDOWN_SOC")
 DEFAULT_CURRENT_SOC = get_default_int("DEYE_DEFAULT_CURRENT_SOC")
-DEFAULT_PRE_PEAK_MARGIN = get_default_int("DEYE_DEFAULT_PRE_PEAK_MARGIN")
 DEFAULT_LOSS_BUFFER_PCT = get_default_float("DEYE_DEFAULT_LOSS_BUFFER_PCT")
 
 # --- 4. Inverter Power Limits (Watts) ---
@@ -163,6 +168,7 @@ DEFAULT_LOGGER_SN = get_default_str("DEYE_LOGGER_SN")
 DEFAULT_INVERTER_SN = get_default_str("DEYE_INVERTER_SN")
 DEFAULT_SOCKET_TIMEOUT = get_default_float("DEYE_SOCKET_TIMEOUT")
 DEYE_CACHE_TTL = get_default_float("DEYE_CACHE_TTL_SECONDS")
+LOAD_ESTIMATE_MAX_AGE_S = get_default_float("LOAD_ESTIMATE_MAX_AGE_S")
 PSTRYK_CACHE_TTL = get_default_float("PSTRYK_CACHE_TTL_SECONDS")
 
 # --- 6. Pstryk API & Energy Market Defaults ---

@@ -41,6 +41,10 @@ def _hermetic_io(monkeypatch, tmp_path):
     monkeypatch.setattr(socket, "create_connection", _blocked)
     monkeypatch.setattr(pstryk_engine, "LAST_TOU_SYNC_PATHS", [str(tmp_path / ".deye_tou_last_sync.json")])
     monkeypatch.setenv("DEYE_CACHE_FILE", str(tmp_path / ".deye_inverter_cache.json"))
+    # The TOU floors are projected from "now" (current_soc is valid at now_dt): pin the engine clock to today's
+    # Warsaw midnight so schedule expectations do not depend on the hour the suite runs (freeze_now overrides it).
+    today = datetime.now(pstryk_engine.WARSAW_TZ)
+    freeze_now(monkeypatch, datetime(today.year, today.month, today.day, tzinfo=pstryk_engine.WARSAW_TZ))
 
 
 WARSAW = pstryk_engine.WARSAW_TZ
@@ -1410,6 +1414,8 @@ def test_fetch_consolidated_custom_soc_and_battery_model(tmp_path, monkeypatch):
     os.makedirs(cache_dir, exist_ok=True)
 
     freeze_now(monkeypatch, datetime(2026, 10, 16, 0, 30, tzinfo=WARSAW))
+    # household load the main charge covers (no telemetry here -> the rated-discharge fallback would add a top-up)
+    monkeypatch.setattr(pstryk_engine, "household_load_kw", lambda *a, **k: 0.5)
     day = datetime(2026, 10, 16).date()
     price = lambda h: 0.3 if 13 <= h < 15 else (1.2 if 18 <= h < 21 else 0.7)
     dummy_payload = {"frames": warsaw_day_frames(day, price) + warsaw_day_frames(day + timedelta(days=1), price)}
@@ -1440,7 +1446,8 @@ def test_fetch_consolidated_custom_soc_and_battery_model(tmp_path, monkeypatch):
         assert [s["time"] for s in tou_slots if s["grid_charge"]] == [cheapest[0]]
         charge_i = next(i for i, s in enumerate(tou_slots) if s["grid_charge"])
         assert tou_slots[charge_i + 1]["time"] == f"{int(cheapest[-1][:2]) + 1:02d}:00"
-        assert [s["target_soc"] for s in tou_slots] == [15, 15, 80, 80, 15, 15]
+        # the hold after the charge drains only to the 3 h peak's need: 15 + 3 h * 0.5 kW / capacity (25 %)
+        assert [s["target_soc"] for s in tou_slots] == [15, 15, 80, 25, 15, 15]
         assert [s["time"] for s in tou_slots if s["role"] == "peak"] == ["18:00"]
 
 
@@ -1576,10 +1583,9 @@ def test_resolve_battery_dispatch_parameters_priority():
         min_soc=18,
         shutdown_soc=8,
         current_soc=55,
-        pre_peak_margin=25,
         loss_buffer_pct=12.0,
     )
-    assert res == (85, 18, 8, 55, 25, 12.0)
+    assert res == (85, 18, 8, 55, 12.0)
 
     # 2. Clamping bounds
     res_clamped = pstryk_engine.resolve_battery_dispatch_parameters(
@@ -1604,14 +1610,13 @@ def test_resolve_battery_dispatch_parameters_priority():
     assert res_cfg[1] == 16
     assert res_cfg[2] == 6
     assert res_cfg[3] == 72
-    assert res_cfg[4] == energy_defaults.DEFAULT_PRE_PEAK_MARGIN
+    assert res_cfg[4] == energy_defaults.DEFAULT_LOSS_BUFFER_PCT
 
 
 def test_generate_deye_tou_schedule_variant_b_night_branch():
     """
     Verifies Variant B calculation for Night charging branch (01:00-03:00):
     - min_soc = 16%
-    - pre_peak_margin = 20% -> pre_peak_soc = 36%
     - max_soc = 90%
     """
     pb_win = {
@@ -1627,7 +1632,6 @@ def test_generate_deye_tou_schedule_variant_b_night_branch():
         current_soc=50,
         max_soc=90,
         min_soc=16,
-        pre_peak_margin=20,
         best_pb_window=pb_win,
         best_sell_window=sell_win,
     )
@@ -1680,7 +1684,6 @@ def test_fetch_consolidated_cache_hit_reevaluates_tou(tmp_path):
         cache_dir=cache_dir,
         min_soc=16,
         max_soc=90,
-        pre_peak_margin=20,
     )
     assert res1.get("_cache_hit") is True
     sched1 = res1.get("deye_tou_schedule_today", [])
@@ -1695,7 +1698,6 @@ def test_fetch_consolidated_cache_hit_reevaluates_tou(tmp_path):
         cache_dir=cache_dir,
         min_soc=25,
         max_soc=90,
-        pre_peak_margin=20,
     )
     assert res2.get("_cache_hit") is True
     sched2 = res2.get("deye_tou_schedule_today", [])
@@ -1871,7 +1873,7 @@ def test_schedule_morning_sell_window_keeps_evening_peak(pb):
     peak slot is the supplied window; the charge slot starts exactly at the charge window.
     """
     slots = pstryk_engine.generate_deye_tou_schedule(
-        max_soc=90, min_soc=20, pre_peak_margin=20, best_pb_window=win(*pb), best_sell_window=win(7, 10))
+        max_soc=90, min_soc=20, best_pb_window=win(*pb), best_sell_window=win(7, 10))
     assert_valid_schedule(slots)
     by_time = {s["time"]: s for s in slots}
     assert by_time["07:00"]["target_soc"] == 20 and not by_time["07:00"]["grid_charge"]
@@ -2251,13 +2253,14 @@ def test_live_bug_sell_before_charge_holds_after_charge_and_drains_before_charge
     (c) 00:00 keeps morning reserve before 06:00 sale.
     """
     slots = pstryk_engine.generate_deye_tou_schedule(
-        max_soc=90, min_soc=10, pre_peak_margin=10,
+        max_soc=90, min_soc=10,
         best_pb_window={"start": "13:00", "end": "15:00", "duration_hours": 2},
         best_sell_window={"start": "06:00", "end": "09:00"})
-    # (rewritten) without price frames 15:00 is not known to be elevated: hold 90% from the charge until the
-    # next peak (06:00 next day), which also covers 00:00; 19:00 is the split of that hold slot
+    # (rewritten) without price frames 15:00 is not known to be elevated: hold 90% from the charge until midnight;
+    # 19:00 is the split of that hold slot. The 00:00 slot is the projected SOC at 00:00 (current SOC at the
+    # pinned midnight clock = DEFAULT_CURRENT_SOC 85), never the evening hold copied over midnight
     assert _sched(slots) == [
-        ("00:00", 90, False), ("06:00", 10, False), ("09:00", 10, False),
+        ("00:00", energy_defaults.DEFAULT_CURRENT_SOC, False), ("06:00", 10, False), ("09:00", 10, False),
         ("13:00", 90, True), ("15:00", 90, False), ("19:00", 90, False),
     ]
 
@@ -2265,7 +2268,7 @@ def test_live_bug_sell_before_charge_holds_after_charge_and_drains_before_charge
 def test_midday_charge_13_15_sell_17_20_immediate_autoconsumption_and_min_post_peak():
     """Midday charge 13-15 with evening peak: immediate autokonsumpcja at 15:00 (no 90% hold during high prices) and min_soc post peak."""
     slots = pstryk_engine.generate_deye_tou_schedule(
-        max_soc=90, min_soc=10, pre_peak_margin=10,
+        max_soc=90, min_soc=10,
         best_pb_window={"start": "13:00", "end": "15:00", "duration_hours": 2},
         best_sell_window={"start": "17:00", "end": "20:00"})
     # (rewritten) 15-17 is not a price peak without price frames -> hold 90% until the 17:00 peak;
@@ -2278,7 +2281,7 @@ def test_midday_charge_13_15_sell_17_20_immediate_autoconsumption_and_min_post_p
 
 def _ref(pb, sell, **kw):
     hm = lambda h: f"{h % 24:02d}:00"
-    params = dict(max_soc=90, min_soc=10, pre_peak_margin=10)
+    params = dict(max_soc=90, min_soc=10)
     params.update(kw)
     return pstryk_engine.generate_deye_tou_schedule(
         best_pb_window={"start": hm(pb[0]), "end": hm(pb[1]), "duration_hours": pb[1] - pb[0]},
@@ -2297,7 +2300,7 @@ def test_s2_classification_uses_roles_not_labels():
     exec(compile(renamed_src, pstryk_engine.__file__, "exec"), renamed.__dict__)
     for pb in [(2, 4), (13, 15), (19, 21), (22, 24), (9, 13)]:
         for sell in [(6, 9), (7, 10), (12, 15), (17, 20), (21, 24)]:
-            kw = dict(max_soc=90, min_soc=10, pre_peak_margin=10,
+            kw = dict(max_soc=90, min_soc=10, now_dt=pstryk_engine.datetime.now(WARSAW),
                       best_pb_window={"start": f"{pb[0]:02d}:00", "end": f"{pb[1] % 24:02d}:00", "duration_hours": pb[1] - pb[0]},
                       best_sell_window={"start": f"{sell[0]:02d}:00", "end": f"{sell[1] % 24:02d}:00"})
             a = pstryk_engine.generate_deye_tou_schedule(**kw)
@@ -2309,9 +2312,11 @@ def test_s2_classification_uses_roles_not_labels():
 
 def test_s1_evening_charge_19_21_reference_schedule():
     slots = _ref((19, 21), (17, 19))
-    # (rewritten) no 08:00 "morning boundary": the evening charge is held until the next price peak (17:00)
+    # (rewritten) no 08:00 "morning boundary": the evening charge is held until the next price peak (17:00);
+    # the 00:00 slot holds the projected SOC at 00:00 (current SOC), not the evening hold copied over midnight
     assert _sched(slots) == [
-        ("00:00", 90, False), ("08:00", 90, False), ("12:00", 90, False),
+        ("00:00", energy_defaults.DEFAULT_CURRENT_SOC, False), ("08:00", energy_defaults.DEFAULT_CURRENT_SOC, False),
+        ("12:00", energy_defaults.DEFAULT_CURRENT_SOC, False),
         ("17:00", 10, False), ("19:00", 90, True), ("21:00", 90, False),
     ]
 
@@ -2320,15 +2325,17 @@ def test_s1_evening_charge_19_21_reference_schedule():
 def test_s1_evening_charge_hold_ends_at_morning_boundary(pb, sell):
     """
     S1 (rewritten, no clock "morning boundary"): an evening/late charge is held at Max SOC from the end of the
-    charge window until the next price peak starts (wrapping past midnight), and the peak discharges to Min SOC.
+    charge window until midnight; after midnight the table's own head slot holds the projected SOC at 00:00 (the
+    current SOC, 70 here) until the next price peak starts, and the peak discharges to Min SOC.
     """
-    slots = _ref(pb, sell)
+    slots = _ref(pb, sell, current_soc=70)
     assert_valid_schedule(slots)
     mins = slot_minutes(slots)
     active_at = lambda m: slots[max([i for i, t in enumerate(mins) if t <= m % 1440], default=5)]
     m = pb[1] * 60
     while m % 1440 != sell[0] * 60:
-        assert active_at(m)["target_soc"] == 90 and not active_at(m)["grid_charge"], (m, active_at(m))
+        want = 90 if m < 1440 else 70
+        assert active_at(m)["target_soc"] == want and not active_at(m)["grid_charge"], (m, active_at(m))
         m += 60
     assert active_at(sell[0] * 60)["target_soc"] == 10 and active_at(sell[0] * 60)["role"] == "peak"
 
@@ -2360,7 +2367,6 @@ def test_midday_charge_elevated_price_starts_immediate_discharge():
     slots = pstryk_engine.generate_deye_tou_schedule(
         max_soc=90,
         min_soc=10,
-        pre_peak_margin=10,
         best_pb_window={"start": "13:00", "end": "15:00", "duration_hours": 2, "average_price": 0.84},
         best_sell_window={"start": "17:00", "end": "21:00"},
         pricing_data=pricing,
@@ -2388,7 +2394,6 @@ def test_post_peak_standby_strictly_uses_min_soc():
     slots = pstryk_engine.generate_deye_tou_schedule(
         max_soc=90,
         min_soc=10,
-        pre_peak_margin=10,
         best_pb_window={"start": "02:00", "end": "05:00", "duration_hours": 3},
         best_sell_window={"start": "17:00", "end": "21:00"},
     )
@@ -2417,7 +2422,6 @@ def test_night_charge_cheap_hour_preserves_hold_until_peak():
     slots = pstryk_engine.generate_deye_tou_schedule(
         max_soc=90,
         min_soc=10,
-        pre_peak_margin=10,
         best_pb_window={"start": "03:00", "end": "05:00", "duration_hours": 2, "average_price": 0.86},
         best_sell_window={"start": "07:00", "end": "10:00"},
         pricing_data=pricing,
@@ -2765,3 +2769,659 @@ def test_reg108_target_clamped_to_configured_ceiling_not_literal_100(monkeypatch
     assert _modulate(monkeypatch, slots, 12, 0, next_cycle=95) == 80      # next cycle clamped to ceiling
     assert _modulate(monkeypatch, slots, 12, 0, next_cycle=None) == 80    # no preset -> ceiling baseline
     assert _modulate(monkeypatch, slots, 23, 30, next_cycle=60) == 60     # after today's window: preset, no 19:00 gate
+
+
+# ---- Peak top-up planner (SOC projection from now to the next charge; minimal grid top-up for uncovered peaks) ----
+TOPUP_DAY = datetime(2026, 10, 22).date()
+TOPUP_NEXT = TOPUP_DAY + timedelta(days=1)
+# today: evening peak 17-21, cheap 23:00; tomorrow: morning peak 06-09, main charge valley 13-14, evening peak 15-20
+TOPUP_TODAY = [1.0] * 6 + [2.0] * 4 + [1.0] * 7 + [2.0] * 5 + [0.95, 0.80]
+TOPUP_TOMORROW = [0.90, 0.85] + [0.90] * 4 + [2.0] * 4 + [1.2] * 3 + [0.7, 0.7] + [2.0] * 6 + [1.0] * 3
+TOPUP_KW = dict(min_soc=20, max_soc=90, capacity_kwh=10.0, voltage=50.0, ceiling_a=100.0, loss_pct=0.0, load_kw=1.0)
+
+
+def _topup_payload():
+    today = _curve_frames(TOPUP_TODAY, TOPUP_DAY)
+    tomorrow = _curve_frames(TOPUP_TOMORROW, TOPUP_NEXT)
+    main = {"start": tomorrow[13]["start"], "end": tomorrow[14]["end"]}
+    return {"pricing_frames_today": today, "pricing_frames_tomorrow": tomorrow,
+            "powerbank_best_window": {"start": today[0]["start"], "end": today[1]["end"]},
+            "powerbank_best_window_tomorrow": main}
+
+
+def _at(day, h, m=0):
+    return datetime(day.year, day.month, day.day, h, m, tzinfo=WARSAW)
+
+
+def _plan(now, soc):
+    p = _topup_payload()
+    return pstryk_engine.plan_peak_topups(
+        [p["pricing_frames_today"], p["pricing_frames_tomorrow"]],
+        [p["powerbank_best_window"], p["powerbank_best_window_tomorrow"]],
+        now_dt=now, current_soc=soc, **TOPUP_KW)
+
+
+def test_topup_placed_at_cheapest_hour_before_uncovered_morning_peak_sized_to_deficit():
+    tops = _plan(_at(TOPUP_DAY, 22), soc=20)
+    assert len(tops) == 1  # the tomorrow evening peak follows the main charge -> covered
+    t = tops[0]
+    # deficit 4 h x 1 kW = 4 kWh at 5 kW -> 48 min (-> 50 at the 5-min step), cheapest hour before the peak: 23:00
+    assert t["start"] == _at(TOPUP_DAY, 23)
+    assert t["end"] == _at(TOPUP_DAY, 23, 50)
+    assert t["target_soc"] == 60
+    assert t["charge_current_a"] == 100
+
+
+def test_no_topup_when_battery_covers_the_peak():
+    # tomorrow's prices are known: the 22:00 -> 06:00 valley drains only to the peak's need (20 + 4 kWh / 10 kWh = 60 %)
+    assert _plan(_at(TOPUP_DAY, 22), soc=80) == []
+    assert _plan(_at(TOPUP_DAY, 22), soc=60) == []
+    assert _plan(_at(TOPUP_DAY, 22), soc=50)  # below the need nothing is drained, the missing energy is topped up
+
+
+def test_topup_never_starts_in_the_past_and_needs_enough_time():
+    tops = _plan(_at(TOPUP_DAY, 23, 30), soc=20)
+    assert len(tops) == 1
+    # 23:30-24:00 is too short for 48 min, so the next cheapest full hour (01:00, 0.85) wins
+    assert tops[0]["start"] == _at(TOPUP_NEXT, 1)
+    assert tops[0]["start"] >= _at(TOPUP_DAY, 23, 30)
+
+
+def test_topup_is_capped_by_max_soc():
+    big = dict(TOPUP_KW, load_kw=5.0)
+    p = _topup_payload()
+    tops = pstryk_engine.plan_peak_topups(
+        [p["pricing_frames_today"], p["pricing_frames_tomorrow"]],
+        [p["powerbank_best_window"], p["powerbank_best_window_tomorrow"]],
+        now_dt=_at(TOPUP_DAY, 22), current_soc=20, **big)
+    assert tops[0]["target_soc"] == 90
+
+
+def test_cross_midnight_topup_lands_in_today_table_with_ceiling_current_and_six_slots():
+    p = _topup_payload()
+    now = _at(TOPUP_DAY, 22)
+    kw = dict(current_soc=20, min_soc=20, max_soc=90, battery_capacity_kwh=10.0, nominal_voltage=50.0,
+              loss_buffer_pct=0.0, max_discharge_current=140.0)
+    today_tops = pstryk_engine.peak_topups_for_day(p, False, now, current_soc=20, min_soc=20, max_soc=90,
+                                                   capacity_kwh=10.0, voltage=50.0, loss_pct=0.0, load_kw=1.0)
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        best_pb_window=p["powerbank_best_window"], pricing_data={"frames": p["pricing_frames_today"]},
+        topup_windows=today_tops, **kw)
+    assert_valid_schedule(slots)
+    top = [s for s in slots if s["grid_charge"] and s["time"] == "23:00"]
+    assert top and top[0]["target_soc"] == 60
+    assert top[0]["target_charge_current_a"] == int(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A)
+    # the slot after the top-up ends at 23:50 (step-rounded) and holds the topped-up level
+    nxt = slots[(slots.index(top[0]) + 1) % 6]
+    assert nxt["time"] == "23:50" and not nxt["grid_charge"]
+    # tomorrow's table carries nothing from today's top-up
+    assert pstryk_engine.peak_topups_for_day(p, True, now, current_soc=20, min_soc=20, max_soc=90,
+                                             capacity_kwh=10.0, voltage=50.0, loss_pct=0.0, load_kw=1.0) == []
+
+
+def test_topup_after_midnight_is_clipped_into_tomorrow_table():
+    p = _topup_payload()
+    tops = pstryk_engine.peak_topups_for_day(p, True, _at(TOPUP_DAY, 23, 30), current_soc=20, min_soc=20,
+                                             max_soc=90, capacity_kwh=10.0, voltage=50.0, loss_pct=0.0, load_kw=1.0)
+    assert len(tops) == 1 and tops[0]["start"] == _at(TOPUP_NEXT, 1)
+
+
+def test_reg108_modulation_covers_topup_window(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pstryk_engine, "set_charge_current_with_fallback", lambda h, p, a: calls.append(a) or {"success": True})
+    freeze_now(monkeypatch, _at(TOPUP_DAY, 23, 10))
+    slots = [{"time": t, "grid_charge": g, "target_charge_current_a": a} for t, g, a in [
+        ("00:00", False, 50), ("06:00", False, 50), ("10:00", False, 50), ("13:00", True, 50),
+        ("15:00", False, 50), ("23:00", True, 100)]]
+    res = pstryk_engine.check_and_apply_charge_current_modulation(slots)
+    assert res["in_charging_window"] and calls == [100]
+
+
+def test_estimate_household_load_from_daily_consumption():
+    assert pstryk_engine.estimate_household_load_kw({"daily_consumption": 12.0}, _at(TOPUP_DAY, 12)) == 1.0
+    assert pstryk_engine.estimate_household_load_kw({}, _at(TOPUP_DAY, 12)) is None
+    assert pstryk_engine.estimate_household_load_kw({"daily_consumption": 5.0}, _at(TOPUP_DAY, 0)) is None
+
+
+def test_topup_never_overlaps_an_existing_charge_window():
+    # tomorrow's evening peak is under-covered by the 2 h main charge at 5 kW load; the only gap hours before it are
+    # the main charge itself, so no top-up may be stacked on it
+    p = _topup_payload()
+    tops = pstryk_engine.plan_peak_topups(
+        [p["pricing_frames_today"], p["pricing_frames_tomorrow"]],
+        [p["powerbank_best_window"], p["powerbank_best_window_tomorrow"]],
+        now_dt=_at(TOPUP_NEXT, 10), current_soc=20, **dict(TOPUP_KW, load_kw=5.0))
+    main_a = _at(TOPUP_NEXT, 13)
+    main_b = _at(TOPUP_NEXT, 15)
+    assert all(t["end"] <= main_a or t["start"] >= main_b for t in tops)
+    assert all(t["start"] >= _at(TOPUP_NEXT, 10) for t in tops)
+
+
+# ---- Peak top-up review fixes: fresh load estimate, no-data, economic guard, contiguous fallback, step, flag ----
+def _cache(monkeypatch, data):
+    import solarman_v5_client
+    seen = {}
+
+    def fake(ignore_ttl=False, **kw):
+        seen["ignore_ttl"] = ignore_ttl
+        return None if data is None else data
+    monkeypatch.setattr(solarman_v5_client, "load_deye_cache", fake)
+    return seen
+
+
+def test_household_load_ignores_yesterday_cache_at_0005(monkeypatch):
+    now = _at(TOPUP_DAY, 0, 5)
+    yesterday = (now - timedelta(minutes=30)).timestamp()
+    seen = _cache(monkeypatch, {"cache_updated_at": yesterday, "telemetry": {"daily_consumption": 20.0, "consumption_power": 900}})
+    assert pstryk_engine.household_load_kw(None, now, 7.0) is None
+    assert seen["ignore_ttl"] is False
+
+
+def test_household_load_first_hour_uses_instantaneous_power(monkeypatch):
+    now = _at(TOPUP_DAY, 0, 5)
+    # daily_consumption still carries yesterday's 20 kWh (inverter reset lag) -> must not be divided by 5 min
+    assert pstryk_engine.household_load_kw({"daily_consumption": 20.0, "consumption_power": 800}, now, 7.0) == 0.8
+    assert pstryk_engine.household_load_kw({"daily_consumption": 20.0}, now, 7.0) is None
+
+
+def test_household_load_no_telemetry_is_none_not_rated_power(monkeypatch):
+    _cache(monkeypatch, None)
+    assert pstryk_engine.household_load_kw(None, _at(TOPUP_DAY, 12), 7.0) is None
+    p = _topup_payload()
+    assert pstryk_engine.peak_topups_for_day(p, False, _at(TOPUP_DAY, 22), current_soc=20, min_soc=20, max_soc=90,
+                                             capacity_kwh=10.0, voltage=50.0, loss_pct=0.0, load_kw=None) == []
+
+
+def test_household_load_clamped_to_rated_discharge():
+    assert pstryk_engine.household_load_kw({"daily_consumption": 100.0}, _at(TOPUP_DAY, 2), 7.0) == 7.0
+
+
+def test_household_load_dst_elapsed_hours_via_utc():
+    # 2026-10-25 fall-back: 03:00 CET is 4 real hours after local midnight (00:00 CEST)
+    now = datetime(2026, 10, 25, 3, 0, tzinfo=WARSAW)
+    assert pstryk_engine.household_load_kw({"daily_consumption": 8.0}, now, 7.0) == 2.0
+
+
+def test_no_topup_when_valley_not_cheaper_than_peak_after_losses():
+    p = _topup_payload()
+    tops = pstryk_engine.plan_peak_topups(
+        [p["pricing_frames_today"], p["pricing_frames_tomorrow"]],
+        [p["powerbank_best_window"], p["powerbank_best_window_tomorrow"]],
+        now_dt=_at(TOPUP_DAY, 22), current_soc=20, **dict(TOPUP_KW, loss_pct=200.0))
+    assert tops == []  # 0.80 x 3 = 2.4 >= peak 2.0
+
+
+def test_topup_fallback_uses_cheapest_contiguous_run_not_spanning_charges():
+    prices = [0.5, 0.4, 0.3, 0.3, 0.4, 0.5] + [2.0] * 4 + [0.9] * 14
+    frames = _curve_frames(prices, TOPUP_DAY)
+    charges = [{"start": frames[1]["start"], "end": frames[1]["end"]},
+               {"start": frames[4]["start"], "end": frames[4]["end"]}]
+    tops = pstryk_engine.plan_peak_topups(
+        [frames], charges, now_dt=_at(TOPUP_DAY, 0), current_soc=20, min_soc=20, max_soc=90,
+        capacity_kwh=100.0, voltage=50.0, ceiling_a=100.0, loss_pct=0.0, load_kw=8.0)
+    assert len(tops) == 1
+    assert tops[0]["start"] == _at(TOPUP_DAY, 2) and tops[0]["end"] == _at(TOPUP_DAY, 4)
+
+
+def test_topup_start_and_duration_snap_to_minute_step(monkeypatch):
+    monkeypatch.setattr(energy_defaults, "TOU_SLOT_MINUTE_STEP", 5)
+    p = _topup_payload()
+    tops = pstryk_engine.plan_peak_topups(
+        [p["pricing_frames_today"], p["pricing_frames_tomorrow"]],
+        [p["powerbank_best_window"], p["powerbank_best_window_tomorrow"]],
+        now_dt=_at(TOPUP_DAY, 23, 2), current_soc=20, **dict(TOPUP_KW, load_kw=1.03))
+    # now inside the 23:00 hour -> the slot keeps its hour-boundary start (no drift with the clock); it charges from
+    # ceil(23:02) -> 23:05 for 50 min (load 1.03 snaps to 1.0 kW)
+    assert tops[0]["start"] == _at(TOPUP_DAY, 23)
+    assert tops[0]["end"] == _at(TOPUP_DAY, 23, 55)
+
+
+def test_topup_slot_flagged_and_badge_picks_main_charge():
+    import jinja2
+    import yaml
+    p = _topup_payload()
+    now = _at(TOPUP_DAY, 22)
+    tops = pstryk_engine.peak_topups_for_day(p, False, now, current_soc=20, min_soc=20, max_soc=90,
+                                             capacity_kwh=10.0, voltage=50.0, loss_pct=0.0, load_kw=1.0)
+    slots = pstryk_engine.generate_deye_tou_schedule(
+        current_soc=20, min_soc=20, max_soc=90, battery_capacity_kwh=10.0, nominal_voltage=50.0, loss_buffer_pct=0.0,
+        max_discharge_current=140.0, best_pb_window=p["powerbank_best_window"],
+        pricing_data={"frames": p["pricing_frames_today"]}, topup_windows=tops)
+    flagged = [s for s in slots if s.get("topup")]
+    assert len(flagged) == 1 and flagged[0]["time"] == "23:00"
+    assert all(s["topup"] is False for s in slots if s is not flagged[0])
+    # badge template (templates.yaml) selects the main charge slot, not the top-up
+    for s in slots:
+        if s.get("topup"):
+            s["target_charge_current_a"] = 999
+    path = os.path.join(os.path.dirname(__file__), "..", "..", "config", "templates.yaml")
+    src = open(path, encoding="utf-8").read()
+    i = src.index("unique_id: deye_inverter_recommended_charge_current")
+    body = src[i:src.index("icon:", i)]
+    state_tpl = body.split("state: >", 1)[1].split("attributes:", 1)[0]
+    env = jinja2.Environment()
+    ctx = dict(state_attr=lambda e, a: slots if a == "deye_tou_schedule_today" else None,
+               states=lambda e: "100")
+    env.filters["int"] = lambda v, d=0: int(float(v)) if str(v).replace(".", "").isdigit() else d
+    out = env.from_string(state_tpl).render(**ctx).strip()
+    assert out != "999" and int(out) <= 100
+
+
+# =====================================================================================================================
+# TDD (plan try-to-continue-this-zippy-cloud): data-driven reserve, floor == projected SOC holds, shared SOC projection
+# ASSUMED API (implementer must match; tests call exactly this):
+#   project_soc_timeline(slots, start_soc, load_kw, now_dt, *, min_soc, max_soc, capacity_kwh, charge_kw) -> list[dict]
+#     slots:   [{"start": aware dt, "end": aware dt, "target_soc": int|float, "grid_charge": bool}, ...] time ordered
+#     returns one dict per slot (clipped to >= now_dt, slots fully in the past dropped):
+#              {"start", "end", "soc_start": float, "soc_end": float}   (SOC in %)
+#     Deye semantics: non-charge slot: battery discharges for load_kw down to target_soc (never below it; if soc is
+#              already <= target_soc it stays - the grid covers the load, no grid charge); charge slot: grid charges
+#              at charge_kw (kW into the battery, loss already applied) up to target_soc, never above max_soc.
+#   generate_deye_tou_schedule(..., load_kw: Optional[float] = None, now_dt: Optional[datetime] = None)
+#     load_kw None/0 -> no reserve; now_dt = instant at which current_soc is valid (default: now).
+#     A reserve is data-driven only (no fixed pre-peak margin).
+# =====================================================================================================================
+TWO_DAY_FIXTURE = "two_day_2026_10_22_23.json"
+D22, D23 = datetime(2026, 10, 22).date(), datetime(2026, 10, 23).date()
+CAP_KWH, VOLT, LOSS = 16.13, 51.2, 10.0
+CHARGE_KW = 100 * VOLT / 1000 / (1 + LOSS / 100)
+
+
+def _dt_at(day, h, m=0):
+    return datetime(day.year, day.month, day.day, h, m, tzinfo=WARSAW)
+
+
+def _slots_to_segments(slots, day):
+    """Table slots (HH:MM, wrapping) -> aware segments covering the Warsaw day."""
+    ms = slot_minutes(slots)
+    base = datetime(day.year, day.month, day.day, tzinfo=WARSAW)
+    segs = []
+    for i, s in enumerate(slots):
+        a, b = ms[i], (ms[i + 1] if i + 1 < len(slots) else ms[0] + 1440)
+        segs.append({"start": base + timedelta(minutes=a), "end": base + timedelta(minutes=b),
+                     "target_soc": s["target_soc"], "grid_charge": s["grid_charge"], "slot": s})
+    # the wrapping last slot also covers [00:00, first start)
+    if ms[0] > 0:
+        segs.insert(0, dict(segs[-1], start=base, end=base + timedelta(minutes=ms[0])))
+        segs[-1] = dict(segs[-1], end=base + timedelta(days=1))
+    return segs
+
+
+def _gen(prices_by_hour, *, soc=60, load=None, now=None, day=D23, pb=None, **kw):
+    params = dict(current_soc=soc, min_soc=20, max_soc=90, battery_capacity_kwh=CAP_KWH, nominal_voltage=VOLT,
+                  loss_buffer_pct=LOSS, max_discharge_current=140.0, best_pb_window=pb,
+                  pricing_data={"frames": _curve_frames(prices_by_hour, day)})
+    if load is not None:
+        params["load_kw"] = load
+    params["now_dt"] = now or _dt_at(day, 0)
+    params.update(kw)
+    return pstryk_engine.generate_deye_tou_schedule(**params)
+
+
+def _soc_projection(slots, day, soc, load, now):
+    return pstryk_engine.project_soc_timeline(
+        _slots_to_segments(slots, day), soc, load, now, min_soc=20, max_soc=90, capacity_kwh=CAP_KWH, charge_kw=CHARGE_KW)
+
+
+# ---- project_soc_timeline (pure) ----
+def test_project_soc_timeline_semantics():
+    segs = [
+        {"start": _dt_at(D23, 0), "end": _dt_at(D23, 2), "target_soc": 50, "grid_charge": False},   # hold at 50
+        {"start": _dt_at(D23, 2), "end": _dt_at(D23, 4), "target_soc": 20, "grid_charge": False},   # drain 1 kW
+        {"start": _dt_at(D23, 4), "end": _dt_at(D23, 5), "target_soc": 90, "grid_charge": True},    # charge
+        {"start": _dt_at(D23, 5), "end": _dt_at(D23, 6), "target_soc": 60, "grid_charge": False},   # floor under soc
+    ]
+    kw = dict(min_soc=20, max_soc=90, capacity_kwh=10.0, charge_kw=5.0)
+    out = pstryk_engine.project_soc_timeline(segs, 50, 1.0, _dt_at(D23, 0), **kw)
+    assert [round(o["soc_start"], 1) for o in out] == [50.0, 50.0, 30.0, 80.0]
+    assert round(out[1]["soc_end"], 1) == 30.0 and round(out[2]["soc_end"], 1) == 80.0
+    assert round(out[3]["soc_end"], 1) == 70.0
+    # battery below the floor: no drain, no grid charge
+    low = pstryk_engine.project_soc_timeline(segs[:1], 30, 1.0, _dt_at(D23, 0), **kw)
+    assert low[0]["soc_start"] == 30 and low[0]["soc_end"] == 30
+    # now_dt clips: a slot fully in the past is dropped, a running one starts at now
+    cut = pstryk_engine.project_soc_timeline(segs, 50, 1.0, _dt_at(D23, 3), **kw)
+    assert cut[0]["start"] == _dt_at(D23, 3) and round(cut[0]["soc_start"], 1) == 50.0 and len(cut) == 3
+
+
+# ---- hold slots ----
+def _hold_roles(slots):
+    return [s for s in slots if not s["grid_charge"] and s["role"] in ("reserve", "other")]
+
+
+@pytest.mark.parametrize("load", [0.5, 1.0])
+@pytest.mark.parametrize("soc", [25, 55, 85])
+def test_hold_slots_never_drain_or_grid_charge_and_floor_never_above_projected_soc(soc, load):
+    fx = load_fixture(TWO_DAY_FIXTURE)
+    pr = [pstryk_engine.retail_gross_price(f) for f in fx["pricing_frames_tomorrow"]]
+    slots = _gen(pr, soc=soc, load=load, now=_dt_at(D23, 0), pb=fx["powerbank_best_window_tomorrow"])
+    proj = _soc_projection(slots, D23, soc, load, _dt_at(D23, 0))
+    for seg, p in zip([s for s in _slots_to_segments(slots, D23) if s["end"] > _dt_at(D23, 0)], proj):
+        s = seg["slot"]
+        if s["grid_charge"]:
+            continue
+        # no floor above the projected level (else the house would run on the grid)
+        assert s["target_soc"] <= int(p["soc_start"] + 1e-6) or s["target_soc"] == 20, (s, p)
+        if s["role"] == "reserve":  # a valley hold: min SOC .. projected SOC (drain-to-need), never above projected
+            assert 20 <= s["target_soc"] <= int(p["soc_start"] + 1e-6), (s, p)
+
+
+def test_midnight_slot_is_projected_soc_or_min_soc_never_copied_evening_reserve():
+    fx = load_fixture(TWO_DAY_FIXTURE)
+    pr = [pstryk_engine.retail_gross_price(f) for f in fx["pricing_frames_tomorrow"]]
+    slots = _gen(pr, soc=55, load=0.5, now=_dt_at(D23, 0), pb=fx["powerbank_best_window_tomorrow"])
+    mid = _slots_to_segments(slots, D23)[0]["slot"]  # the slot covering 00:00
+    assert mid["grid_charge"] is False
+    # projected (55), min (20) or drain-to-next-peak-need in between; never above the projected SOC
+    assert 20 <= mid["target_soc"] <= 55, mid
+
+
+def test_midnight_slot_drains_to_morning_peak_need_on_two_day_fixture():
+    fx = load_fixture(TWO_DAY_FIXTURE)
+    pr = [pstryk_engine.retail_gross_price(f) for f in fx["pricing_frames_tomorrow"]]
+    pb = fx["powerbank_best_window_tomorrow"]
+    slots = _gen(pr, soc=70, load=0.5, now=_dt_at(D23, 0), pb=pb)
+    mid = _slots_to_segments(slots, D23)[0]
+    peak = next(s for s in slots if s["role"] == "peak")
+    hrs = sum((g["end"] - g["start"]).total_seconds() / 3600.0 for g in _slots_to_segments(slots, D23)
+              if g["slot"]["role"] == "peak" and g["start"] < _dt_at(D23, 12))
+    # next event after 00:00 is the morning peak (a charge refills only later)
+    assert slots[0]["role"] == "reserve" or mid["slot"]["role"] == "reserve", slots
+    exp = 20 + hrs * 0.5 / CAP_KWH * 100  # snapped up to the TOU_FLOOR_SOC_STEP grid
+    assert exp - 1e-6 <= mid["target_soc"] < exp + energy_defaults.TOU_FLOOR_SOC_STEP, (mid["target_soc"], exp, peak)
+    assert mid["target_soc"] < 70
+
+
+def test_after_last_peak_slot_is_min_soc_not_projected():
+    fx = load_fixture(TWO_DAY_FIXTURE)
+    pr = [pstryk_engine.retail_gross_price(f) for f in fx["pricing_frames_tomorrow"]]
+    slots = _gen(pr, soc=60, load=0.5, now=_dt_at(D23, 0, 30), pb=fx["powerbank_best_window_tomorrow"])
+    segs = _slots_to_segments(slots, D23)
+    last_peak_end = max(g["end"] for g in segs if g["slot"]["role"] == "peak")
+    for g in segs:
+        if g["start"] >= last_peak_end and not g["grid_charge"]:
+            assert g["target_soc"] == 20, g
+
+
+# ---- data-driven reserve (no charge window, so only the peak-vs-peak decision exists) ----
+def _two_peaks(morning, evening):
+    return [0.5] * 6 + [morning] * 3 + [0.6] * 8 + [evening] * 3 + [0.5] * 4
+
+
+def _peak_slot(slots, hour):
+    return next(s for s in slots if s["role"] == "peak" and int(s["time"][:2]) <= hour < int(s["time"][:2]) + 3)
+
+
+def test_no_reserve_wrapping_to_same_days_morning():
+    # evening peak is the cheaper one; the pricier morning is the SAME day's (already past) -> no reserve, even with load
+    slots = _gen(_two_peaks(2.0, 1.0), soc=70, load=1.0)
+    assert _peak_slot(slots, 17)["target_soc"] == 20
+
+
+def test_reserve_only_when_later_peak_pricier_by_more_than_loss():
+    # loss 10%: 1.05 vs 1.0 is within the loss -> none; 2.0 vs 1.0 -> reserve
+    assert _peak_slot(_gen(_two_peaks(1.0, 1.05), soc=70, load=1.0), 6)["target_soc"] == 20
+    assert _peak_slot(_gen(_two_peaks(1.0, 2.0), soc=70, load=1.0), 6)["target_soc"] > 20
+
+
+def test_reserve_sized_by_load_times_later_peak_hours_over_capacity():
+    expect = lambda load: 20 + 3 * load / CAP_KWH * 100  # later peak = 3 h
+    for load in (0.5, 1.0):
+        got = _peak_slot(_gen(_two_peaks(1.0, 2.0), soc=80, load=load), 6)["target_soc"]
+        assert abs(got - expect(load)) <= 1.5, (load, got)
+    assert _peak_slot(_gen(_two_peaks(1.0, 2.0), soc=80, load=50.0), 6)["target_soc"] <= 90  # capped at max SOC
+
+
+def test_no_reserve_without_load_estimate():
+    assert _peak_slot(_gen(_two_peaks(1.0, 2.0), soc=80), 6)["target_soc"] == 20
+    assert _peak_slot(_gen(_two_peaks(1.0, 2.0), soc=80, load=0.0), 6)["target_soc"] == 20
+
+
+# ---- top-up on the real 22 -> 23.10 price shape ----
+TOPUP_REAL = dict(min_soc=20, max_soc=90, capacity_kwh=CAP_KWH, voltage=VOLT, loss_pct=LOSS)
+
+
+@pytest.mark.parametrize("load", [0.5, 1.0])
+def test_topup_lands_at_today_2300_not_after_midnight(load):
+    fx = load_fixture(TWO_DAY_FIXTURE)
+    tops = pstryk_engine.peak_topups_for_day(fx, False, _dt_at(D22, 22), current_soc=30, load_kw=load, **TOPUP_REAL)
+    assert tops and tops[0]["start"] == _dt_at(D22, 23), tops
+    assert all(t["end"] <= _dt_at(D23, 0) for t in tops)
+    # sized to the morning peak (3+ h at load) from the shared projection: target covers min SOC + peak energy
+    assert tops[0]["target_soc"] >= 20 + 3 * load / CAP_KWH * 100 - 1
+
+
+# ---- energy balance (port of scratchpad/sim.py): zero grid purchase in peaks when battery + top-ups can cover ----
+def _price_map(fx):
+    m = {}
+    for k in ("pricing_frames_today", "pricing_frames_tomorrow"):
+        for f in pstryk_engine.priced_day_frames(fx[k]):
+            m[pstryk_engine._iso_dt(f["start"]).astimezone(WARSAW).replace(tzinfo=None)] = pstryk_engine.retail_gross_price(f)
+    return m
+
+
+def _peak_hours(fx):
+    hrs = set()
+    for k in ("pricing_frames_today", "pricing_frames_tomorrow"):
+        priced = pstryk_engine.priced_day_frames(fx[k])
+        for sg in pstryk_engine.analyse_day_price_profile(priced)["segments"]:
+            if sg["kind"] == "peak":
+                for f in priced[sg["start_index"]:sg["end_index"]]:
+                    hrs.add(pstryk_engine._iso_dt(f["start"]).astimezone(WARSAW).replace(tzinfo=None))
+    return hrs
+
+
+def _sim_table(now, payload, soc, load):
+    pr = {"frames": payload["pricing_frames_today"]}
+    pb = pstryk_engine.find_powerbank_best_window(pr, "auto", now_dt=now, current_soc=soc, max_soc=90,
+                                                  capacity_kwh=CAP_KWH, voltage=VOLT, loss_pct=LOSS)
+    payload = dict(payload, powerbank_best_window=payload.get("powerbank_best_window") or pb)
+    tops = pstryk_engine.peak_topups_for_day(payload, False, now, current_soc=soc, load_kw=load, **TOPUP_REAL)
+    return pstryk_engine.generate_deye_tou_schedule(next_day=pstryk_engine.next_day_outlook(payload, False),
+        current_soc=soc, max_soc=90, min_soc=20, best_pb_window=pb, battery_capacity_kwh=CAP_KWH, nominal_voltage=VOLT,
+        loss_buffer_pct=LOSS, best_discharge_windows=pstryk_engine.find_best_discharge_windows(pr), pricing_data=pr,
+        topup_windows=tops, max_discharge_current=140, load_kw=load, now_dt=now)
+
+
+def _run_balance(load, hold_reserve=False, now=None, soc0=60, trace=None):
+    fx = load_fixture(TWO_DAY_FIXTURE)
+    price, peaks = _price_map(fx), _peak_hours(fx)
+    now = now or _dt_at(D22, 17, 45)
+    payload = {"pricing_frames_today": fx["pricing_frames_today"], "pricing_frames_tomorrow": fx["pricing_frames_tomorrow"],
+               "powerbank_best_window": fx["powerbank_best_window"],
+               "powerbank_best_window_tomorrow": fx["powerbank_best_window_tomorrow"]}
+    sl, soc, t, dt, resynced, grid_peak, grid_valley = _sim_table(now, payload, soc0, load), float(soc0), now, 0.25, False, 0.0, 0.0
+    end = _dt_at(D23, 11, 45)
+    cur = lambda sl, t: next((s for s in reversed(sl) if int(s["time"][:2]) * 60 + int(s["time"][3:]) <= t.hour * 60 + t.minute), sl[-1])
+    while t < end:
+        if not resynced and t >= _dt_at(D23, 0, 30):
+            p2 = {"pricing_frames_today": fx["pricing_frames_tomorrow"], "pricing_frames_tomorrow": None, "powerbank_best_window": None}
+            sl, resynced = _sim_table(t, p2, int(round(soc)), load), True
+        s, e, g = cur(sl, t), load * dt, 0.0
+        if s["grid_charge"] and soc < s["target_soc"]:
+            add = min(CHARGE_KW * dt, (s["target_soc"] - soc) / 100 * CAP_KWH)
+            soc += add / CAP_KWH * 100
+            g = e + add * 1.1
+            if trace is not None and add > 1e-9:
+                trace.append(t)
+        elif soc > s["target_soc"] and not (hold_reserve and s["role"] == "reserve"):
+            take = min(e, (soc - s["target_soc"]) / 100 * CAP_KWH)
+            soc -= take / CAP_KWH * 100
+            g = e - take
+        else:
+            g = e
+        if t.replace(minute=0, tzinfo=None) in peaks and not s["grid_charge"]:
+            grid_peak += g
+        elif not s["grid_charge"]:
+            grid_valley += g
+        t += timedelta(minutes=15)
+    return grid_peak, grid_valley
+
+
+@pytest.mark.parametrize("load", [0.5, 1.0])
+def test_energy_balance_no_grid_purchase_in_peaks_when_coverable(load):
+    grid_peak, grid_valley = _run_balance(load)
+    assert grid_peak < 0.05, f"{grid_peak:.2f} kWh bought from the grid during peak hours at {load} kW"
+    # draining valleys to the next peak's need must not buy more in valleys than holding the level (and at
+    # 0.5 kW strictly less)
+    _, hold_valley = _run_balance(load, hold_reserve=True)
+    assert grid_valley <= hold_valley + 1e-9, (grid_valley, hold_valley)
+    if load == 0.5:
+        assert grid_valley < hold_valley, (grid_valley, hold_valley)
+
+
+# ---- regression: tomorrow's prices known -> today's table and the planner look into tomorrow ----
+@pytest.mark.parametrize("now,soc0,load", [((17, 45), 60, 1.0), ((22, 1), 30, 1.0), ((22, 1), 30, 0.5)])
+def test_full_resync_flow_tops_up_at_today_2300_never_after_midnight(now, soc0, load):
+    trace = []
+    _run_balance(load, now=_dt_at(D22, *now), soc0=soc0, trace=trace)
+    assert trace, "a top-up was expected"
+    assert all(_dt_at(D22, 23) <= t < _dt_at(D23, 0) for t in trace), [t.strftime("%d %H:%M") for t in trace]
+
+
+@pytest.mark.parametrize("load", [0.5, 1.0])
+def test_todays_evening_valley_floor_keeps_energy_tomorrows_morning_peak_needs(load):
+    fx = load_fixture(TWO_DAY_FIXTURE)
+    payload = {k: fx[k] for k in ("pricing_frames_today", "pricing_frames_tomorrow", "powerbank_best_window",
+                                  "powerbank_best_window_tomorrow")}
+    sl = _sim_table(_dt_at(D22, 22, 1), payload, 60, load)
+    evening = next(s for s in sl if s["time"] == "22:00")
+    assert evening["target_soc"] > 20 and not evening["grid_charge"], evening
+    # tomorrow unknown -> the old per-day cut: drained to Min SOC
+    only_today = dict(payload, pricing_frames_tomorrow=None)
+    assert next(s for s in _sim_table(_dt_at(D22, 22, 1), only_today, 60, load) if s["time"] == "22:00")["target_soc"] == 20
+
+
+def test_topup_slots_are_not_shorter_than_three_minute_steps(monkeypatch):
+    monkeypatch.setattr(energy_defaults, "TOU_SLOT_MINUTE_STEP", 5)
+    fx = load_fixture(TWO_DAY_FIXTURE)
+    for soc in range(25, 46, 2):
+        for t in pstryk_engine.peak_topups_for_day(fx, False, _dt_at(D22, 21, 50), current_soc=soc, load_kw=1.0, **TOPUP_REAL):
+            assert (t["end"] - t["start"]) >= timedelta(minutes=15), (soc, t)
+
+
+# ---- code review: flash-wear hysteresis, valley floor incl. next peak floor, projection at any hour ----
+RV_PRICES = [0.5] * 6 + [0.9] * 3 + [0.6] * 7 + [1.1] * 4 + [0.7] * 4  # charge 01-03, peaks 06-09 / 16-20
+RV_PB = {"start": _dt_at(D23, 1).isoformat(), "end": _dt_at(D23, 3).isoformat(), "average_price": 0.5}
+
+
+@pytest.mark.parametrize("start_h,soc0", [(3, 88), (10, 70), (21, 40)])
+def test_hourly_resync_with_soc_drift_and_load_jitter_writes_at_most_once(start_h, soc0):
+    written, writes = None, 0
+    for i in range(6):
+        load = 1.0 + (0.02 if i % 2 else -0.02)
+        sl = _gen(RV_PRICES, soc=soc0 - i, load=load, now=_dt_at(D23, start_h + i, 5) if start_h + i < 24
+                  else _dt_at(D23, 23, 55), pb=RV_PB)
+        if written is None or not pstryk_engine.are_tou_slots_identical(sl, written):
+            written, writes = sl, writes + 1
+    assert writes <= 1, writes  # the first run writes; no hourly re-sync may rewrite the flash
+
+
+def test_slot_identity_tolerates_floor_step_on_non_charge_slots_only():
+    sl = _gen(RV_PRICES, soc=60, load=1.0, pb=RV_PB)
+    step = energy_defaults.TOU_FLOOR_SOC_STEP
+    nc = next(i for i, s in enumerate(sl) if not s["grid_charge"])
+    ch = next(i for i, s in enumerate(sl) if s["grid_charge"])
+    near = [dict(s, target_soc=s["target_soc"] + (step if i == nc else 0)) for i, s in enumerate(sl)]
+    far = [dict(s, target_soc=s["target_soc"] + (step + 1 if i == nc else 0)) for i, s in enumerate(sl)]
+    chg = [dict(s, target_soc=s["target_soc"] - (1 if i == ch else 0)) for i, s in enumerate(sl)]
+    assert pstryk_engine.are_tou_slots_identical(near, sl)
+    assert not pstryk_engine.are_tou_slots_identical(far, sl)
+    assert not pstryk_engine.are_tou_slots_identical(chg, sl)
+
+
+def test_computed_floors_snap_down_to_step_and_load_to_step():
+    step = energy_defaults.TOU_FLOOR_SOC_STEP
+    for load in (0.98, 1.0, 1.02):
+        sl = _gen(RV_PRICES, soc=60, load=load, pb=RV_PB)
+        for s in sl:
+            if not s["grid_charge"]:
+                assert s["target_soc"] in (20, 90) or s["target_soc"] % step == 0, s
+        assert [s["target_soc"] for s in sl] == [s["target_soc"] for s in _gen(RV_PRICES, soc=60, load=1.0, pb=RV_PB)]
+
+
+def test_running_topup_keeps_its_start():
+    fx = load_fixture(TWO_DAY_FIXTURE)
+    t0 = pstryk_engine.peak_topups_for_day(fx, False, _dt_at(D22, 22), current_soc=30, load_kw=1.0, **TOPUP_REAL)
+    t1 = pstryk_engine.peak_topups_for_day(fx, False, _dt_at(D22, 23, 10), current_soc=33, load_kw=1.0, **TOPUP_REAL)
+    assert t0 and t1 and t1[0]["start"] == t0[0]["start"] == _dt_at(D22, 23), (t0, t1)
+
+
+def test_valley_before_reserve_peak_keeps_the_peaks_own_floor():
+    # reviewer case: SOC 60 at 00:00, charge 01-03 to 90, 06-09 peak keeps a reserve for the pricier 16-20 peak
+    sl = _gen(RV_PRICES, soc=60, load=2.0, pb=RV_PB)
+    proj = _soc_projection(sl, D23, 60, 2.0, _dt_at(D23, 0))
+    segs = [g for g in _slots_to_segments(sl, D23) if g["end"] > _dt_at(D23, 0)]
+    at = lambda h: next(p for g, p in zip(segs, proj) if g["start"] <= _dt_at(D23, h) < g["end"])
+    assert at(5)["soc_end"] >= at(3)["soc_start"] - 1e-6, (sl, at(3), at(5))  # 03-06 valley does not drain
+    assert at(7)["soc_end"] < at(7)["soc_start"], (sl, at(7))  # the 06-09 peak gets the battery energy
+
+
+def test_planner_valley_floor_mirrors_next_peak_floor():
+    # planner must not assume the 03-06 valley drains (the table holds it) -> no needless top-up before 16-20
+    tops = pstryk_engine.plan_peak_topups([{"frames": _curve_frames(RV_PRICES, D23)}], [RV_PB], _dt_at(D23, 0),
+                                          current_soc=60, load_kw=2.0, **TOPUP_REAL)
+    assert not any(_dt_at(D23, 9) <= t["start"] < _dt_at(D23, 16) for t in tops), tops
+
+
+def test_topups_skipped_during_calibration():
+    fx = load_fixture(TWO_DAY_FIXTURE)
+    pr = {"frames": fx["pricing_frames_today"]}
+    tops = pstryk_engine.peak_topups_for_day(fx, False, _dt_at(D22, 22), current_soc=30, load_kw=1.0, **TOPUP_REAL)
+    assert tops
+    sl = pstryk_engine.generate_deye_tou_schedule(current_soc=30, max_soc=90, min_soc=20, best_pb_window=fx["powerbank_best_window"],
+        battery_capacity_kwh=CAP_KWH, nominal_voltage=VOLT, loss_buffer_pct=LOSS, pricing_data=pr, topup_windows=tops,
+        max_discharge_current=140, load_kw=1.0, now_dt=_dt_at(D22, 22), calibration_active=True)
+    base = pstryk_engine.generate_deye_tou_schedule(current_soc=30, max_soc=90, min_soc=20, best_pb_window=fx["powerbank_best_window"],
+        battery_capacity_kwh=CAP_KWH, nominal_voltage=VOLT, loss_buffer_pct=LOSS, pricing_data=pr,
+        max_discharge_current=140, load_kw=1.0, now_dt=_dt_at(D22, 22), calibration_active=True)
+    assert [(s["time"], s["grid_charge"]) for s in sl] == [(s["time"], s["grid_charge"]) for s in base], sl
+
+
+@pytest.mark.parametrize("day", [D23, datetime(2026, 10, 25).date()])
+@pytest.mark.parametrize("hm", [(0, 30), (9, 5), (15, 30), (23, 10)])
+@pytest.mark.parametrize("soc,load", [(25, 0.5), (60, 1.0), (85, 2.0)])
+def test_projection_and_floors_at_any_hour(monkeypatch, day, hm, soc, load):
+    now = _dt_at(day, *hm)
+    freeze_now(monkeypatch, now)
+    pb = {"start": _dt_at(day, 1).isoformat(), "end": _dt_at(day, 3).isoformat(), "average_price": 0.5}
+    sl = _gen(RV_PRICES, soc=soc, load=load, now=now, day=day, pb=pb)
+    segs = [g for g in _slots_to_segments(sl, day) if g["end"] > now]
+    proj = _soc_projection(sl, day, soc, load, now)
+    for g, p in zip(segs, proj):
+        assert 20 - 1e-6 <= p["soc_end"] <= 90 + 1e-6 or p["soc_end"] == p["soc_start"], (g, p)
+        if not g["grid_charge"]:
+            assert g["target_soc"] == 20 or g["target_soc"] <= p["soc_start"] + 1e-6, (hm, g["slot"], p)
+
+
+# ---- same load for dashboard and inverter: the sync records its load in the consolidated cache ----
+def test_tou_load_record_reused_while_fresh(monkeypatch):
+    monkeypatch.setattr(pstryk_engine, "household_load_kw", lambda *a, **k: 9.9)
+    now = _dt_at(D23, 12)
+    rec = {"load_kw": 0.7, "at": (now - timedelta(minutes=20)).isoformat()}
+    assert pstryk_engine.tou_load_kw(rec, now, 7.0) == 0.7
+    assert pstryk_engine.tou_load_kw({"load_kw": None, "at": rec["at"]}, now, 7.0) is None  # sync had no load
+    stale = {"load_kw": 0.7, "at": (now - timedelta(seconds=energy_defaults.LOAD_ESTIMATE_MAX_AGE_S + 60)).isoformat()}
+    assert pstryk_engine.tou_load_kw(stale, now, 7.0) == 9.9
+    assert pstryk_engine.tou_load_kw({"load_kw": 0.7, "at": _dt_at(D22, 23, 50).isoformat()}, _dt_at(D23, 0, 5), 7.0) == 9.9
+    assert pstryk_engine.tou_load_kw(None, now, 7.0) == 9.9
+
+
+def test_sync_records_resolved_load_in_consolidated_cache(tmp_path, monkeypatch):
+    cache_dir = str(tmp_path)
+    pb_win = {"start": "2026-10-17T13:00:00Z", "end": "2026-10-17T15:00:00Z", "duration_hours": 2, "is_consecutive": True}
+    sell_win = {"start": "2026-10-17T17:00:00Z", "end": "2026-10-17T21:00:00Z"}
+    c_file = pstryk_engine.get_cache_file_path("dol", cache_dir)
+    pstryk_engine.write_cache(c_file, {"_warsaw_date": warsaw_today_iso(), "current": {}, "today": {}, "all_prices": [],
+                                       "powerbank_best_window": pb_win, "best_sell_window": sell_win})
+    monkeypatch.setattr(pstryk_engine, "household_load_kw", lambda *a, **k: 0.6)
+    mock_client = mock.MagicMock()
+    mock_client.read_inverter_telemetry.return_value = {"success": True, "config": {}, "telemetry": {"battery_soc": 50},
+                                                        "active_tou": {"enabled": True, "slots": []}}
+    mock_client.sync_tou_schedule.return_value = {"success": True}
+    mock_client.get_configured_inverter_ip.return_value = "10.20.2.6"
+    mock_client.get_configured_inverter_port.return_value = 8899
+    with mock.patch("pstryk_engine.solarman_v5_client", mock_client):
+        pstryk_engine.sync_deye_inverter_tou_schedule(cache_dir=cache_dir)
+    rec = json.load(open(c_file))["tou_load"]
+    assert rec["load_kw"] == 0.6 and pstryk_engine._iso_dt(rec["at"]) is not None
