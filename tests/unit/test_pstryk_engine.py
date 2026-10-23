@@ -984,7 +984,8 @@ def test_today_and_tomorrow_frames_partitioning(tmp_path):
     day_after = tomorrow_date + timedelta(days=1)
     assert pstryk_engine._iso_dt(res["horizon_end"]) == datetime(day_after.year, day_after.month, day_after.day, tzinfo=WARSAW)
     tl = res["plan_timeline"]
-    assert all(a["end"] == b["start"] for a, b in zip(tl, tl[1:])) and tl[-1]["end"] == res["horizon_end"]
+    pub = [e for e in tl if not e.get("estimated")]  # estimated entries (beyond the published prices) follow them
+    assert all(a["end"] == b["start"] for a, b in zip(tl, tl[1:])) and pub[-1]["end"] == res["horizon_end"]
 
     assert "ev_best_window_tomorrow" in res
     assert "powerbank_best_window_tomorrow" in res
@@ -2818,7 +2819,8 @@ def test_greedy_first_night_charge_is_tonights_cheapest_hour_at_full_power():
 
 
 def test_higher_soc_and_lower_load_need_fewer_charge_hours():
-    hrs = lambda soc, load: {a for a, _, _ in _charge_hours(_greedy(_at(TOPUP_DAY, 22), soc=soc, load=load))}
+    hrs = lambda soc, load: {a.replace(minute=0) for a, _, _ in _charge_hours(_greedy(_at(TOPUP_DAY, 22), soc=soc,
+                                                                                         load=load))}
     assert hrs(90, 0.4) < hrs(20, 0.4)
     assert hrs(90, 0.4) <= hrs(20, 1.0)
 
@@ -2836,7 +2838,8 @@ def test_greedy_charge_is_capped_by_max_soc():
 
 
 def test_rolling_table_carries_tonights_charge_with_ceiling_current_and_six_slots():
-    slots = _greedy(_at(TOPUP_DAY, 22), soc=20)["deye_tou_schedule"]
+    # published prices only: an estimated next day may add evening charges that the daily table merges with 23:00
+    slots = _greedy(_at(TOPUP_DAY, 22), soc=20, estimate_beyond_horizon=False)["deye_tou_schedule"]
     assert_valid_schedule(slots)
     night = next(s for s in slots if s["grid_charge"] and s["time"] == "23:00")
     assert night["target_soc"] == 90 and night["topup"] is False
@@ -3101,7 +3104,7 @@ def _rolling(now, soc, profile, frames=None, **kw):
 def test_greedy_first_charge_lands_at_today_2300(load):
     plan = _rolling(_dt_at(D22, 22), 30, _flat(load))
     ch = [e for e in plan["plan_timeline"] if e["role"] == "charge"]
-    assert ch and pstryk_engine._iso_dt(ch[0]["start"]) == _dt_at(D22, 23), ch
+    assert ch and pstryk_engine._iso_dt(ch[0]["start"]).replace(minute=0) == _dt_at(D22, 23), ch  # need-sized block
     assert ch[0]["charge_a"] == 100 and ch[0]["target_soc"] == 90
 
 
@@ -3117,7 +3120,7 @@ def _peak_hours():
     return hrs
 
 
-def _simulate(now, soc0, profile, end=None, trace=None):
+def _simulate(now, soc0, profile, end=None, trace=None, **kw):
     """Re-plans at every full hour (as the hourly sync does), runs the inverter on the written 6-slot table with Deye
     semantics in 15-min steps and the profile's real load; returns (peak grid kWh, valley grid kWh, min SOC seen)."""
     peaks, soc, t, dt = _peak_hours(), float(soc0), now, timedelta(minutes=15)
@@ -3126,7 +3129,7 @@ def _simulate(now, soc0, profile, end=None, trace=None):
     slots, grid_peak, grid_valley, lowest = None, 0.0, 0.0, soc
     while t < end:
         if slots is None or t.minute == 5:
-            slots = _rolling(t, int(round(soc)), profile)["deye_tou_schedule"]
+            slots = _rolling(t, int(round(soc)), profile, **kw)["deye_tou_schedule"]
         loc = t.astimezone(WARSAW)
         mins = slot_minutes(slots)
         cur = slots[max([i for i, m in enumerate(mins) if m <= loc.hour * 60 + loc.minute], default=5)]
@@ -3166,10 +3169,11 @@ def test_simulation_user_scenario_no_peak_grid_purchase(k, soc0):
 def test_full_resync_flow_charges_only_in_the_first_plans_charge_hours(now, soc0, k):
     """Hourly re-plans on the simulated SOC charge only in hours the first plan already chose (no new hours appear
     while the SOC follows the plan), tonight's 23:00 first."""
-    first = _rolling(_dt_at(D22, *now), soc0, _real(k))["plan_timeline"]
+    # published prices only (the fixture never publishes the next day, so estimates would steer every re-plan)
+    first = _rolling(_dt_at(D22, *now), soc0, _real(k), estimate_beyond_horizon=False)["plan_timeline"]
     hours = {pstryk_engine._iso_dt(e["start"]).replace(minute=0) for e in first if e["role"] == "charge"}
     trace = []
-    _simulate(_dt_at(D22, *now), soc0, _real(k), end=_dt_at(D23, 11, 45), trace=trace)
+    _simulate(_dt_at(D22, *now), soc0, _real(k), end=_dt_at(D23, 11, 45), trace=trace, estimate_beyond_horizon=False)
     assert trace and min(trace) >= _dt_at(D22, 23)
     assert {t.astimezone(timezone.utc).replace(minute=0, second=0) for t in trace} <= hours, (trace, hours)
 
@@ -3177,11 +3181,12 @@ def test_full_resync_flow_charges_only_in_the_first_plans_charge_hours(now, soc0
 @pytest.mark.parametrize("load", [0.5, 1.0])
 def test_tonights_charge_only_with_tomorrows_prices(load):
     sl = _rolling(_dt_at(D22, 22, 1), 60, _flat(load))["deye_tou_schedule"]
-    assert next(s for s in sl if s["time"] == "23:00")["grid_charge"]  # tonight's cheapest hour serves tomorrow
-    # tomorrow unknown -> no worth-covering hour left in the known prices: no grid charge
+    # tonight's cheapest hour serves tomorrow (a need-sized block within 23:00-24:00)
+    assert next(s for s in sl if s["time"].startswith("23:"))["grid_charge"]
+    # tomorrow unknown, published prices only -> no worth-covering hour left in the known prices: no grid charge
     today_only = load_fixture(TWO_DAY_FIXTURE)["pricing_frames_today"]
-    assert not [s for s in _rolling(_dt_at(D22, 22, 1), 60, _flat(load), frames=today_only)["deye_tou_schedule"]
-                if s["grid_charge"]]
+    assert not [s for s in _rolling(_dt_at(D22, 22, 1), 60, _flat(load), frames=today_only,
+                                    estimate_beyond_horizon=False)["deye_tou_schedule"] if s["grid_charge"]]
 
 
 def test_topup_slots_are_not_shorter_than_three_minute_steps(monkeypatch):
@@ -3328,7 +3333,11 @@ def test_hold_only_in_hours_not_worth_covering_and_never_above_the_projected_soc
                    if pstryk_engine._iso_dt(f["end"]) > _dt_at(D22, 22))
     for e in plan["plan_timeline"]:
         if e["role"] == "hold":
-            assert e["price"] <= cheapest * (1 + LOSS / 100) + 1e-9, e
+            # the rest of a partial charge hour (grid serves the load) also holds, whatever its price
+            hs, he = pstryk_engine._iso_dt(e["start"]), pstryk_engine._iso_dt(e["end"])
+            in_charge_hour = any(c["role"] == "charge" and pstryk_engine._iso_dt(c["start"]) < hs.replace(minute=0) + timedelta(hours=1)
+                                 and pstryk_engine._iso_dt(c["end"]) > hs.replace(minute=0) for c in plan["plan_timeline"])
+            assert in_charge_hour or e["price"] <= cheapest * (1 + LOSS / 100) + 1e-9, e
             assert e["target_soc"] <= e["soc_start"] + 1e-6, e
 
 
@@ -3343,11 +3352,17 @@ def test_running_charge_block_keeps_its_slots_while_it_runs():
     """The 13:00 charge block is the same in the 12:00 and the 13:00 tables (only the elapsed 12:00 hour drops out)."""
     t12 = _rolling(_dt_at(D23, 12), 29.1, _real(8))
     ch12 = next(e for e in t12["plan_timeline"] if e["role"] == "charge")
-    assert pstryk_engine._iso_dt(ch12["start"]) == _dt_at(D23, 12), ch12
+    # minute-granular: the 12:00 hour needs only part of its energy -> a ceiling-current block in that hour,
+    # contiguous with the 13:00 charge (was: the whole 12:00 hour at a reduced current)
+    assert _dt_at(D23, 12) <= pstryk_engine._iso_dt(ch12["start"]) < _dt_at(D23, 13) and ch12["charge_a"] == 100, ch12
     t13 = _rolling(_dt_at(D23, 13), 44.6, _real(8))
-    pick = lambda p: [(s["time"], s["target_soc"], s["charge_current_a"]) for s in p["deye_tou_schedule"]
-                      if s["grid_charge"] and s["time"] >= "13:00"]
-    assert pick(t12) == pick(t13) and pick(t13), (t12["deye_tou_schedule"], t13["deye_tou_schedule"])
+    # from 13:00 both tables run the same grid-charge row until the same boundary (the 12:00 table's block may
+    # start earlier in the 12:00 hour)
+    def pick(p):
+        rows = pstryk_engine._tou_minute_rows(p["deye_tou_schedule"])
+        r = pstryk_engine._tou_row_at(rows, 13 * 60)
+        return r[1:3], next((x[0] for x in rows if x[0] > 13 * 60), None)
+    assert pick(t12) == pick(t13) and pick(t13)[0][0], (t12["deye_tou_schedule"], t13["deye_tou_schedule"])
 
 
 def test_fit_tou_table_forced_tier4_merges_a_charge_into_the_closest_priced_peak():

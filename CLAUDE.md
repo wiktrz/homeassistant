@@ -90,7 +90,6 @@ config/
 ├── secrets.yaml          # Sensitive configuration
 ├── views.yaml            # View definitions
 ├── dashboard_modern_reference.yaml # Dom iPad Modern dashboard (/dashboard-home)
-├── dashboard_home_improved.yaml   # Home dashboard
 ├── dashboard_improved.yaml       # Main dashboard
 ├── dashboard_korytarze_improved.yaml  # Hallways dashboard
 ├── blueprints/           # HA blueprint templates

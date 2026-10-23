@@ -293,7 +293,9 @@ def test_timeline_continuous_across_midnight_to_last_priced_hour():
     assert iso(tl[0]["start"]) <= NOW < iso(tl[0]["end"])
     for a, b in zip(tl, tl[1:]):
         assert iso(a["end"]) == iso(b["start"])
-    assert iso(tl[-1]["end"]) == iso(r["horizon_end"]) == datetime(2026, 10, 24, 0, 0, tzinfo=W).astimezone(timezone.utc)  # end of the last priced hour (23:00-24:00)
+    pub = [e for e in tl if not e.get("estimated")]
+    assert iso(pub[-1]["end"]) == iso(r["horizon_end"]) == datetime(2026, 10, 24, 0, 0, tzinfo=W).astimezone(timezone.utc)  # end of the last priced hour (23:00-24:00)
+    assert iso(tl[-1]["end"]) == iso(r["horizon_end"])  # estimate_beyond_horizon is off by default: no estimated day
 
 
 def test_replan_at_2205_with_projected_soc_keeps_the_1745_plan_beyond_now():
@@ -345,12 +347,13 @@ def _charges(tl):
 
 @pytest.mark.parametrize("k,soc", [(2, 30), (4, 45)])
 def test_user_scenario_greedy_night_charge_at_2300(k, soc):
-    """22:05, real profile x k: tonight's cheapest hour (23:00) is the first grid charge, one hour at the Reg 108
-    ceiling; the battery stays >= Min SOC; every charge hour is an hour of plan_charge_hours."""
+    """22:05, real profile x k: tonight's cheapest hour (23:00) is the first grid charge, a need-sized block of that
+    hour at the Reg 108 ceiling; the battery stays >= Min SOC; every charge hour is an hour of plan_charge_hours."""
     r = plan(NOW, soc, prof(k))
     ch = _charges(r["plan_timeline"])
-    assert ch and iso(ch[0]["start"]) == datetime(2026, 10, 22, 23, 0, tzinfo=W).astimezone(timezone.utc)
-    assert iso(ch[0]["end"]) - iso(ch[0]["start"]) == timedelta(hours=1) and ch[0]["charge_a"] == 100
+    h23 = datetime(2026, 10, 22, 23, 0, tzinfo=W).astimezone(timezone.utc)
+    assert ch and h23 <= iso(ch[0]["start"]) < h23 + timedelta(hours=1)
+    assert iso(ch[0]["end"]) - iso(ch[0]["start"]) <= timedelta(hours=1) and ch[0]["charge_a"] == 100
     for e in r["plan_timeline"]:
         assert e["soc_end"] >= 20 - 1e-6, e
 

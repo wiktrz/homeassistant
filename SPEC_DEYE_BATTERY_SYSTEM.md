@@ -23,8 +23,8 @@ Hardware parameters of the battery storage system must **NEVER** be hardcoded an
 
 ### 1.2 Hardware Register Safety & Control Policy
 - **Dynamic Register 108 Modulation:** Modbus Holding Register `108` (`REG_MAX_CHARGE_CURRENT`) is written by `pstryk_engine.py` (`check_and_apply_charge_current_modulation`). The base is always the 100A ceiling (hard cap `min(100, env)`), never the live register value:
-  * Inside a grid-charge slot: the planned slot current (`charge_a`: ceiling × energy / the hour's maximum energy, see §4.1 Greedy Cheapest-Hour Charging), clamped to [$I_{\text{floor}}$, $I_{\text{base}}$]; a full hour runs at the ceiling.
-  * Outside every charge slot: the 100A ceiling (Rule 12, no pre-set). A reduced-current main charge may therefore run up to one sync interval at the ceiling before the sync inside it modulates Reg 108.
+  * Inside a grid-charge slot: the 100A ceiling (the planner always plans the ceiling; a partial hour is shortened in duration instead of reduced in current).
+  * Outside every charge slot: the 100A ceiling (Rule 12, no pre-set).
   * `--restore-charge-current` restores 100A. Writes are idempotent (only when the value differs), minimizing EEPROM cycles.
 - **Registers 109 and 112 Never Written:** Reg `109` (Max Discharge Current, 140A) and Reg `112` (Max Charge SOC; the HA slider `input_number.deye_battery_max_charge_soc` is the source of truth) are never written by software.
 - **Registers 110 and 111 Confirm-Only:** Reg `110` (Min Discharge SOC) and Reg `111` (Shutdown SOC) are written only via the 2-step Confirm button (`script.confirm_and_apply_deye_battery_settings`).
@@ -100,7 +100,7 @@ There is no separate today/tomorrow schedule. `plan_rolling_tou()` builds **one 
 - **Peaks per price day:** `analyse_day_price_profile` runs on each Europe/Warsaw day's own prices, so each day's peak is judged against that day's mean gross retail price (Rule 12: `price_gross`, never prosumer price).
 - **Grid charge:** greedy cheapest-hour charging (`plan_charge_hours`, below). Calibration or a missing load profile fills to the top in the cheapest hours instead. Explicit `charge_windows` (legacy explicit-window path, `generate_deye_tou_schedule`) bypass the planner.
 - **Floors:** one SOC walk (`project_soc_timeline`, Deye floor semantics) over the whole horizon; see *Floors* below.
-- **Powerbank window (informational):** `find_powerbank_best_window` sizes N = max(`CHARGE_WINDOW_MIN_HOURS`, energy need at the Reg 108 ceiling) for the sensors and the 22:00 notification, and for the explicit-window path, which sizes its charge current from it. It does not drive the automatic grid charge plan.
+- **Powerbank window (informational):** `find_powerbank_best_window` sizes N = max(`CHARGE_WINDOW_MIN_HOURS`, energy need at the Reg 108 ceiling) for the sensors and the 22:00 notification, and for the explicit-window path, which sizes the slot charge current from its length (`charge_current_for_window`). Reg 108 is written only by the engine's `check_and_apply_charge_current_modulation` (slot current inside charge slots, ceiling outside); no HA automation lowers it. It does not drive the automatic grid charge plan.
 
 **Dynamic Peak & Charging Placement (Zero Hardcoded Boundaries, Strictly No-PV):**
 The installation is strictly a No-PV battery storage system. There are no fixed clock boundaries (`06:00`, `10:00`, `12:00`, `17:00`) or "PV refill" heuristics. All slot start times and durations adapt to market prices:
@@ -108,10 +108,12 @@ The installation is strictly a No-PV battery storage system. There are no fixed 
 
 **Greedy Cheapest-Hour Charging (`plan_charge_hours`):**
 - Worth covering: price > cheapest candidate × (1 + loss%).
-- Candidates: priced hours from now to the last published price, taken in ascending price order. Each is charged at the most energy it can store (Reg 108 ceiling × V × (1 − loss%), capped by room to Max SOC) only if it covers a projected shortfall in a later worth-covering hour that is dearer than it × (1 + loss%); the shortfall it serves runs up to the next hour at most as cheap. The loop stops when no coverable shortfall remains.
-- Hysteresis: an hour must store and serve at least one `TOU_FLOOR_SOC_STEP` of capacity (no trickle). A held hour (already grid charge on the inverter) stays while it stores or serves any shortfall.
-- Load: the real Deye profile (`load_forecast`).
-- Example (two-day fixture, real weekday profile): SOC 17 at 09:27 → charges 13:00, 14:00, 23:00 and next-day 13:00 at 100 A; SOC 60 → 13:00 and next-day 13:00.
+- Candidates: priced hours from now to the last published price, in ascending price order. Each candidate stores only what the shortfall it serves needs: min(ceiling energy left in the hour, room to Max SOC, the shortfall served up to the next hour at most as cheap). A chosen hour grows; a new hour must store and serve at least one `TOU_FLOOR_SOC_STEP` (no trickle). The loop stops when no coverable shortfall remains.
+- Need-sized duration (minute-granular): the block runs at the Reg 108 ceiling for ceil(minutes / `TOU_SLOT_MINUTE_STEP`, 5 min) steps; placement is contiguous with an adjacent chosen charge hour, else at the end of its hour; a running hour charges from now. A grid-charge block already on the inverter is kept while its need stays within one step (anti-flap).
+- Load: the real Deye profile.
+- Example (live prices 23.10, real profile, SOC 17 at 12:18): Fri 13:00–14:00, Sat 03:25–04:00, Sat 12:00–13:30, all at 100 A.
+- Beyond the published prices (`estimate_beyond_horizon`, OFF by default): one estimated day priced from the last published day's clock hours. Estimated hours only create shortfalls; they are never charge candidates and never enter the written table, because the daily table is a clock circle and estimate-only charges would merge with today's pattern.
+- Removed: reduced-current partial hours (the old window-length current formula) and any stored-energy cost gating (never shipped).
 
 **Floors:**
 - Charge hours: grid charge to Max SOC (exact).
@@ -147,13 +149,9 @@ The installation is strictly a No-PV battery storage system. There are no fixed 
      $$P_{\text{base}} = \min(12000\text{ W}, \max(1000\text{ W}, \operatorname{round}(I_{\text{max\_discharge}} \times V_{\text{nominal}}, -1)))$$
      For the physical inverter setting $I_{\text{max\_discharge}} = 140\text{A}$ and $V_{\text{nominal}} = 51.2\text{V}$, $P_{\text{base}} \approx \mathbf{7170\text{ W}}$.
 
-2. **Charging Current Modulation via Register 108 (`Max A Charge`):**
-   Charging speed when grid charging is active is governed by Modbus Holding Register 108 (and OpenAPI `/order/battery/parameter/update`):
-   - Current scales with the window length: $I = \operatorname{round}(I_{\text{base}} \times N / T)$, clamped to [floor, ceiling] (N = charge hours, T = window length).
-     $$I_{\text{target}} = \max\left(I_{\text{floor}}, \min\left(I_{\text{base}}, \operatorname{round}\left(I_{\text{base}} \times \frac{N}{T}\right)\right)\right)$$
-     (e.g., $100\text{A} \times (2 / 4) = \mathbf{50\text{ A}}$ for a 4h window; $100\text{A} \times (2 / 3) = \mathbf{67\text{ A}}$ for a 3h window; $100\text{A}$ for a 2h window).
-   - `check_and_apply_charge_current_modulation()` applies $I_{\text{target}}$ inside a charge slot; outside every charge slot the 100A ceiling (Rule 12, no pre-set; a reduced-current main charge may run up to one sync interval at the ceiling before modulation).
-   - Writes are strictly idempotent (executed only when the active register value differs from target), protecting EEPROM memory.
+2. **Charging Current via Register 108 (`Max A Charge`):** every grid-charge slot runs at the 100A ceiling (`BATTERY_CHARGE_CURRENT_MAX_CEILING_A`, hard cap `min(100, env)`). Partial hours are handled by duration (need-sized slots, see Greedy above), not by current. Reg 108 is therefore the ceiling inside and outside charge slots.
+   - `check_and_apply_charge_current_modulation()` writes the ceiling, and only when the active register value differs (idempotent, EEPROM protection). `--restore-charge-current` restores 100A.
+   - Reduced-current charging (current scaled by window length) is no longer used.
 3. **Peak Slot Power:** peak slots stay at full base power $P_{\text{base}}$ (7170W) down to `min_soc`.
 
 ### 4.3 BMS Calibration Routine (100% Equalization)
@@ -252,7 +250,7 @@ Writing safety parameters or TOU tables to the inverter involves local Modbus RT
   - `binary_sensor.ui_op_pending_deye_battery_safety`: Active when `'deye_battery_safety'` is in the active list.
   - `binary_sensor.ui_op_pending_deye_tou_sync`: Active when `'deye_tou_sync'` is in the active list.
 - **Auto-Clear Safety Automation:** `auto_clear_stale_pending_ui_operations` in `config/automations.yaml` clears all pending operations if `ui_any_operation_pending` remains active for > 90 seconds, protecting against permanently locked UI states.
-- **Dashboard Lovelace Integration:** In `dashboard_modern_reference.yaml` and `dashboard_home_improved.yaml`:
+- **Dashboard Lovelace Integration:** In `dashboard_modern_reference.yaml`:
   - When `ui_op_pending_deye_battery_safety` is `on`: Renders a prominent in-progress card (`⏳ Trwa Zapisywanie Ustawień do Falownika Deye...`), hides action buttons, and locks parameter sliders.
   - When `ui_op_pending_deye_battery_safety` is `off`: Standard interactive UI is restored.
 

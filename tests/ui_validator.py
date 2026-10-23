@@ -16,7 +16,6 @@ CONFIG_DIR = os.path.join(REPO_ROOT, "config")
 
 DASHBOARDS_TO_VALIDATE = [
     "dashboard_modern_reference.yaml",
-    "dashboard_home_improved.yaml",
     "dashboard_improved.yaml",
     "dashboard_korytarze_improved.yaml",
     "dashboard_energy_test.yaml",

@@ -66,8 +66,13 @@ def _run(frames, now, soc, profile=PROFILE):
     return hs, _load_by_hour(hs, profile), pstryk_engine.plan_charge_hours(hs, now, soc, _load_by_hour(hs, profile), **P)
 
 
+def _h(r):
+    """the price hour of a planned charge block (a need-sized block may start mid-hour)"""
+    return r["start"].replace(minute=0, second=0, microsecond=0)
+
+
 def _starts(res):
-    return [r["start"] for r in res]
+    return [_h(r) for r in res]
 
 
 def _sim(hs, load, now, soc, charges):
@@ -83,7 +88,7 @@ def _sim(hs, load, now, soc, charges):
         if a in charges:
             soc = min(P["max_soc"], soc + charges[a] / P["capacity_kwh"] * 100)
         elif worth:
-            need = load.get(a, 0.0) / P["capacity_kwh"] * 100
+            need = load.get(a, 0.0) * min(1.0, (b - now) / (b - a)) / P["capacity_kwh"] * 100  # running hour: rest only
             deficit = max(0.0, need - max(0.0, soc - P["min_soc"])) * P["capacity_kwh"] / 100
             soc = max(P["min_soc"], soc - need) if soc >= P["min_soc"] else soc
         out.append((a, worth, soc, deficit))
@@ -95,8 +100,8 @@ def _deficit(tl):
 
 
 def _reference(hs, load, now, soc):
-    """Greedy: serve the first fixable deficit hour with the cheapest earlier economic hour, filled to ceiling
-    power / room to Max SOC; unfixable deficits (no cheaper earlier hour, or less than one SOC step to store or
+    """Greedy: serve the first fixable deficit hour with the cheapest earlier economic hour (an hour already chosen
+    grows), storing only the deficit it serves, capped by ceiling energy / room to Max SOC; unfixable deficits (no cheaper earlier hour, or less than one SOC step to store or
     serve) stay grid-bought."""
     cand = [h for h in hs if h[1] > now]
     charges, skipped = {}, set()
@@ -106,21 +111,27 @@ def _reference(hs, load, now, soc):
         if not ks:
             return charges
         k = ks[0]
-        opts = [(h[2], i, h[0]) for i, h in enumerate(cand[:k]) if h[0] not in charges and h[2] * (1 + LOSS) < cand[k][2]]
+        full = lambda i: MAX_KWH * min(1.0, (cand[i][1] - now) / (cand[i][1] - cand[i][0]))
+        opts = [(h[2], i, h[0]) for i, h in enumerate(cand[:k])
+                if charges.get(h[0], 0.0) < full(i) - EPS and h[2] * (1 + LOSS) < cand[k][2]]
         for _, i, a in sorted(opts):
-            e = min(MAX_KWH, (P["max_soc"] - max(x[2] for x in tl[i:k])) / 100 * P["capacity_kwh"])
-            # one SOC step of capacity: the least an hour must store and serve (up to the next hour at most as cheap)
-            step = pstryk_engine.energy_defaults.TOU_FLOOR_SOC_STEP / 100.0 * P["capacity_kwh"]
             stop = next((j for j in range(k + 1, len(cand)) if cand[j][2] <= cand[i][2]), len(cand))
-            if e >= step - EPS and sum(x[3] for x in tl[k:stop]) >= step - EPS:
-                charges[a] = e
+            served = sum(x[3] for x in tl[k:stop])
+            # need-sized: the shortfall served, capped by the hour's ceiling energy left and the room to Max SOC
+            e = min(full(i) - charges.get(a, 0.0), (P["max_soc"] - max(x[2] for x in tl[i:k])) / 100 * P["capacity_kwh"], served)
+            # one SOC step of capacity: the least a NEW hour must store and serve (up to the next hour at most as cheap)
+            step = pstryk_engine.energy_defaults.TOU_FLOOR_SOC_STEP / 100.0 * P["capacity_kwh"]
+            least = EPS if a in charges else step - EPS
+            if e >= least and served >= least:
+                charges[a] = charges.get(a, 0.0) + e
                 break
         else:
             skipped.add(k)
 
 
 def _plan(frames, now, soc, profile=PROFILE):
-    return pstryk_engine.plan_rolling_tou(frames, now, soc, profile, **P)
+    # published-only plan: these expectations compare with plan_charge_hours over the published hours
+    return pstryk_engine.plan_rolling_tou(frames, now, soc, profile, estimate_beyond_horizon=False, **P)
 
 
 def _grid_hours(plan):
@@ -145,14 +156,14 @@ def test_matches_greedy_reference_and_price_order(name, frames, now, soc):
     assert set(_starts(res)) == set(ref)
     price = {h[0]: h[2] for h in hs}
     cand = sorted((h[2], h[0]) for h in hs if h[1] > now)
-    chosen = {r["start"] for r in res}
+    chosen = {_h(r) for r in res}
     # prefix property: any cheaper candidate that was skipped must be infeasible/uneconomic (not reference-chosen)
     for p, a in cand:
         if p >= max(price[c] for c in chosen) if chosen else True:
             break
         assert a in chosen or a not in ref
     for r in res:
-        assert abs(r["energy_kwh"] - ref[r["start"]]) < 1e-3 and r["price"] == price[r["start"]]
+        assert abs(r["energy_kwh"] - ref[_h(r)]) < 1e-3 and r["price"] == price[_h(r)]
 
 
 @pytest.mark.parametrize("name,frames,now,soc", CASES)
@@ -164,15 +175,15 @@ def test_full_power_coverage_no_overfill_minimality(name, frames, now, soc):
         last_of_group = i + 1 == len(res) or s[i + 1] != r["end"]
         assert last_of_group or abs(r["charge_a"] - ceiling) < EPS, r
         assert r["charge_a"] <= ceiling + EPS and r["energy_kwh"] <= MAX_KWH + EPS
-    charges = {r["start"]: r["energy_kwh"] for r in res}
+    charges = {_h(r): r["energy_kwh"] for r in res}
     tl = _sim(hs, load, now, soc, charges)
     assert all(x[2] <= P["max_soc"] + 0.5 for x in tl)  # no overfill
     ref = _reference(hs, load, now, soc)
     ref_def = _deficit(_sim(hs, load, now, soc, ref))
     assert _deficit(tl) <= ref_def + 1e-3  # zero peak grid purchase wherever it is coverable
     if res:
-        worst = max(res, key=lambda r: (r["price"], r["start"]))
-        less = {a: e for a, e in charges.items() if a != worst["start"]}
+        worst = max(res, key=lambda r: (r["price"], _h(r)))
+        less = {a: e for a, e in charges.items() if a != _h(worst)}
         assert _deficit(_sim(hs, load, now, soc, less)) > _deficit(tl) + EPS  # minimality
 
 
@@ -180,7 +191,7 @@ def test_today_soc17_two_day_cheapest_daytime_hours_first_at_full_power():
     hs, load, res = _run(TODAY + TOMORROW, _at(9, 27), 17)
     day = {h[0]: h[2] for h in hs if h[0].astimezone(W).date() == _at(0).date() and h[1] > _at(9, 27)}
     afternoon_cheap = sorted(day, key=day.get)[:2]  # the two cheapest hours of the day (fixture: 13 and 14)
-    got = {r["start"]: r for r in res}
+    got = {_h(r): r for r in res}
     for a in afternoon_cheap:
         assert a in got and abs(got[a]["charge_a"] - P["ceiling_a"]) < EPS
     eve = [a for a in got if a.astimezone(W).hour >= 22]
@@ -191,8 +202,8 @@ def test_today_soc17_two_day_cheapest_daytime_hours_first_at_full_power():
 
 
 def test_soc60_charges_subset_of_soc17():
-    a = {r["start"] for r in _run(TODAY + TOMORROW, _at(9, 27), 17)[2]}
-    b = {r["start"] for r in _run(TODAY + TOMORROW, _at(9, 27), 60)[2]}
+    a = {_h(r) for r in _run(TODAY + TOMORROW, _at(9, 27), 17)[2]}
+    b = {_h(r) for r in _run(TODAY + TOMORROW, _at(9, 27), 60)[2]}
     assert b <= a and len(b) < len(a)
 
 
@@ -279,7 +290,8 @@ def test_hourly_replans_write_at_most_once_per_charge_block(frames, k, soc):
     # the first write and one for a hold floor re-projected once a charge is done. A flapping plan (a block appearing
     # and disappearing on alternate hours) or tables that only move slot boundaries exceed it.
     writes, blocks = _hourly_writes(frames, _first_at(frames), soc, _scaled(k))
-    assert writes <= blocks + 2, (writes, blocks)
+    # +1 more: the rest of a partial charge hour now holds (grid serves load) instead of draining, one extra slot
+    assert writes <= blocks + 3, (writes, blocks)
 
 
 @pytest.mark.parametrize("frames", [TODAY + TOMORROW, TWO_FR], ids=["valley_core", "two_day"])
@@ -303,7 +315,7 @@ def test_no_charge_for_a_shortfall_below_one_soc_step():
         res = pstryk_engine.plan_charge_hours(hs, now, soc, load, **P)
         tl = _sim(hs, load, now, soc, {})
         for r in res:
-            later = [x for x in tl if x[0] > r["start"]]
+            later = [x for x in tl if x[0] > _h(r)]
             # the stretch this hour serves: up to the next hour at most as cheap as it
             price = {h[0]: h[2] for h in hs}
             stop = next((x[0] for x in later if price[x[0]] <= r["price"]), None)
@@ -347,7 +359,7 @@ def test_running_hour_has_only_its_remaining_fraction():
     frac = (cheapest[1] - now) / (cheapest[1] - cheapest[0])
     load = _load_by_hour(hs)
     res = pstryk_engine.plan_charge_hours(hs, now, 12, load, **P)
-    running = [r for r in res if r["start"] == cheapest[0]]
+    running = [r for r in res if _h(r) == cheapest[0]]
     assert running, "cheapest running hour should still be used"
     assert running[0]["energy_kwh"] <= frac * MAX_KWH + EPS
     assert running[0]["charge_a"] <= P["ceiling_a"]

@@ -119,8 +119,8 @@ The Wyoming protocol enables local voice assistants with:
 | `histogram` | Energy price history | `dashboard_improved.yaml` |
 | `forecast` | Price predictions | `dashboard_improved.yaml` |
 | `picture-glance` | Camera with toggles | `dashboard_improved.yaml` |
-| `flex-table` | Heating zones overview | `dashboard_home_improved.yaml` |
-| `thermostat-hvac` | 6 heating zones | `dashboard_home_improved.yaml` |
+| `flex-table` | Heating zones overview | `dashboard_modern_reference.yaml` |
+| `thermostat-hvac` | 6 heating zones | `dashboard_modern_reference.yaml` |
 | `light-slider` | Shelly RGBW brightness | `dashboard_improved.yaml` |
 
 ### Example: Tile Card

@@ -3207,56 +3207,6 @@
                 value: "{{ trigger.to_state.state | int }}"
   mode: single
 
-- id: deye_modulate_charge_current_on_window
-  alias: "Deye: Dynamiczna Modulacja Prądu Ładowania w Oknie Magazynu (Reg 108)"
-  description: "W momencie rozpoczęcia najtańszego okna ładowania magazynu energii ustawia wyliczony limit prądu (np. 66A dla okna 3h), a po zakończeniu okna przywraca prąd bazowy 100A."
-  triggers:
-    - trigger: state
-      entity_id: binary_sensor.pstryk_in_powerbank_best_window_dol
-      to: "on"
-      id: window_start
-    - trigger: state
-      entity_id: binary_sensor.pstryk_in_powerbank_best_window_dol
-      to: "off"
-      id: window_end
-  conditions:
-    - condition: template
-      value_template: >-
-        {% set tlm = state_attr('sensor.deye_inverter_status', 'telemetry') %}
-        {{ is_state('input_boolean.deye_battery_installed', 'on') or (tlm and tlm.battery_installed) }}
-  actions:
-    - choose:
-        - conditions:
-            - condition: trigger
-              id: window_start
-          sequence:
-            - action: script.set_deye_charge_current
-              data:
-                current_a: "{{ states('sensor.deye_inverter_recommended_charge_current') | int(100) }}"
-            - action: persistent_notification.create
-              data:
-                title: "⚡ Deye: Zastosowano Modulację Prądu Ładowania"
-                message: "Rozpoczęto okno ładowania magazynu. Ustawiono limit prądu w falowniku (Reg 108) na {{ states('sensor.deye_inverter_recommended_charge_current') }} A."
-                notification_id: deye_charge_modulation_active
-        - conditions:
-            - condition: trigger
-              id: window_end
-          sequence:
-            - action: script.restore_deye_charge_current
-            - action: persistent_notification.create
-              data:
-                title: "⚡ Deye: Przywrócono Bazowy Prąd Ładowania"
-                message: "Zakończono okno ładowania magazynu. Przywrócono bazowy limit prądu w falowniku (100 A)."
-                notification_id: deye_charge_modulation_active
-  mode: restart
-
-
-
-
-
-
-
-
 - id: deye_load_history_daily_fetch
   alias: 'Deye: Daily Load History Fetch'
   description: 'Zadanie konserwacyjne poza logiką TOU: raz na dobę i przy starcie HA odświeża cache historii zużycia domu z Deye Cloud (deye_cloud_client.py --fetch-history). Silnik cen czyta wyłącznie ten cache.'

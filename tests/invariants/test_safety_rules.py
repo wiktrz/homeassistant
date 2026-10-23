@@ -133,7 +133,7 @@ def test_automations_syntax_and_no_invalid_enabled_keys():
 def test_modern_dashboards_referenced_helpers_and_templates_exist():
     """
     INVARIANT 5: All input_* helpers and template sensors referenced in modern dashboards
-    (dashboard_modern_reference.yaml and dashboard_home_improved.yaml) must be defined
+    (dashboard_modern_reference.yaml) must be defined
     in configuration.yaml or templates.yaml. Prevents 'Entity not found' Lovelace errors.
     """
     class SafeLoaderIgnore(yaml.SafeLoader):
@@ -179,7 +179,7 @@ def test_modern_dashboards_referenced_helpers_and_templates_exist():
 
     # Inspect modern dashboards
     pattern = re.compile(r'\b(input_boolean|input_number|input_select|input_datetime|input_button|input_text|sensor|binary_sensor)\.[a-z0-9_]+\b')
-    for db_name in ["dashboard_modern_reference.yaml", "dashboard_home_improved.yaml"]:
+    for db_name in ["dashboard_modern_reference.yaml"]:
         db_path = os.path.join(CONFIG_DIR, "dashboards", db_name)
         if not os.path.exists(db_path):
             db_path = os.path.join(CONFIG_DIR, db_name)
@@ -213,7 +213,6 @@ def test_no_hardcoded_battery_parameters():
         os.path.join(config_dir, "scripts.yaml"),
         os.path.join(config_dir, "automations.yaml"),
         os.path.join(config_dir, "dashboards", "dashboard_modern_reference.yaml"),
-        os.path.join(config_dir, "dashboards", "dashboard_home_improved.yaml"),
     ]
 
     forbidden_patterns = [
