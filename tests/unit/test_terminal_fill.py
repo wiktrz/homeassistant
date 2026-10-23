@@ -94,3 +94,26 @@ def test_hour_after_reaching_max_in_the_valley_is_never_charged():
     picks = _plan(hours, start, 20, load)
     assert picks
     assert all(p["start"] < hours[4][0] for p in picks), [p["start"] for p in picks]
+
+
+def _held_of(picks):
+    return {p["start"].replace(minute=0, second=0, microsecond=0): (p["start"], p["end"]) for p in picks}
+
+
+def _held_replan(soc_delta):
+    hours = _hours(LIVE_FRAMES)
+    now = _at(19, 8)
+    base = _plan(hours, now, 17, {})
+    return base, _plan(hours, now, 17 + soc_delta, {}, held=_held_of(base))
+
+
+def test_held_block_shrinks_when_soc_clearly_higher():
+    base, again = _held_replan(10)
+    mins = lambda ps: sum((p["end"] - p["start"]).total_seconds() for p in ps)
+    assert mins(again) < mins(base) - 60, "10 % more SOC must shorten the held charge, not keep it"
+    assert [p["end"] for p in again][-1] == [p["end"] for p in base][-1]  # still ends where the cheap run ends
+
+
+def test_held_block_kept_when_soc_drift_within_one_step():
+    base, again = _held_replan(2)
+    assert [(p["start"], p["end"]) for p in again] == [(p["start"], p["end"]) for p in base]

@@ -617,6 +617,20 @@ views:
               - entity: input_boolean.deye_tou_auto_sync
                 name: Automatyczne przeliczanie TOU
                 icon: mdi:robot
+              - type: conditional
+                conditions:
+                  - entity: input_boolean.deye_tou_auto_sync
+                    state: "on"
+                row:
+                  type: button
+                  name: Wymuś przeliczenie i zapis TOU teraz
+                  icon: mdi:cloud-sync
+                  action_name: Przelicz
+                  tap_action:
+                    action: perform-action
+                    perform_action: script.sync_deye_inverter_tou
+                    data:
+                      force: true
           - type: conditional
             conditions:
               - entity: input_boolean.deye_tou_auto_sync
@@ -784,9 +798,21 @@ views:
               - entity: sensor.deye_inverter_shutdown_soc
                 name: Shutdown SOC (Reg 111)
                 icon: mdi:battery-alert
+              - entity: sensor.deye_inverter_max_charge_current
+                name: Max Prąd Ładowania (Reg 108)
+                icon: mdi:current-dc
+              - entity: sensor.deye_inverter_recommended_charge_current
+                name: Planowany Prąd Ładowania
+                icon: mdi:battery-charging
               - entity: sensor.deye_inverter_max_discharge_current
                 name: Max Prąd Rozładowania (Reg 109)
                 icon: mdi:current-dc
+              - entity: sensor.powerbank_total_capacity_kwh
+                name: Pojemność Magazynu (Reg 102)
+                icon: mdi:battery-high
+              - entity: sensor.powerbank_voltage_v
+                name: Napięcie Nominalne
+                icon: mdi:sine-wave
       - type: grid
         cards:
           - type: heading
@@ -974,6 +1000,18 @@ views:
               - entity: sensor.deye_battery_current
                 name: Prąd Magazynu (Reg 591)
                 icon: mdi:flash
+              - entity: sensor.deye_battery_power
+                name: Moc Magazynu (ładowanie / rozładowanie)
+                icon: mdi:battery-charging-medium
+              - entity: sensor.deye_grid_power
+                name: Pobór z Sieci
+                icon: mdi:transmission-tower
+              - entity: sensor.deye_consumption_power
+                name: Zużycie Domu
+                icon: mdi:home-lightning-bolt
+              - entity: sensor.deye_daily_consumption
+                name: Zużycie Dziś
+                icon: mdi:counter
           - type: entities
             title: Kalibracja BMS 100% (LiFePO4)
             show_header_toggle: false

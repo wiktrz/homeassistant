@@ -1786,14 +1786,18 @@ def plan_charge_hours(
                 charges[i] = charges.get(i, 0.0) + e
                 tl = walk(charges)
     step = timedelta(minutes=max(1, int(energy_defaults.TOU_SLOT_MINUTE_STEP)))
+    # hysteresis band: time to store one TOU_FLOOR_SOC_STEP at the ceiling, snapped up to the step grid
+    band = step * math.ceil(step_kwh / max_kwh * 3600.0 / step.total_seconds())
     out = []
     for i, e in sorted(charges.items()):
         a, b = cand[i][0], cand[i][1]
         span = step * math.ceil((e - _KWH_EPS) / max_kwh * 3600.0 / step.total_seconds())
         hb = held.get(a) if isinstance(held, dict) else None
-        if hb is not None and span <= hb[1] - max(hb[0], now_dt) + step:
-            # the block already on the inverter still stores enough, within one TOU_SLOT_MINUTE_STEP of the need
-            # (need drift between re-syncs): same table (flash wear)
+        held_len = hb[1] - max(hb[0], now_dt) if hb is not None else None
+        if hb is not None and held_len - band <= span <= held_len + step:
+            # two-sided hysteresis: the block on the inverter is kept while the need is within one SOC step of
+            # storage below it (band) or one TOU_SLOT_MINUTE_STEP above it (need drift between re-syncs): same
+            # table (flash wear); a clearly higher SOC (need down by more than the band) shrinks the block
             # ponytail: span <= held + step accepts up to one step of under-charge (<= step/60 * max_kwh); the next
             # re-sync grows the block only once the need exceeds that, tighten by dropping "+ step" if it matters
             a, b = hb
