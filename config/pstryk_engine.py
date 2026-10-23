@@ -1691,6 +1691,7 @@ def plan_charge_hours(
     loss_pct: float,
     held: Optional[Dict[datetime, Tuple[datetime, datetime]]] = None,
     estimated_from: Optional[datetime] = None,
+    terminal_fill: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     Greedy cheapest-hour grid charging (data only: prices, forecast load, SOC, battery parameters).
@@ -1706,6 +1707,10 @@ def plan_charge_hours(
         shortfall; an hour already chosen grows); a new hour that would store,
         or serve (shortfall from k up to the next hour at most as cheap), less than one TOU_FLOOR_SOC_STEP of capacity
         is not planned; no such candidate -> the shortfall stays grid-bought. Stops when no coverable shortfall is left.
+      - terminal fill (after the shortfalls, which keep priority): prices after the last published hour are unknown,
+        so one more demand "Max SOC at the horizon end" takes the cheapest published candidates whose
+        price * (1 + loss%) <= the mean price of their own Warsaw day (analyse_day_price_profile), each up to its
+        ceiling energy and the room to Max SOC from that hour on (same one-SOC-step minimum for a new hour).
       - held: {hour start: (start, end) of the grid-charge block the inverter already runs in that hour}; they stay
         while they store and serve any shortfall at all, and a partial hour keeps that block while it is long enough (Schmitt-trigger hysteresis: a charge hour is added at one SOC step, dropped only at zero),
         so SOC rounding noise around the step cannot flip the table hourly (flash wear).
@@ -1762,6 +1767,20 @@ def plan_charge_hours(
                 break
         else:
             skipped.add(k)
+    if terminal_fill:
+        by_day: Dict[Any, List[Dict[str, Any]]] = {}
+        for h in hours:
+            if estimated_from is None or h[0] < estimated_from:
+                by_day.setdefault(h[0].astimezone(WARSAW_TZ).date(), []).append(h[3])
+        day_mean = {d: analyse_day_price_profile(fs)["mean"] for d, fs in by_day.items()}
+        tl = walk(charges)
+        for _, i in sorted((cand[i][2], i) for i in range(len(cand)) if published[i]
+                           and cand[i][2] * (1.0 + float(loss_pct) / 100.0)
+                           <= day_mean.get(cand[i][0].astimezone(WARSAW_TZ).date(), 0.0)):
+            e = min(max_kwh * frac[i] - charges.get(i, 0.0), (float(max_soc) - max(x[0] for x in tl[i:])) / 100.0 * cap)
+            if e >= (eps if i in charges or (held and cand[i][0] in held) else step_kwh - eps):
+                charges[i] = charges.get(i, 0.0) + e
+                tl = walk(charges)
     step = timedelta(minutes=max(1, int(energy_defaults.TOU_SLOT_MINUTE_STEP)))
     out = []
     for i, e in sorted(charges.items()):
@@ -1807,6 +1826,7 @@ def plan_rolling_tou(
     # ponytail: off - the daily table is a clock circle, so charges justified only by estimated hours get merged
     # with today's pattern on the circle (clock-circle merge) and cost writes without a known price; True to re-test
     estimate_beyond_horizon: bool = False,
+    terminal_fill: bool = True,
 ) -> Optional[Dict[str, Any]]:
     """
     One rolling TOU plan from now_dt to the end of the published prices (no today/tomorrow split).
@@ -1918,7 +1938,7 @@ def plan_rolling_tou(
                                       {h[0]: rates.get(hour_key(h[0]), 0.0) for h in all_hours},
                                       min_soc=min_soc, max_soc=top, capacity_kwh=cap, voltage=voltage,
                                       ceiling_a=ceiling, loss_pct=loss_pct, held=held,
-                                      estimated_from=horizon_end if est else None)
+                                      estimated_from=horizon_end if est else None, terminal_fill=terminal_fill)
         floor_a = float(energy_defaults.BATTERY_CHARGE_CURRENT_MIN_FLOOR_A)
         charge_windows = [{"start": p["start"], "end": p["end"],
                            "charge_kw": p["energy_kwh"] / ((p["end"] - p["start"]).total_seconds() / 3600.0),
@@ -2022,7 +2042,9 @@ def plan_rolling_tou(
     slots = _tou_table_slots(segs, min_soc=min_soc, voltage=eff_volts, discharge_a=eff_dis, base_power_w=base_w,
                              calibration_active=calibration_active)
     timeline = [{
-        "start": _iso_z(e["start"]), "end": _iso_z(e["end"]), "role": e["role"], "target_soc": e["target_soc"],
+        # a charge entry shows where the block really ends (the table keeps the Max SOC target)
+        "start": _iso_z(e["start"]), "end": _iso_z(e["end"]), "role": e["role"],
+        "target_soc": round(round(e["soc_end"], 1)) if e["grid_charge"] else e["target_soc"],
         "soc_start": round(e["soc_start"], 1), "soc_end": round(e["soc_end"], 1), "charge_a": e["charge_a"],
         "price": e["price"], "estimated": e["estimated"],
     } for e in entries]

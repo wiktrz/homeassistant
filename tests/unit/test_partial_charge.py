@@ -129,7 +129,7 @@ def _frames(hs):
 def test_rest_of_partial_charge_hour_holds_so_peak_shortfall_is_covered():
     hs = _hours([0.30, 1.00, 1.00])
     prof = {k: [3.0] * 24 for k in ("weekday", "weekend")}
-    plan = pstryk_engine.plan_rolling_tou(_frames(hs), T0, 30, prof, **P)
+    plan = pstryk_engine.plan_rolling_tou(_frames(hs), T0, 30, prof, terminal_fill=False, **P)
     tl = plan["plan_timeline"]
     ch = [e for e in tl if e["role"] == "charge"]
     assert len(ch) == 1 and pstryk_engine._iso_dt(ch[0]["end"]) - pstryk_engine._iso_dt(ch[0]["start"]) < HOUR

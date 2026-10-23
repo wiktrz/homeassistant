@@ -93,7 +93,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-23T19:00:13.285810'
+  last_verified: '2026-10-23T19:23:14.126445'
 - id: test_radio_volume_up_execution
   area: multimedia
   file: scenarios/multimedia/test_radio_volume_up.yaml
@@ -161,7 +161,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-23T19:00:17.880657'
+  last_verified: '2026-10-23T19:23:15.680186'
 - id: test_solar_engine_unit_suite
   area: solar
   file: unit/test_solar_engine.py
@@ -260,7 +260,7 @@ tests:
   - sync
   - regression
   status: active
-  last_verified: '2026-10-23T19:00:20.415803'
+  last_verified: '2026-10-23T19:23:18.217934'
 - id: test_deye_load_history_fetch
   area: deye
   file: scenarios/deye/test_deye_load_history_fetch.yaml
@@ -273,7 +273,7 @@ tests:
   - stub
   - regression
   status: active
-  last_verified: '2026-10-23T19:00:24.958891'
+  last_verified: '2026-10-23T19:23:22.748139'
 - id: test_deye_tou_sync_success
   area: deye
   file: scenarios/deye/test_deye_tou_sync_success.yaml
@@ -286,7 +286,7 @@ tests:
   - stub
   - regression
   status: active
-  last_verified: '2026-10-23T19:00:29.491053'
+  last_verified: '2026-10-23T19:23:27.288522'
 - id: test_deye_tou_sync_failure
   area: deye
   file: scenarios/deye/test_deye_tou_sync_failure.yaml
@@ -299,7 +299,7 @@ tests:
   - stub
   - regression
   status: active
-  last_verified: '2026-10-23T19:00:34.033589'
+  last_verified: '2026-10-23T19:23:31.822738'
 - id: test_single_env_location_invariant
   area: pstryk
   file: invariants/test_single_env_location.py
@@ -323,7 +323,7 @@ tests:
   - stub
   - regression
   status: active
-  last_verified: '2026-10-23T19:00:38.559736'
+  last_verified: '2026-10-23T19:23:36.357123'
 - id: test_deye_tou_auto_sync_on_triggers_sync
   area: deye
   file: scenarios/deye/test_deye_tou_auto_sync_on_triggers_sync.yaml
@@ -337,7 +337,7 @@ tests:
   - stub
   - regression
   status: active
-  last_verified: '2026-10-23T19:00:44.094002'
+  last_verified: '2026-10-23T19:23:41.895375'
 - id: test_deye_manual_tou_blocked_when_auto_on
   area: deye
   file: scenarios/deye/test_deye_manual_tou_blocked_when_auto_on.yaml
@@ -350,7 +350,7 @@ tests:
   - stub
   - regression
   status: active
-  last_verified: '2026-10-23T19:00:47.635482'
+  last_verified: '2026-10-23T19:23:45.427366'
 - id: test_deye_manual_tou_runs_when_auto_off
   area: deye
   file: scenarios/deye/test_deye_manual_tou_runs_when_auto_off.yaml
@@ -363,4 +363,4 @@ tests:
   - stub
   - regression
   status: active
-  last_verified: '2026-10-23T19:00:52.162571'
+  last_verified: '2026-10-23T19:23:49.960082'

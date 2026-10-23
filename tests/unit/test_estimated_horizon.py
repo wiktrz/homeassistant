@@ -54,7 +54,7 @@ DAY = timedelta(hours=24)
 
 
 def _plan(est):
-    return pstryk_engine.plan_rolling_tou(FRAMES, NOW, SOC, PROFILE, estimate_beyond_horizon=est, **P)
+    return pstryk_engine.plan_rolling_tou(FRAMES, NOW, SOC, PROFILE, estimate_beyond_horizon=est, terminal_fill=False, **P)
 
 
 def _dt(s):

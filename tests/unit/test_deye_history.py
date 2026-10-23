@@ -268,8 +268,8 @@ def all_frames():
     return d["pricing_frames_today"] + d["pricing_frames_tomorrow"]
 
 
-def plan(now, soc, profile, frames=None):
-    return pe.plan_rolling_tou(frames or all_frames(), now, soc, profile, min_soc=20, max_soc=90,
+def plan(now, soc, profile, frames=None, **kw):
+    return pe.plan_rolling_tou(frames or all_frames(), now, soc, profile, min_soc=20, max_soc=90, **kw,
                                capacity_kwh=CAP, voltage=VOLT, ceiling_a=100.0, loss_pct=LOSS)
 
 
@@ -359,7 +359,7 @@ def test_user_scenario_greedy_night_charge_at_2300(k, soc):
 
 
 def test_higher_soc_never_needs_more_charge_hours():
-    hours = lambda soc: {e["start"] for e in _charges(plan(NOW, soc, prof(2))["plan_timeline"])}
+    hours = lambda soc: {e["start"] for e in _charges(plan(NOW, soc, prof(2), terminal_fill=False)["plan_timeline"])}
     assert hours(90) <= hours(60) <= hours(30)
 
 

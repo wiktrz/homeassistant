@@ -2815,11 +2815,11 @@ def test_greedy_first_night_charge_is_tonights_cheapest_hour_at_full_power():
     # 22:00, SOC 20 = Min: 22:00 (0.95) has no earlier cheaper hour; 23:00 (0.80) is the cheapest hour before the
     # first coverable shortfall -> the first grid charge, a full hour at the Reg 108 ceiling
     a, b, e = _charge_hours(_greedy(_at(TOPUP_DAY, 22), soc=20))[0]
-    assert a == _at(TOPUP_DAY, 23) and b == _at(TOPUP_NEXT, 0) and e["charge_a"] == 100 and e["target_soc"] == 90
+    assert a == _at(TOPUP_DAY, 23) and b == _at(TOPUP_NEXT, 0) and e["charge_a"] == 100 and e["target_soc"] == round(e["soc_end"])
 
 
 def test_higher_soc_and_lower_load_need_fewer_charge_hours():
-    hrs = lambda soc, load: {a.replace(minute=0) for a, _, _ in _charge_hours(_greedy(_at(TOPUP_DAY, 22), soc=soc,
+    hrs = lambda soc, load: {a.replace(minute=0) for a, _, _ in _charge_hours(_greedy(_at(TOPUP_DAY, 22), soc=soc, terminal_fill=False,
                                                                                          load=load))}
     assert hrs(90, 0.4) < hrs(20, 0.4)
     assert hrs(90, 0.4) <= hrs(20, 1.0)
@@ -2834,12 +2834,12 @@ def test_greedy_charge_never_starts_in_the_past():
 def test_greedy_charge_is_capped_by_max_soc():
     tl = _greedy(_at(TOPUP_DAY, 22), soc=20, load=5.0)["plan_timeline"]
     assert all(e["soc_end"] <= 90 + 1e-6 for e in tl)
-    assert all(e["target_soc"] == 90 for e in tl if e["role"] == "charge")
+    assert all(e["target_soc"] == round(e["soc_end"]) for e in tl if e["role"] == "charge")
 
 
 def test_rolling_table_carries_tonights_charge_with_ceiling_current_and_six_slots():
     # published prices only: an estimated next day may add evening charges that the daily table merges with 23:00
-    slots = _greedy(_at(TOPUP_DAY, 22), soc=20, estimate_beyond_horizon=False)["deye_tou_schedule"]
+    slots = _greedy(_at(TOPUP_DAY, 22), soc=20, estimate_beyond_horizon=False, terminal_fill=False)["deye_tou_schedule"]
     assert_valid_schedule(slots)
     night = next(s for s in slots if s["grid_charge"] and s["time"] == "23:00")
     assert night["target_soc"] == 90 and night["topup"] is False
@@ -2884,7 +2884,7 @@ def test_explicit_charge_windows_get_no_extra_grid_charge():
 
 
 def test_running_charge_hour_keeps_its_hour_start_in_the_table():
-    plan = _greedy(_at(TOPUP_DAY, 23, 2), soc=20)
+    plan = _greedy(_at(TOPUP_DAY, 23, 2), soc=20, terminal_fill=False)
     a, _, _ = _charge_hours(plan)[0]
     assert a == _at(TOPUP_DAY, 23, 2)  # the timeline charges from now ...
     assert "23:00" in [s["time"] for s in plan["deye_tou_schedule"] if s["grid_charge"]]  # ... the slot keeps 23:00
@@ -3105,7 +3105,7 @@ def test_greedy_first_charge_lands_at_today_2300(load):
     plan = _rolling(_dt_at(D22, 22), 30, _flat(load))
     ch = [e for e in plan["plan_timeline"] if e["role"] == "charge"]
     assert ch and pstryk_engine._iso_dt(ch[0]["start"]).replace(minute=0) == _dt_at(D22, 23), ch  # need-sized block
-    assert ch[0]["charge_a"] == 100 and ch[0]["target_soc"] == 90
+    assert ch[0]["charge_a"] == 100 and ch[0]["target_soc"] == round(ch[0]["soc_end"])
 
 
 # ---- energy balance: hourly rolling re-syncs simulated through the written tables ----
@@ -3180,12 +3180,12 @@ def test_full_resync_flow_charges_only_in_the_first_plans_charge_hours(now, soc0
 
 @pytest.mark.parametrize("load", [0.5, 1.0])
 def test_tonights_charge_only_with_tomorrows_prices(load):
-    sl = _rolling(_dt_at(D22, 22, 1), 60, _flat(load))["deye_tou_schedule"]
+    sl = _rolling(_dt_at(D22, 22, 1), 60, _flat(load), terminal_fill=False)["deye_tou_schedule"]
     # tonight's cheapest hour serves tomorrow (a need-sized block within 23:00-24:00)
     assert next(s for s in sl if s["time"].startswith("23:"))["grid_charge"]
     # tomorrow unknown, published prices only -> no worth-covering hour left in the known prices: no grid charge
     today_only = load_fixture(TWO_DAY_FIXTURE)["pricing_frames_today"]
-    assert not [s for s in _rolling(_dt_at(D22, 22, 1), 60, _flat(load), frames=today_only,
+    assert not [s for s in _rolling(_dt_at(D22, 22, 1), 60, _flat(load), frames=today_only, terminal_fill=False,
                                     estimate_beyond_horizon=False)["deye_tou_schedule"] if s["grid_charge"]]
 
 
@@ -3241,8 +3241,8 @@ def test_computed_floors_snap_down_to_step_and_load_to_step():
 
 
 def test_running_night_charge_keeps_its_slot():
-    t0 = _rolling(_dt_at(D22, 22), 30, _flat(0.5))["deye_tou_schedule"]
-    t1 = _rolling(_dt_at(D22, 23, 10), 33, _flat(0.5))["deye_tou_schedule"]
+    t0 = _rolling(_dt_at(D22, 22), 30, _flat(0.5), terminal_fill=False)["deye_tou_schedule"]
+    t1 = _rolling(_dt_at(D22, 23, 10), 33, _flat(0.5), terminal_fill=False)["deye_tou_schedule"]
     pick = lambda sl: [(s["time"], s["target_soc"], s["charge_current_a"]) for s in sl if s["grid_charge"] and s["time"] == "23:00"]
     assert pick(t0) == pick(t1) == [("23:00", 90, 100)], (t0, t1)
 
@@ -3342,7 +3342,7 @@ def test_hold_only_in_hours_not_worth_covering_and_never_above_the_projected_soc
 
 
 def test_main_charge_sized_from_projected_soc_at_its_start():
-    plan = _rolling(_dt_at(D23, 0), 76.0, _real(8))
+    plan = _rolling(_dt_at(D23, 0), 76.0, _real(8), terminal_fill=False)
     ch = [e for e in plan["plan_timeline"] if e["role"] == "charge"
           and pstryk_engine._iso_dt(e["start"]).astimezone(WARSAW).date() == D23]
     assert ch and ch[-1]["soc_end"] >= 90 - 1, ch

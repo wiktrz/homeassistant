@@ -98,6 +98,8 @@ def build_prompt(ctx: Dict[str, Any]) -> List[Dict[str, str]]:
         "then holds), grid_charge (boolean; true charges from the grid up to target_soc), charge_current_a "
         f"(0..{b['charge_current_ceiling_a']}). Charge in the cheapest hours first, sized to the energy need "
         f"(round-trip loss {b['loss_pct']} %), discharge in the dearest hours; peaks are identified per price day. "
+        "Prices after the last hour in hours are unknown: end that horizon as full as possible (up to max_soc), but "
+        f"fill only in hours whose price * (1 + {b['loss_pct']} / 100) is at most the mean price of their own day. "
         "Battery health: few and short charge blocks, avoid sitting at max SOC, skip cycles that do not pay back "
         f"the loss. Prefer SOC targets on {t['soc_step']} % steps. algorithm_reference is a baseline to beat. "
         'Answer with JSON only: {"slots": [{"time": "HH:MM", "target_soc": int, "grid_charge": bool, '

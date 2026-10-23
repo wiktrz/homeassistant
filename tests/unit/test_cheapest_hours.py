@@ -63,7 +63,8 @@ def _load_by_hour(hours, profile=PROFILE):
 
 def _run(frames, now, soc, profile=PROFILE):
     hs = _hours(frames)
-    return hs, _load_by_hour(hs, profile), pstryk_engine.plan_charge_hours(hs, now, soc, _load_by_hour(hs, profile), **P)
+    return hs, _load_by_hour(hs, profile), pstryk_engine.plan_charge_hours(hs, now, soc, _load_by_hour(hs, profile),
+                                                                             terminal_fill=False, **P)
 
 
 def _h(r):
@@ -130,8 +131,10 @@ def _reference(hs, load, now, soc):
 
 
 def _plan(frames, now, soc, profile=PROFILE):
-    # published-only plan: these expectations compare with plan_charge_hours over the published hours
-    return pstryk_engine.plan_rolling_tou(frames, now, soc, profile, estimate_beyond_horizon=False, **P)
+    # published-only plan: these expectations compare with the shortfall pass of plan_charge_hours (terminal fill off,
+    # it is covered by test_terminal_fill.py)
+    return pstryk_engine.plan_rolling_tou(frames, now, soc, profile, estimate_beyond_horizon=False,
+                                          terminal_fill=False, **P)
 
 
 def _grid_hours(plan):
@@ -221,7 +224,7 @@ def test_plan_rolling_tou_grid_charge_comes_from_plan_charge_hours(name, frames,
     for e in plan["plan_timeline"]:  # the planned SOC never leaves [Min SOC, Max SOC] once inside it
         assert P["min_soc"] - 0.5 <= e["soc_end"] <= P["max_soc"] + 0.5 or e["soc_end"] >= e["soc_start"], e
         if e["role"] in ("charge", "topup"):
-            assert e["target_soc"] == P["max_soc"] and e["soc_end"] >= e["soc_start"], e
+            assert e["target_soc"] == round(e["soc_end"]) and e["soc_end"] >= e["soc_start"], e
 
 
 @pytest.mark.parametrize("k", [1, 2, 3])
@@ -312,7 +315,7 @@ def test_no_charge_for_a_shortfall_below_one_soc_step():
     load = _load_by_hour(hs)
     now = _first_at(TWO_FR) + 23 * HOUR
     for soc in range(P["min_soc"], P["max_soc"] + 1):
-        res = pstryk_engine.plan_charge_hours(hs, now, soc, load, **P)
+        res = pstryk_engine.plan_charge_hours(hs, now, soc, load, terminal_fill=False, **P)
         tl = _sim(hs, load, now, soc, {})
         for r in res:
             later = [x for x in tl if x[0] > _h(r)]
