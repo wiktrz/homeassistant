@@ -24,9 +24,7 @@ Hardware parameters of the battery storage system must **NEVER** be hardcoded an
 ### 1.2 Hardware Register Safety & Control Policy
 - **Dynamic Register 108 Modulation:** Modbus Holding Register `108` (`REG_MAX_CHARGE_CURRENT`) is written by `pstryk_engine.py` (`check_and_apply_charge_current_modulation`). The base is always the 100A ceiling (hard cap `min(100, env)`), never the live register value:
   * Inside a charge window: $I_{\text{target}} = \operatorname{clamp}(\operatorname{round}(I_{\text{base}} \times N / T), I_{\text{floor}}, I_{\text{base}})$, where $N$ is the charge-window length in hours and $T$ the window length.
-  * Outside all windows: 100A baseline.
-  * After today's last window: the next cycle's target when known, otherwise 100A.
-  * Before today's first window: its target is pre-set.
+  * Outside every charge/top-up slot: the 100A ceiling (Rule 12, no pre-set). A reduced-current main charge may therefore run up to one sync interval at the ceiling before the sync inside it modulates Reg 108.
   * `--restore-charge-current` restores 100A. Writes are idempotent (only when the value differs), minimizing EEPROM cycles.
 - **Registers 109 and 112 Never Written:** Reg `109` (Max Discharge Current, 140A) and Reg `112` (Max Charge SOC; the HA slider `input_number.deye_battery_max_charge_soc` is the source of truth) are never written by software.
 - **Registers 110 and 111 Confirm-Only:** Reg `110` (Min Discharge SOC) and Reg `111` (Shutdown SOC) are written only via the 2-step Confirm button (`script.confirm_and_apply_deye_battery_settings`).
@@ -93,37 +91,56 @@ To protect the Deye Wi-Fi logger and SD card / flash storage, all Deye reads imp
 
 ## 4. Dynamic Time-of-Use (TOU) Dispatch Algorithm
 
-### 4.1 Role-Based TOU Slots
-`generate_deye_tou_schedule()` always emits exactly 6 slots with strictly increasing, minute-based start times in [00:00, 24:00). Each slot has a role: `charge` (grid-charge window, Max SOC, `grid_charge = True`), `peak` (discharge boundary: sell window, morning/evening peak, Min SOC), `reserve` (branch-defined reserve) or `other`. Labels are display-only. The window placement (night, midday, evening/late charge; morning/evening sell) selects the branch; breakpoints are then finalized into 6 slots (missing slots split the longest gap, surplus reserve/other slots with the shortest span are merged).
+### 4.1 Rolling TOU Plan (`plan_rolling_tou`)
+There is no separate today/tomorrow schedule. `plan_rolling_tou()` builds **one rolling plan** from *now* to the last published price hour (up to ~48 h) and returns one merged `plan_timeline`: entries `{start, end, role, target_soc, soc_start, soc_end, charge_a, price}` with roles `charge`, `topup`, `peak`, `hold` or `drain`. The timeline is what the dashboard shows ("Plan Baterii") and what Reg 108 follows.
 
-**Stretch rule** for `reserve`/`other` slots, based on the nearest charge/peak before and after:
+**Hardware constraint:** the Deye TOU table is 6 clock-keyed slots that repeat every day. The inverter therefore receives `deye_tou_schedule` = the 24 h starting from the behaviour running now. The hourly re-sync rewrites that table only when it changes (`are_tou_slots_identical`). Beyond the last published price the table repeats today's pattern.
+
+**Planning rules:**
+- **Peaks per price day:** `analyse_day_price_profile` runs on each Europe/Warsaw day's own prices, so each day's peak is judged against that day's mean gross retail price (Rule 12: `price_gross`, never prosumer price).
+- **Main charge per price day:** `find_powerbank_best_window` on that day's frames. Each main charge still ahead (today or a later price day) is sized from the SOC projected at its start: one projection pass, then `find_powerbank_best_window` again with that SOC (twice, like the top-up refine). A running main charge keeps its start (the earliest valley hour from which a plan at the SOC back-projected at the ceiling starts it); its end comes from the current-SOC window and its current from the remaining energy over the remaining hours. `charge_windows` may override them.
+- **Stretch rule** for `hold`/`drain` (see below) between a charge and the next peak, or between peaks.
+- **One SOC projection** (`project_soc_timeline`, Deye floor semantics) over the whole horizon. Floors come from `_assign_cell_floors`; minimal top-ups from `_place_rolling_topups`. Neither runs during BMS calibration.
+
+**Stretch rule** for `hold`/`drain` slots, based on the nearest charge/peak before and after:
 - between a charge and the next peak: hold Max SOC;
 - between a peak and the next charge: Min SOC;
-- between two peaks: an earlier peak keeps energy (data-driven reserve) only if a later known peak costs more than it × (1+loss%); the reserve is min SOC + later-peak hours × measured load / capacity, capped at max SOC; no load estimate means no reserve; it never wraps to the same day's morning.
-- "Previous" does not wrap past 00:00; "next" may wrap to today's first events.
+- between two peaks: an earlier peak keeps energy (data-driven reserve) only if a later known peak costs more than it × (1+loss%); the reserve is min SOC + later-peak hours × forecast load / capacity, capped at max SOC; no load history means no reserve.
+- "Previous" does not wrap past 00:00; the plan never wraps to the same day's morning.
 
 **Dynamic Peak & Charging Placement (Zero Hardcoded Boundaries, Strictly No-PV):**
-The installation is strictly a No-PV battery storage system. There are no fixed clock boundaries (`06:00`, `10:00`, `12:00`, `17:00`) or "PV refill" heuristics. All slot start times and durations adapt dynamically to market prices:
+The installation is strictly a No-PV battery storage system. There are no fixed clock boundaries (`06:00`, `10:00`, `12:00`, `17:00`) or "PV refill" heuristics. All slot start times and durations adapt to market prices:
 - **Discharge Peak Ranking:** Driven strictly by gross retail buy price (`price_gross`), NOT prosumer sell price (`price_prosumer_gross`), because zero-export self-consumption (`enableSell: false`) is enforced.
-- **Peak Structure:** Peaks are the hours at or above the Warsaw day-mean gross price (`analyse_day_price_profile`); the reserve before a later, more expensive peak is data-driven (see the stretch rule above).
-- **Shared SOC Projection (`project_soc_timeline`):** one hour-by-hour projection of usable energy (above Min SOC) from *now* across today and tomorrow feeds both the peak top-up planner (`plan_peak_topups`) and the slot floors. Planned charge windows refill at the Reg 108 ceiling power, non-peak hours hold, and each peak drains the household load. In a non-charge slot the target SOC is a discharge floor (Deye semantics). Load = Deye `daily_consumption` / real hours since Warsaw midnight (UTC, DST-correct); the first hour uses instantaneous `consumption_power`. Source: live telemetry, else the Deye cache while younger than `LOAD_ESTIMATE_MAX_AGE_S` (`.env`, default 3600 s; other Deye readings keep the 30 s TTL) and written on today's Warsaw date; clamped to [0, rated discharge power]. No measured load means no top-ups and no reserve.
-- **Valley Floors:** a valley drains to max(min SOC, the next peak's own floor) + ceil(next-peak hours × load / capacity × 100), capped at max SOC; if the projected SOC is below that, the valley does not drain at all (floor = projected SOC). It drains to min SOC when the next event is a charge or no peak follows (a valley before tomorrow's first peak, when known, is labelled `Rezerwa na Jutrzejszy Szczyt`); a hold right after a top-up keeps exactly the top-up energy. `plan_peak_topups.segments()` uses the same rule, including the peak reserve floors.
-- **Flash-Wear Hysteresis:** computed non-charge floors snap to `TOU_FLOOR_SOC_STEP` (`.env`, default 5 %): projected-SOC holds round down, energy needs (reserves, drain-to-need) round up; Min/Max SOC and charge targets are exact. The load estimate snaps to `LOAD_ESTIMATE_STEP_KW` (`.env`, default 0.1 kW) before planning. A running top-up keeps its hour-boundary start. `are_tou_slots_identical` treats |Δ target SOC| ≤ `TOU_FLOOR_SOC_STEP` on non-charge slots as identical (like the ±`TOU_POWER_DIFF_TOLERANCE_W` power tolerance), so hourly re-syncs with SOC drift and load jitter do not rewrite the inverter. The sync records its resolved load in the Pstryk cache (`tou_load`: `load_kw`, `at`); `fetch_consolidated_data` re-plans the dashboard table with it while younger than `LOAD_ESTIMATE_MAX_AGE_S` (same Warsaw day), so the sensor shows the table actually written. During BMS calibration no top-ups are added.
-- **Next-Day Lookahead:** when tomorrow's prices are published (`next_day_outlook`, `next_day=` argument), today's evening valley and the top-up planner look into tomorrow's first peak, so the top-up lands in the cheapest hour before midnight if cheaper (e.g. 22.10 23:00 at 1.02 zł).
-- **Peak Top-Up (`plan_peak_topups`):** an uncovered peak gets one minimal grid top-up in the cheapest contiguous non-charge hours before it, sized to the deficit, only if avg top-up gross × (1 + loss %) < avg gross price of that peak. Target SOC = the peak's own floor + needed energy, capped at max SOC; Reg 108 at the ceiling. Start (ceil) and duration (round up) snap to `TOU_SLOT_MINUTE_STEP`; top-ups last at least 3 × `TOU_SLOT_MINUTE_STEP`. Top-up slots carry `topup: True` (ignored by Solarman/cloud writes and `are_tou_slots_identical`; the charge-current badge uses the main charge). Top-ups may cross midnight with the full target on both halves.
-- **Charging Window:** One grid-charge window per day, with no weekday/weekend rules. N = max(`CHARGE_WINDOW_MIN_HOURS` (.env, default 2), ceil(energy need / (ceiling A × V / 1000))), energy need = (max_soc − SOC)/100 × capacity × (1 + loss%). It is the cheapest contiguous N-hour block inside a price valley; it stretches by one adjacent hour only if that hour is in the same valley, priced at or below the valley mean, and the resulting current stays ≥ `BATTERY_CHARGE_CURRENT_MIN_FLOOR_A` (.env, 20 A).
+- **Charging Window:** N = max(`CHARGE_WINDOW_MIN_HOURS`, ceil(energy need / (ceiling A × V / 1000))), energy need = (max_soc − SOC)/100 × capacity × (1 + loss%). It is the cheapest contiguous N-hour block inside a price valley; it stretches by one adjacent hour only if that hour is in the same valley, priced at or below the valley mean, and the resulting current stays ≥ `BATTERY_CHARGE_CURRENT_MIN_FLOOR_A` (.env, 20 A).
 
-Example output for one price day (not a rule), generated by `generate_deye_tou_schedule` from `tests/fixtures/pstryk/two_day_2026_10_22_23.json` (22.10 frames + its charge window), 16.13 kWh / 51.2 V pack, min 20 / max 90 %, SOC 20 at 00:00 (`G` = grid charge):
+**Load forecast (real usage history):**
+- `deye_cloud_client.fetch_consumption_history()` is read-only: `POST /v1.0/station/list`, then `POST /v1.0/station/history` (granularity 1, 5-minute frames, `startAt`/`endAt`, with a `startDate`/`endDate` fallback). It covers the last `LOAD_HISTORY_DAYS` (.env, default 14) full Warsaw days ending yesterday.
+- Cache: `/config/.deye_load_history.json` (override `DEYE_LOAD_HISTORY_FILE`). It is rewritten only when its content changes (flash wear) and refreshed at most once per Warsaw day.
+- `build_load_profile()` → weekday and weekend 24-hour profiles in kWh/h (mean W / 1000 per Warsaw local hour, DST-correct; an hour without samples takes the overall mean).
+- `load_forecast()` gives the per-hour forecast over the plan; the running hour is blended with the live load (snapped to `LOAD_ESTIMATE_STEP_KW`, .env, default 0.1 kW).
+- CLI: `deye_cloud_client.py --fetch-history` (read-only) prints the profile.
+- History is fetched ONLY by its own daily job (automation `deye_load_history_daily_fetch` at 04:10 and at HA start -> `shell_command.fetch_deye_load_history` -> `deye_cloud_client.py --fetch-history`); the engine (`load_household_profile`, `rolling_plan_fields`, `fetch_consolidated_data`) reads ONLY the cache file `/config/.deye_load_history.json` and never calls Deye Cloud. Negative cache: a failed fetch writes `{last_attempt, failed: true}` (old frames kept) and retries happen at most every `DEYE_HISTORY_RETRY_HOURS`; the working request variant (`startAt/endAt` vs `startDate/endDate`) is remembered in the cache; days are fetched newest first and the walk stops at the first day failing both variants; `fetched_date` is always stored so same-day reuse works. Status in `input_text.deye_load_history_status` (ok/error). New env vars (`.env.example` only): `DEYE_HISTORY_RETRY_HOURS`, `TOPUP_MIN_STEPS`, `TOPUP_MIN_DEFICIT_SOC`. Stale-sync alert: automation `deye_tou_stale_sync_alert` raises a persistent_notification when `input_datetime.deye_tou_last_synced_date` is older than `input_number.deye_tou_stale_sync_hours` (0 = off; set 36 in the UI, no `initial:`); expected behaviour: when sync stops, the inverter replays the last TOU table daily.
+- **No history → no top-ups and no reserves**; a valley before a peak then holds Max SOC by design (battery idle, house on grid).
 
-| Example | Schedule |
-|:---|:---|
-| no load estimate | `02:00 G 90 % 100 A · 05:00 hold 90 · 06:00 peak 20 · 13:00 hold 90 · 15:00 peak 20 · 22:00 standby 20` |
-| load 0.5 kW | `02:00 G 90 % 100 A · 05:00 drain to 70 · 06:00 peak to reserve 45 · 13:00 hold 45 · 15:00 peak 20 · 22:00 standby 20` |
-| load 1.0 kW | `02:00 G 90 % 100 A · 05:00 hold 90 · 06:00 peak to reserve 65 · 13:00 hold 65 · 15:00 peak 20 · 22:00 standby 20` |
+**Valley Floors:** a valley before a peak keeps max(the next peak's own floor + ceil(next-peak hours × load / capacity × 100), min SOC + the load from that peak to the next main charge, the target of a top-up in the same valley run), capped at max SOC; if the projected SOC is below that, the valley does not drain at all (battery idle, the grid covers the cheap valley). It drains to min SOC when the next event is a charge or no peak follows.
 
-**Price coverage:** TOU is neither written nor cached unless the Europe/Warsaw day is covered (`warsaw_day_covered()`: first frame at/before 00:00, last end at/after the next 00:00, at most 1h (`PRICE_COVERAGE_MAX_MISSING_HOURS`) missing in total; handles DST days returned as 24 frames). The cache stores `_warsaw_date` and target hours and is reused only on a match.
+**Peak Top-Up (`_place_rolling_topups`):**
+- Within each cycle (now → next main charge) the battery must carry the forecast load from the peak a top-up serves to the cycle end; the valley up to that peak is held at the top-up target (grid-covered). Top-up target = min SOC + that load, capped at Max SOC. The deficit is measured at the start of the valley run (held).
+- The top-up goes into the cheapest valley before the uncovered peak. It is at least `TOPUP_MIN_STEPS` (3) × `TOU_SLOT_MINUTE_STEP` long, buys at least `TOPUP_MIN_DEFICIT_SOC` (1 %), and passes the economic guard: price × (1 + loss%) < the load-weighted mean price of the hours whose load it displaces (peak onward to the cycle end).
+- A top-up already running keeps its start and target across hourly re-syncs (stateless back-projection, see the main charge), so a night gets at most one top-up.
+- Start and length snap to `TOU_SLOT_MINUTE_STEP`. Top-ups may cross midnight. Top-up slots carry `topup: True` and are ignored by Solarman/cloud writes and `are_tou_slots_identical`.
+- Example (22.10 22:05, real weekday profile): at SOC 30 % the held night valley covers the morning peak (no top-up); with the profile ×2 a top-up starts at 23:00.
+
+**Flash-Wear Hysteresis:** computed non-charge floors snap to `TOU_FLOOR_SOC_STEP` (.env, default 5 %): projected-SOC holds round down, energy needs round up; Min/Max SOC and charge targets are exact. `are_tou_slots_identical` treats |Δ target SOC| ≤ `TOU_FLOOR_SOC_STEP` on non-charge slots as identical (like the ±`TOU_POWER_DIFF_TOLERANCE_W` power tolerance), so hourly re-syncs with SOC drift do not rewrite the inverter.
+
+**Price coverage:** the plan is neither written nor cached unless the Europe/Warsaw day is covered (`warsaw_day_covered()`: first frame at/before 00:00, last end at/after the next 00:00, at most 1h (`PRICE_COVERAGE_MAX_MISSING_HOURS`) missing in total; handles DST days returned as 24 frames). The cache stores `_warsaw_date` and target hours and is reused only on a match.
+
+**Sync triggers:** `sync_deye_inverter_tou_schedule` runs on the daily `00:30` job, on the hourly recalculation, and when tomorrow's prices publish (~12:00).
 
 **Inverter I/O:** the local Modbus 25s budget starts at the first failed attempt (a healthy run is never cut short); if it is already active, local TOU writes are skipped and the cloud is used (at most once, `cloud_attempted`); the sync aborts on the first failed register write; cloud slots carry the nominal voltage. Read-back labels (`tou_slot_label`) are relative to min/max SOC (±`TOU_LABEL_SOC_TOLERANCE`): `Najtańsze Ładowanie` / `Czuwanie Przed Szczytem (Hold)` / `Szczyt Cenowy (Autokonsumpcja)` / `Rezerwa Przed Szczytem`, fallback thresholds 30/80.
+
+`--print-tou` prints the rolling timeline and the 6-slot table (24 h from now) without writing to the inverter.
+
 
 ### 4.2 TOU Power Column Semantics & Register 108 Dynamic Modulation
 1. **TOU Power is Strictly Discharge Power:**
@@ -138,7 +155,7 @@ Example output for one price day (not a rule), generated by `generate_deye_tou_s
    - Current scales with the window length: $I = \operatorname{round}(I_{\text{base}} \times N / T)$, clamped to [floor, ceiling] (N = charge hours, T = window length).
      $$I_{\text{target}} = \max\left(I_{\text{floor}}, \min\left(I_{\text{base}}, \operatorname{round}\left(I_{\text{base}} \times \frac{N}{T}\right)\right)\right)$$
      (e.g., $100\text{A} \times (2 / 4) = \mathbf{50\text{ A}}$ for a 4h window; $100\text{A} \times (2 / 3) = \mathbf{67\text{ A}}$ for a 3h window; $100\text{A}$ for a 2h window).
-   - `check_and_apply_charge_current_modulation()` applies $I_{\text{target}}$ inside the window; before today's first window it pre-sets that target; after today's last window it applies the next cycle's target when known; otherwise the 100A ceiling.
+   - `check_and_apply_charge_current_modulation()` applies $I_{\text{target}}$ inside a charge slot; outside every charge/top-up slot the 100A ceiling (Rule 12, no pre-set; a reduced-current main charge may run up to one sync interval at the ceiling before modulation).
    - Writes are strictly idempotent (executed only when the active register value differs from target), protecting EEPROM memory.
 3. **Peak Slot Power:** peak slots stay at full base power $P_{\text{base}}$ (7170W) down to `min_soc`.
 

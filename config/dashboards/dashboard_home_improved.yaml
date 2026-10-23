@@ -900,7 +900,30 @@ views:
               icon: mdi:cloud-sync
 
       - type: markdown
-        title: Aktywne Sloty Falownika Deye (Time-of-Use) — Dziś
+        title: Plan Baterii (do końca znanych cen)
+        content: |-
+          {% set tl = state_attr('sensor.pstryk_price_meter_dol', 'plan_timeline') %}
+          {% set roles = {'charge': '⚡ Ładowanie', 'topup': '🔌 Doładowanie', 'peak': '🔥 Szczyt', 'hold': '⏸ Wstrzymanie', 'drain': '🏠 Autokonsumpcja'} %}
+          {% if tl and tl | length > 0 -%}
+          {% set ns = namespace(day='') -%}
+          {% for e in tl -%}
+          {% set st = as_local(as_datetime(e.start)) -%}
+          {% set en = as_local(as_datetime(e.end)) -%}
+          {% set d = st.strftime('%Y-%m-%d') -%}
+          {% if d != ns.day -%}
+          {% set ns.day = d %}
+          **{{ d }}**
+
+          | Godziny | Rola | Cel SOC | Prognoza SOC | Cena |
+          |:---:|:---|:---:|:---:|:---:|
+          {% endif -%}
+          | `{{ st.strftime('%H:%M') }}–{{ en.strftime('%H:%M') }}` | {{ roles.get(e.role, e.role) }}{% if e.charge_a %} ({{ e.charge_a }} A){% endif %} | {{ e.target_soc }}% | {{ e.soc_end }}% | {{ '%.3f'|format(e.price) }} |
+          {% endfor %}
+          {%- else -%}
+          *⏳ Oczekiwanie na plan baterii...*
+          {%- endif %}
+      - type: markdown
+        title: Tabela w falowniku (24 h)
         content: |-
           {% set nom_v = states('sensor.powerbank_voltage_v') | float(0.0) %}
           {% set active = state_attr('sensor.deye_inverter_status', 'active_tou') %}
@@ -916,26 +939,6 @@ views:
           | **{{ s.slot }}** | `{{ s.time }}` | {% if s.grid_charge %}**⚡ Ładowanie: {{ s.target_charge_current_a if s.target_charge_current_a is defined and s.target_charge_current_a is not none else (s.charge_current_a if s.charge_current_a is defined and s.charge_current_a is not none else planned_a) }}{% if (s.target_charge_current_a if s.target_charge_current_a is defined and s.target_charge_current_a is not none else (s.charge_current_a if s.charge_current_a is defined and s.charge_current_a is not none else planned_a)) != '-' %} A{% endif %}**{% else %}Oddawanie: {{ s.display_power_w if s.display_power_w is defined and s.display_power_w is not none else (s.power_w if s.power_w is defined else 7170) }} W (~{{ s.display_current_a if s.display_current_a is defined and s.display_current_a is not none else (s.discharge_current_a if s.discharge_current_a is defined and s.discharge_current_a is not none else (((s.power_w if s.power_w is defined else 7170) / (nom_v if nom_v > 0 else 51.2)) | round(0))) }} A){% endif %} | {{ s.target_soc }}% | {{ '**⚡ TAK**' if s.grid_charge else 'NIE' }} | {{ s.label if s.label else ('Najtańsze Ładowanie' if s.grid_charge else ('Czuwanie Przed Szczytem' if s.target_soc >= 80 else 'Autokonsumpcja PV')) }} |
           {% endfor %}
 
-          ---
-
-          ### 🔮 Prognoza Dyspozytorska na Jutro *(publikacja ok. 12:00)*
-
-          {% if is_state('binary_sensor.pstryk_has_tomorrow_pricing_dol', 'on') -%}
-          > 🚗 **Okno EV (Samochód):** `{{ states('sensor.pstryk_ev_best_window_tomorrow_dol') }}`  
-          > 🔋 **Magazyn Energii (Ładowanie):** `{{ states('sensor.pstryk_powerbank_best_window_tomorrow_dol') }}`  
-          > ⚡ **Szczyt Cenowy (Sprzedaż / Bateria):** `{{ states('sensor.pstryk_best_sell_window_tomorrow_dol') }}`
-
-          {% set tom_slots = state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule_tomorrow') %}
-          {% if tom_slots and tom_slots | length == 6 -%}
-          | Slot | Godzina | Tryb / Prąd / Moc | Cel SOC | Sieć | Opis Działania |
-          |:---:|:---:|:---|:---:|:---:|:---|
-          {% for st in tom_slots -%}
-          | **{{ st.slot }}** | `{{ st.time }}` | {% if st.grid_charge %}**⚡ Ładowanie: {{ st.target_charge_current_a if st.target_charge_current_a is defined and st.target_charge_current_a is not none else (st.charge_current_a if st.charge_current_a is defined and st.charge_current_a is not none else planned_a) }}{% if (st.target_charge_current_a if st.target_charge_current_a is defined and st.target_charge_current_a is not none else (st.charge_current_a if st.charge_current_a is defined and st.charge_current_a is not none else planned_a)) != '-' %} A{% endif %}**{% else %}Oddawanie: {{ st.display_power_w if st.display_power_w is defined and st.display_power_w is not none else (st.power_w if st.power_w is defined else 7170) }} W (~{{ st.display_current_a if st.display_current_a is defined and st.display_current_a is not none else (st.discharge_current_a if st.discharge_current_a is defined and st.discharge_current_a is not none else (((st.power_w if st.power_w is defined else 7170) / (nom_v if nom_v > 0 else 51.2)) | round(0))) }} A){% endif %} | {{ st.target_soc }}% | {{ '**⚡ TAK**' if st.grid_charge else 'NIE' }} | {{ st.label if st.label else ('Najtańsze Ładowanie' if st.grid_charge else 'Autokonsumpcja PV') }} |
-          {% endfor %}
-          {%- endif %}
-          {%- else -%}
-          > *⏳ Oczekiwanie na publikację cen na jutro przez TGE/Pstryk (ok. 12:00–14:00)...*
-          {%- endif %}
           {% else -%}
           *⏳ Oczekiwanie na synchronizację z falownikiem Deye...*
           {% endif %}

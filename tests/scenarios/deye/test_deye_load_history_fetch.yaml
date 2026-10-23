@@ -1,0 +1,24 @@
+id: test_deye_load_history_fetch
+area: deye
+description: "Daily history automation calls the stubbed fetch shell_command and records status ok"
+tags: [deye, history, automation, stub, regression]
+status: active
+
+preconditions:
+  stub_rc: 0
+  entities:
+    input_text.deye_load_history_status:
+      state: "unset"
+
+action:
+  type: call_service
+  service: automation.trigger
+  data:
+    entity_id: automation.deye_daily_load_history_fetch
+    skip_condition: true
+
+wait_seconds: 4.0
+
+assertions:
+  - entity: input_text.deye_load_history_status
+    state: "ok"

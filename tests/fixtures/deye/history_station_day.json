@@ -1,0 +1,6 @@
+{"code":"1000000","success":true,"stationDataItems":[
+{"timeStamp":1792659600,"consumptionPower":600,"batteryPower":-200,"batterySOC":55,"generationPower":0,"wirePower":800,"purchasePower":800},
+{"timeStamp":1792659900,"consumptionPower":1200,"batteryPower":300,"batterySOC":54,"generationPower":0,"wirePower":900,"purchasePower":900},
+{"timeStamp":1792660200000,"consumptionPower":900,"batteryPower":0,"batterySOC":54,"generationPower":0,"wirePower":900,"purchasePower":900},
+{"timeStamp":"1792660500","consumptionPower":300,"batteryPower":0,"batterySOC":54,"generationPower":0,"wirePower":300,"purchasePower":300}
+]}

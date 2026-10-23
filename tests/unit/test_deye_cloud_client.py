@@ -314,10 +314,12 @@ def test_get_access_token_missing_account_credentials():
 
 def test_cli_sync_pstryk_tou_flag():
     """Verifies CLI flag --sync-pstryk-tou computes schedule and triggers cloud upload."""
-    mock_pstryk = {
-        "powerbank_best_window": {"start": "2026-10-08T02:00:00Z", "end": "2026-10-08T04:00:00Z"},
-        "best_sell_window": {"start": "2026-10-08T17:00:00Z", "end": "2026-10-08T20:00:00Z"},
-    }
+    import pstryk_engine
+    # the consolidated payload carries the rolling plan's 6-slot table; the CLI uploads exactly that
+    mock_pstryk = {"deye_tou_schedule": pstryk_engine.generate_deye_tou_schedule(
+        max_soc=90, min_soc=20, current_soc=85,
+        best_pb_window={"start": "2026-10-08T02:00:00Z", "end": "2026-10-08T04:00:00Z"},
+        best_sell_window={"start": "2026-10-08T17:00:00Z", "end": "2026-10-08T20:00:00Z"})}
     mock_telem = {
         "success": True,
         "config": {"max_charge_soc": 90, "min_discharge_soc": 20},

@@ -64,10 +64,12 @@ def save_registry(registry_data: Dict[str, Any]):
 
 def run_tier0() -> bool:
     print("\n🔍 === [TIER 0: Static Schema & Syntax Check] ===")
-    sandbox.create_sandbox()
+    # Separate dir: create_sandbox() rmtree()s its target, which would orphan the
+    # bind mount of a running Tier 2 container (stub script vanishes -> rc 2).
+    tier0_dir = sandbox.create_sandbox(sandbox.SANDBOX_DIR + "_tier0")
     cmd = [
         "docker", "run", "--rm",
-        "-v", f"{sandbox.SANDBOX_DIR}:/config",
+        "-v", f"{tier0_dir}:/config",
         "ghcr.io/home-assistant/home-assistant:2026.1.3",
         "python", "-m", "homeassistant", "--config", "/config", "--script", "check_config"
     ]

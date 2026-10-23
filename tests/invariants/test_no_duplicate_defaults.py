@@ -73,7 +73,7 @@ def test_energy_defaults_module_loads_correctly():
     assert ed.DEFAULT_SHUTDOWN_SOC == 5
     assert ed.DEFAULT_CURRENT_SOC == 85
     assert not hasattr(ed, "DEFAULT_PRE_PEAK_MARGIN")  # pre-peak margin removed (data-driven reserve)
-    assert ed.LOAD_ESTIMATE_MAX_AGE_S > ed.DEYE_CACHE_TTL
+    assert ed.LOAD_HISTORY_DAYS >= 1
     assert ed.DEFAULT_LOSS_BUFFER_PCT == 10.0
 
 

@@ -55,9 +55,11 @@ shell_command:
   apply_deye_battery_safety_limits: >-
     python3 /config/pstryk_engine.py --apply-battery-safety-limits {% if states('input_text.deye_inverter_ip') not in ['unknown', 'unavailable', ''] %}--inverter-host {{ states('input_text.deye_inverter_ip') }}{% endif %} {% if states('input_number.deye_inverter_port') not in ['unknown', 'unavailable', ''] and states('input_number.deye_inverter_port') | int(0) > 1 %}--inverter-port {{ states('input_number.deye_inverter_port') | int }}{% endif %} --min-soc {{ states('input_number.deye_battery_min_discharge_soc') | default('20', true) | int(20) }} --shutdown-soc {{ states('input_number.deye_battery_shutdown_soc') | default('5', true) | int(5) }}
   sync_deye_inverter_tou: >-
-    python3 /config/pstryk_engine.py --sync-deye-tou {% if states('input_text.deye_inverter_ip') not in ['unknown', 'unavailable', ''] %}--inverter-host {{ states('input_text.deye_inverter_ip') }}{% endif %} {% if states('input_number.deye_inverter_port') not in ['unknown', 'unavailable', ''] and states('input_number.deye_inverter_port') | int(0) > 1 %}--inverter-port {{ states('input_number.deye_inverter_port') | int }}{% endif %} {% if calibration is defined and (calibration | bool) %}--calibration{% endif %} {% if tomorrow is defined and (tomorrow | bool) %}--tomorrow{% endif %} {% if force is defined and (force | bool) %}--force{% endif %} {% if states('sensor.deye_battery_soc') not in ['unknown', 'unavailable', ''] and states('sensor.deye_battery_soc') | int(0) > 0 %}--current-soc {{ states('sensor.deye_battery_soc') | int }}{% endif %} {% if states('input_number.deye_battery_max_charge_soc') not in ['unknown', 'unavailable', ''] %}--max-soc {{ states('input_number.deye_battery_max_charge_soc') | int }}{% endif %} {% if states('input_number.deye_battery_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('input_number.deye_battery_min_discharge_soc') | int }}{% elif states('sensor.deye_inverter_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('sensor.deye_inverter_min_discharge_soc') | int }}{% endif %} {% if states('input_number.deye_battery_shutdown_soc') not in ['unknown', 'unavailable', ''] %}--shutdown-soc {{ states('input_number.deye_battery_shutdown_soc') | int }}{% elif states('sensor.deye_inverter_shutdown_soc') not in ['unknown', 'unavailable', ''] %}--shutdown-soc {{ states('sensor.deye_inverter_shutdown_soc') | int }}{% endif %} {% if states('sensor.deye_inverter_max_discharge_current') | float(0) > 0 %}--max-discharge-current {{ states('sensor.deye_inverter_max_discharge_current') | float }}{% endif %} {% if states('sensor.powerbank_total_capacity_kwh') | float(0) > 0 %}--battery-capacity {{ states('sensor.powerbank_total_capacity_kwh') | float }}{% endif %} {% if states('sensor.powerbank_voltage_v') | float(0) > 0 %}--nominal-voltage {{ states('sensor.powerbank_voltage_v') | float }}{% endif %} --sell-target-hours "{{ states('input_select.battery_discharge_target_hours') }}" --ev-target-hours "{{ states('input_select.ev_charging_target_hours') }}"
+    python3 /config/pstryk_engine.py --sync-deye-tou {% if states('input_text.deye_inverter_ip') not in ['unknown', 'unavailable', ''] %}--inverter-host {{ states('input_text.deye_inverter_ip') }}{% endif %} {% if states('input_number.deye_inverter_port') not in ['unknown', 'unavailable', ''] and states('input_number.deye_inverter_port') | int(0) > 1 %}--inverter-port {{ states('input_number.deye_inverter_port') | int }}{% endif %} {% if calibration is defined and (calibration | bool) %}--calibration{% endif %} {% if force is defined and (force | bool) %}--force{% endif %} {% if states('sensor.deye_battery_soc') not in ['unknown', 'unavailable', ''] and states('sensor.deye_battery_soc') | int(0) > 0 %}--current-soc {{ states('sensor.deye_battery_soc') | int }}{% endif %} {% if states('input_number.deye_battery_max_charge_soc') not in ['unknown', 'unavailable', ''] %}--max-soc {{ states('input_number.deye_battery_max_charge_soc') | int }}{% endif %} {% if states('input_number.deye_battery_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('input_number.deye_battery_min_discharge_soc') | int }}{% elif states('sensor.deye_inverter_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('sensor.deye_inverter_min_discharge_soc') | int }}{% endif %} {% if states('input_number.deye_battery_shutdown_soc') not in ['unknown', 'unavailable', ''] %}--shutdown-soc {{ states('input_number.deye_battery_shutdown_soc') | int }}{% elif states('sensor.deye_inverter_shutdown_soc') not in ['unknown', 'unavailable', ''] %}--shutdown-soc {{ states('sensor.deye_inverter_shutdown_soc') | int }}{% endif %} {% if states('sensor.deye_inverter_max_discharge_current') | float(0) > 0 %}--max-discharge-current {{ states('sensor.deye_inverter_max_discharge_current') | float }}{% endif %} {% if states('sensor.powerbank_total_capacity_kwh') | float(0) > 0 %}--battery-capacity {{ states('sensor.powerbank_total_capacity_kwh') | float }}{% endif %} {% if states('sensor.powerbank_voltage_v') | float(0) > 0 %}--nominal-voltage {{ states('sensor.powerbank_voltage_v') | float }}{% endif %} --sell-target-hours "{{ states('input_select.battery_discharge_target_hours') }}" --ev-target-hours "{{ states('input_select.ev_charging_target_hours') }}"
   set_deye_charge_current: >-
     python3 /config/pstryk_engine.py --set-charge-current {{ current_a }} {% if states('input_text.deye_inverter_ip') not in ['unknown', 'unavailable', ''] %}--inverter-host {{ states('input_text.deye_inverter_ip') }}{% endif %} {% if states('input_number.deye_inverter_port') not in ['unknown', 'unavailable', ''] and states('input_number.deye_inverter_port') | int(0) > 1 %}--inverter-port {{ states('input_number.deye_inverter_port') | int }}{% endif %}
+  fetch_deye_load_history: >-
+    python3 /config/deye_cloud_client.py --fetch-history
   restore_deye_charge_current: >-
     python3 /config/pstryk_engine.py --restore-charge-current {% if states('input_text.deye_inverter_ip') not in ['unknown', 'unavailable', ''] %}--inverter-host {{ states('input_text.deye_inverter_ip') }}{% endif %} {% if states('input_number.deye_inverter_port') not in ['unknown', 'unavailable', ''] and states('input_number.deye_inverter_port') | int(0) > 1 %}--inverter-port {{ states('input_number.deye_inverter_port') | int }}{% endif %}
   force_refresh_deye_inverter_status: >-
@@ -114,11 +116,11 @@ command_line:
         - ev_best_window_today
         - powerbank_best_window_today
         - best_sell_window_today
-        - deye_tou_schedule_today
+        - plan_timeline
+        - horizon_end
         - ev_best_window_tomorrow
         - powerbank_best_window_tomorrow
         - best_sell_window_tomorrow
-        - deye_tou_schedule_tomorrow
         - has_tomorrow_pricing
         - battery_model
   # Installation: góra (upper floor)
@@ -164,11 +166,11 @@ command_line:
         - ev_best_window_today
         - powerbank_best_window_today
         - best_sell_window_today
-        - deye_tou_schedule_today
+        - plan_timeline
+        - horizon_end
         - ev_best_window_tomorrow
         - powerbank_best_window_tomorrow
         - best_sell_window_tomorrow
-        - deye_tou_schedule_tomorrow
         - has_tomorrow_pricing
         - battery_model
   # Deye Inverter & Battery Telemetry / Configuration Ingestion (Read-Only)
@@ -234,7 +236,6 @@ command_line:
         - timestamp
         - host
         - port
-        - for_tomorrow
         - calibration_active
         - soc_limits
         - charge_current_modulation
@@ -622,6 +623,14 @@ input_datetime:
     icon: mdi:calendar-sync
 
 input_number:
+  deye_tou_stale_sync_hours:
+    name: "Alarm: Maks. Wiek Synchronizacji TOU (h, 0 = wyłączony)"
+    min: 0
+    max: 72
+    step: 1
+    mode: box
+    unit_of_measurement: h
+    icon: mdi:calendar-alert
   shelly_brightness:
     name: Shelly Brightness
     min: 1
@@ -694,6 +703,11 @@ input_button:
     icon: mdi:radar
 
 input_text:
+  deye_load_history_status:
+    name: "Status Pobierania Historii Zużycia Deye"
+    min: 0
+    max: 32
+    icon: mdi:database-sync
   deye_inverter_ip:
     name: "Adres IP Falownika Deye"
     min: 7

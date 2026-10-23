@@ -168,7 +168,13 @@ DEFAULT_LOGGER_SN = get_default_str("DEYE_LOGGER_SN")
 DEFAULT_INVERTER_SN = get_default_str("DEYE_INVERTER_SN")
 DEFAULT_SOCKET_TIMEOUT = get_default_float("DEYE_SOCKET_TIMEOUT")
 DEYE_CACHE_TTL = get_default_float("DEYE_CACHE_TTL_SECONDS")
-LOAD_ESTIMATE_MAX_AGE_S = get_default_float("LOAD_ESTIMATE_MAX_AGE_S")
+# Full Warsaw days of Deye Cloud household load history (ending yesterday) behind the hourly load profile
+LOAD_HISTORY_DAYS = get_default_int("LOAD_HISTORY_DAYS")
+# Minimum hours between Deye history fetch retries after a failure (negative cache)
+DEYE_HISTORY_RETRY_HOURS = get_default_float("DEYE_HISTORY_RETRY_HOURS")
+# Peak top-up sizing: minimum slot length in TOU_SLOT_MINUTE_STEP steps and minimum SOC % it must buy
+TOPUP_MIN_STEPS = get_default_int("TOPUP_MIN_STEPS")
+TOPUP_MIN_DEFICIT_SOC = get_default_int("TOPUP_MIN_DEFICIT_SOC")
 PSTRYK_CACHE_TTL = get_default_float("PSTRYK_CACHE_TTL_SECONDS")
 
 # --- 6. Pstryk API & Energy Market Defaults ---

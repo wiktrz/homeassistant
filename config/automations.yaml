@@ -3115,6 +3115,9 @@
       minutes: 2
     - trigger: time
       at: "00:00:30"
+    - trigger: state
+      entity_id: binary_sensor.pstryk_has_tomorrow_pricing_dol
+      to: "on"
   conditions:
     - condition: template
       value_template: >-
@@ -3122,8 +3125,6 @@
         {{ is_state('input_boolean.deye_battery_installed', 'on') or (tlm and tlm.battery_installed) }}
   actions:
     - action: script.sync_deye_inverter_tou
-      data:
-        tomorrow: false
   mode: single
 
 - id: deye_battery_parameters_change_sync
@@ -3149,8 +3150,6 @@
       value_template: "{{ trigger.to_state.state not in ['unknown', 'unavailable', ''] }}"
   actions:
     - action: script.sync_deye_inverter_tou
-      data:
-        tomorrow: false
   mode: queued
   max: 2
 
@@ -3257,3 +3256,43 @@
 
 
 
+
+- id: deye_load_history_daily_fetch
+  alias: 'Deye: Daily Load History Fetch'
+  description: 'Zadanie konserwacyjne poza logiką TOU: raz na dobę i przy starcie HA odświeża cache historii zużycia domu z Deye Cloud (deye_cloud_client.py --fetch-history). Silnik cen czyta wyłącznie ten cache.'
+  triggers:
+    - trigger: time
+      at: '04:10:00'
+    - trigger: homeassistant
+      event: start
+  actions:
+    - action: shell_command.fetch_deye_load_history
+      response_variable: fetch_result
+      continue_on_error: true
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.deye_load_history_status
+      data:
+        value: "{{ 'ok' if (fetch_result is defined and fetch_result.returncode | default(1) == 0) else 'error' }}"
+  mode: single
+
+- id: deye_tou_stale_sync_alert
+  alias: 'Deye: Alarm Nieaktualnej Synchronizacji TOU'
+  description: 'Gdy synchronizacja TOU ustanie, falownik codziennie odtwarza ostatnią tabelę. Powiadamia, jeśli input_datetime.deye_tou_last_synced_date jest starsze niż input_number.deye_tou_stale_sync_hours (0 = wyłączone).'
+  triggers:
+    - trigger: time_pattern
+      minutes: '5'
+  conditions:
+    - condition: template
+      value_template: >-
+        {% set limit = states('input_number.deye_tou_stale_sync_hours') | float(0) %}
+        {% set last = states('input_datetime.deye_tou_last_synced_date') %}
+        {{ limit > 0 and last not in ['unknown', 'unavailable', ''] and
+           (now().timestamp() - (as_timestamp(last, 0))) / 3600 > limit }}
+  actions:
+    - action: persistent_notification.create
+      data:
+        title: "⚠️ Nieaktualna synchronizacja TOU Deye"
+        message: "Harmonogram TOU nie był synchronizowany z falownikiem od ponad {{ states('input_number.deye_tou_stale_sync_hours') | int(0) }} h. Falownik odtwarza ostatnią tabelę – sprawdź połączenie i silnik Pstryk."
+        notification_id: deye_tou_stale_sync
+  mode: single

@@ -1192,7 +1192,6 @@ sync_deye_inverter_tou:
       continue_on_error: true
       data:
         calibration: "{{ is_state('input_boolean.deye_battery_calibration_in_progress', 'on') }}"
-        tomorrow: "{{ tomorrow | default(false) }}"
         force: "{{ force | default(false) }}"
       response_variable: sync_exec_res
     - choose:
@@ -1219,7 +1218,7 @@ sync_deye_inverter_tou:
               data:
                 title: "⚡ Deye TOU: Synchronizacja Zakończona"
                 message: >-
-                  Harmonogram Time-of-Use został pomyślnie przesłany do falownika Deye ({% if tomorrow | default(false) %}na Jutro{% else %}na Dziś{% endif %}).
+                  Harmonogram Time-of-Use został pomyślnie przesłany do falownika Deye.
                   Zaktualizowano status falownika oraz encje cenowe Pstryk.
                 notification_id: deye_tou_sync_status
       default:
@@ -1230,7 +1229,7 @@ sync_deye_inverter_tou:
           data:
             title: "⚠️ Deye TOU: Błąd Synchronizacji"
             message: >-
-              Wystąpił błąd podczas przesyłania harmonogramu TOU do falownika Deye ({% if tomorrow | default(false) %}na Jutro{% else %}na Dziś{% endif %}).
+              Wystąpił błąd podczas przesyłania harmonogramu TOU do falownika Deye.
               Kod błędu: {{ sync_exec_res.get('returncode') if sync_exec_res is defined and sync_exec_res is mapping else 'brak odpowiedzi' }}.
               Sprawdź połączenie z falownikiem.
             notification_id: deye_tou_sync_status
@@ -1256,7 +1255,6 @@ confirm_and_apply_deye_battery_settings:
     - action: shell_command.apply_deye_battery_safety_limits
     - action: script.sync_deye_inverter_tou
       data:
-        tomorrow: false
         force: true
     - action: script.clear_ui_operation_pending
       data:

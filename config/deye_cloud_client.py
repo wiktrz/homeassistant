@@ -22,7 +22,7 @@ import urllib.error
 import urllib.parse
 import struct
 import argparse
-from datetime import datetime
+from datetime import datetime, date, timedelta, timezone
 from typing import Dict, Any, Optional, Tuple, List
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -33,6 +33,14 @@ DEFAULT_LOGGER_SN = energy_defaults.DEFAULT_LOGGER_SN
 DEFAULT_INVERTER_SN = energy_defaults.DEFAULT_INVERTER_SN
 DEFAULT_TOKEN_CACHE_FILE = "/tmp/deye_cloud_token.json"
 CACHE_TTL_SECONDS = energy_defaults.DEYE_CACHE_TTL
+try:
+    import zoneinfo
+    WARSAW_TZ = zoneinfo.ZoneInfo("Europe/Warsaw")
+except Exception:  # pragma: no cover - Python < 3.9
+    WARSAW_TZ = timezone(timedelta(hours=1))
+# Read-only station history cache (write-on-change; refreshed at most once per Warsaw day)
+DEFAULT_LOAD_HISTORY_FILE = "/config/.deye_load_history.json" if os.path.isdir("/config") else os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), ".deye_load_history.json")
 
 
 def tou_slot_label(charge: bool, soc: int, min_soc: Any, max_soc: Any) -> str:
@@ -816,6 +824,165 @@ def set_battery_safety_limits_cloud(
     }
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# Read-only station history (household load profile input). Only /station/list and /station/history are called here.
+# ---------------------------------------------------------------------------------------------------------------------
+def list_stations(cfg: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    """Stations of the Deye Cloud account (POST /v1.0/station/list, read-only); [] on failure."""
+    ok, res, _ = call_deye_api("/v1.0/station/list", method="POST", data={"page": 1, "size": 200}, cfg=cfg)
+    st = res.get("stationList") if ok and isinstance(res, dict) else None
+    return st if isinstance(st, list) else []
+
+
+def _history_ts(raw: Any) -> Optional[datetime]:
+    """Deye history timestamp (epoch s, epoch ms, numeric string or ISO) -> aware UTC datetime."""
+    try:
+        v = float(raw)
+        return datetime.fromtimestamp(v / 1000.0 if v > 1e11 else v, timezone.utc)
+    except (TypeError, ValueError):
+        pass
+    try:
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+def _num(v: Any) -> Optional[float]:
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+HISTORY_VARIANTS = (("startAt", "endAt"), ("startDate", "endDate"))
+
+
+def fetch_station_history_day(
+    station_id: Any, day: date, cfg: Optional[Dict[str, Any]] = None, state: Optional[Dict[str, Any]] = None,
+) -> Optional[List[Dict[str, Any]]]:
+    """
+    One day of station history frames (POST /v1.0/station/history, granularity 1 = intra-day, read-only).
+    Tries the request variant remembered in state["variant"] first, then the other (API versions differ) and records
+    the working one back into state. Returns time-sorted frames {ts (aware UTC), consumption_w, battery_w, soc,
+    generation_w, grid_w}, or None when both variants fail.
+    """
+    nxt = (day + timedelta(days=1)).isoformat()
+    state = state if state is not None else {}
+    variants = sorted(HISTORY_VARIANTS, key=lambda v: v[0] != state.get("variant"))
+    for k_start, k_end in variants:
+        body = {"stationId": station_id, "granularity": 1, k_start: day.isoformat(), k_end: nxt}
+        ok, res, _ = call_deye_api("/v1.0/station/history", method="POST", data=body, cfg=cfg)
+        items = res.get("stationDataItems") if ok and isinstance(res, dict) and res.get("success", True) is not False else None
+        if not isinstance(items, list):
+            continue
+        state["variant"] = k_start
+        frames = []
+        for it in items:
+            ts = _history_ts(it.get("timeStamp")) if isinstance(it, dict) else None
+            if ts is None:
+                continue
+            frames.append({
+                "ts": ts,
+                "consumption_w": _num(it.get("consumptionPower")),
+                "battery_w": _num(it.get("batteryPower")),
+                "soc": _num(it.get("batterySOC")),
+                "generation_w": _num(it.get("generationPower")),
+                "grid_w": _num(it.get("wirePower", it.get("purchasePower"))),
+            })
+        return sorted(frames, key=lambda f: f["ts"])
+    return None
+
+
+def _history_to_json(frames: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [dict(f, ts=f["ts"].astimezone(timezone.utc).isoformat()) for f in frames]
+
+
+def _history_from_json(frames: Any) -> List[Dict[str, Any]]:
+    out = []
+    for f in frames or []:
+        ts = _history_ts(f.get("ts")) if isinstance(f, dict) else None
+        if ts is not None:
+            out.append(dict(f, ts=ts))
+    return out
+
+
+def _history_cache_path(cache_path: Optional[str] = None) -> str:
+    return cache_path or os.environ.get("DEYE_LOAD_HISTORY_FILE") or DEFAULT_LOAD_HISTORY_FILE
+
+
+def _read_history_cache(path: str) -> Dict[str, Any]:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            c = json.load(f)
+        return c if isinstance(c, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def load_cached_history(cache_path: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
+    """Frames from the history cache file only (no network, any age); None when missing/empty. Used by the engine."""
+    return _history_from_json(_read_history_cache(_history_cache_path(cache_path)).get("frames")) or None
+
+
+def _write_history_cache(path: str, cached: Dict[str, Any], new: Dict[str, Any]) -> None:
+    """Write-on-change (flash wear)."""
+    if cached == new:
+        return
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(new, f)
+    except OSError:
+        pass
+
+
+def fetch_consumption_history(
+    days: Optional[int] = None,
+    cfg: Optional[Dict[str, Any]] = None,
+    cache_path: Optional[str] = None,
+    now: Optional[datetime] = None,
+) -> Optional[List[Dict[str, Any]]]:
+    """
+    Household load history for the last `days` full Warsaw days ending yesterday (LOAD_HISTORY_DAYS by default),
+    read-only; run only by the daily `--fetch-history` job, never by the price sensors. The cache is reused for the
+    rest of the Warsaw day it was fetched on. After a failure a negative marker {last_attempt, failed} suppresses
+    retries for DEYE_HISTORY_RETRY_HOURS (old frames are kept). Days are fetched newest first and the walk stops at
+    the first day failing with both request variants. None when no frames are available.
+    """
+    days = int(energy_defaults.LOAD_HISTORY_DAYS if days is None else days)
+    cache_path = _history_cache_path(cache_path)
+    now = (now or datetime.now(WARSAW_TZ)).astimezone(WARSAW_TZ)
+    today = now.date()
+    cached = _read_history_cache(cache_path)
+    old_frames = _history_from_json(cached.get("frames")) or None
+    if not cached.get("failed") and cached.get("fetched_date") == today.isoformat() and cached.get("days") == days and old_frames:
+        return old_frames
+    if cached.get("failed"):
+        last = _history_ts(cached.get("last_attempt"))
+        if last and now - last.astimezone(WARSAW_TZ) < timedelta(hours=energy_defaults.DEYE_HISTORY_RETRY_HOURS):
+            return old_frames
+
+    state: Dict[str, Any] = {"variant": cached.get("variant")}
+    frames: List[Dict[str, Any]] = []
+    stations = list_stations(cfg)
+    station_id = stations[0].get("id") if stations and isinstance(stations[0], dict) else None
+    if station_id is not None:
+        for back in range(1, days + 1):
+            day_frames = fetch_station_history_day(station_id, today - timedelta(days=back), cfg=cfg, state=state)
+            if day_frames is None:
+                break
+            frames.extend(day_frames)
+    if not frames:
+        _write_history_cache(cache_path, cached, dict(cached, failed=True, last_attempt=now.isoformat()))
+        return old_frames
+    frames.sort(key=lambda f: f["ts"])
+    _write_history_cache(cache_path, cached, {
+        "days": days, "frames": _history_to_json(frames), "fetched_date": today.isoformat(),
+        "variant": state.get("variant"),
+    })
+    return frames
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Deye Cloud OpenAPI Client for Home Assistant")
     parser.add_argument("--read-all", action="store_true", help="Read config, telemetry, and TOU settings via Cloud API")
@@ -830,6 +997,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--shutdown-soc", type=int, default=None, help="Shutdown SOC limit")
     parser.add_argument("--device-sn", default=None, help="Inverter Serial Number (defaults to DEYE_INVERTER_SN)")
     parser.add_argument("--api-key", default=None, help="Direct Deye API key override")
+    parser.add_argument("--fetch-history", action="store_true", help="Read-only: fetch station load history and print the weekday/weekend hourly load profile (kWh/h)")
 
     args = parser.parse_args(argv)
     cfg = get_deye_cloud_config()
@@ -837,6 +1005,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         cfg["inverter_sn"] = args.device_sn
     if args.api_key:
         cfg["api_key"] = args.api_key
+
+    if args.fetch_history:
+        import pstryk_engine
+        history = fetch_consumption_history(cfg=cfg)
+        profile = pstryk_engine.build_load_profile(history)
+        print(json.dumps({"success": profile is not None, "frames": len(history or []), "profile_kwh_per_hour": profile}, indent=2))
+        return 0 if profile is not None else 1
 
     if args.set_charge_current is not None:
         res = set_charge_current_cloud(current_a=args.set_charge_current, cfg=cfg)
@@ -852,22 +1027,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         try:
             import pstryk_engine
             pstryk_data = pstryk_engine.fetch_consolidated_data(installation="dol")
-            pb_win = pstryk_data.get("powerbank_best_window")
-            sell_win = pstryk_data.get("best_sell_window")
-
-            inv_telem = read_inverter_telemetry(cfg=cfg)
-            cfg_data = inv_telem.get("config", {})
-            tlm_data = inv_telem.get("telemetry", {})
-
-            slots = pstryk_engine.generate_deye_tou_schedule(
-                current_soc=tlm_data.get("battery_soc"),
-                max_soc=cfg_data.get("max_charge_soc"),
-                min_soc=cfg_data.get("min_discharge_soc"),
-                best_pb_window=pb_win,
-                best_sell_window=sell_win,
-                best_discharge_windows=pstryk_data.get("best_discharge_windows"),
-                pricing_data=pstryk_engine.warsaw_day_pricing(pstryk_data),
-            )
+            slots = pstryk_data.get("deye_tou_schedule") if isinstance(pstryk_data, dict) else None
             if not slots:
                 print(json.dumps({"success": False, "error": "No Pstryk price data to derive the TOU schedule; nothing written"}, indent=2))
                 return 1

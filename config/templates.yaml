@@ -433,7 +433,7 @@
       unique_id: deye_inverter_recommended_charge_current
       unit_of_measurement: "A"
       state: >
-        {% set sched = state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule_today') or state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule') %}
+        {% set sched = state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule') %}
         {% if sched %}
           {% set chg = sched | selectattr('grid_charge', 'defined') | selectattr('grid_charge', 'equalto', true) | rejectattr('topup', 'true') | list %}
           {% if chg | length > 0 and chg[0].target_charge_current_a is defined %}
@@ -449,14 +449,14 @@
           {% set pb = state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window') %}
           {{ pb.duration_hours if pb and pb.duration_hours is defined else 2 }}
         planned_speed_display: >-
-          {% set sched = state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule_today') or state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule') %}
+          {% set sched = state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule') %}
           {% set pb = state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window') %}
           {% set dur = pb.duration_hours if pb and pb.duration_hours is defined else 2 %}
           {% set chg = sched | selectattr('grid_charge', 'defined') | selectattr('grid_charge', 'equalto', true) | rejectattr('topup', 'true') | list if sched else [] %}
           {% set curr = chg[0].target_charge_current_a if chg | length > 0 and chg[0].target_charge_current_a is defined else states('sensor.deye_inverter_max_charge_current') | int(100) %}
           {{ curr }} A (okno {{ dur }}h)
         is_throttled: >-
-          {% set sched = state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule_today') or state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule') %}
+          {% set sched = state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule') %}
           {% if sched %}
             {% set chg = sched | selectattr('grid_charge', 'defined') | selectattr('grid_charge', 'equalto', true) | rejectattr('topup', 'true') | list %}
             {% if chg | length > 0 and chg[0].target_charge_current_a is defined %}

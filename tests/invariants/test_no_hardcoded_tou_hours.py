@@ -187,6 +187,9 @@ TOU_FUNCTIONS = (
     "generate_deye_tou_schedule",
     "check_and_apply_charge_current_modulation",
     "find_best_discharge_windows",
+    "plan_rolling_tou",
+    "load_forecast",
+    "build_load_profile",
 )
 # Unit-conversion / structural ints: 0, 1, -1 (indices), 60 (min/h), 1440 (min/day), 24 (h/day), 2 (only in comparisons,
 # e.g. len(x) == 2). 100 and 1000 are accepted ONLY as the right operand of a division (percent -> fraction, W -> kW).

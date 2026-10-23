@@ -16,7 +16,6 @@ action:
   type: call_service
   service: script.sync_deye_inverter_tou
   data:
-    tomorrow: false
     force: true
 
 wait_seconds: 4.0
