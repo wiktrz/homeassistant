@@ -1443,14 +1443,12 @@ def test_fetch_consolidated_custom_soc_and_battery_model(tmp_path, monkeypatch):
         # charge window stays on the cheapest hours (price 0.3) and the battery holds max_soc until the peak
         tou_slots = consolidated.get("deye_tou_schedule", [])
         assert len(tou_slots) == 6
-        # the charge is sized from the SOC projected at its start (drained to Min SOC 15 by then): 65 % of 16.13 kWh
-        # + 10 % loss at 100 A needs 3 h -> the 13-15 cheapest hours plus 12:00
-        assert [s["time"] for s in tou_slots if s["grid_charge"]] == ["12:00"]
+        # greedy: only the 0.3 hours (13, 14) are cheaper than the hours they serve after losses -> one 13:00 block
+        assert [s["time"] for s in tou_slots if s["grid_charge"]] == ["13:00"]
         charge_i = next(i for i, s in enumerate(tou_slots) if s["grid_charge"])
         assert tou_slots[charge_i + 1]["time"] == "15:00"
-        # the hold after the charge keeps what the load from the 18:00 peak to the next day's 13:00 charge needs:
-        # 15 + 19 h * 0.3 kW / capacity, snapped up (55 %)
-        assert [s["target_soc"] for s in tou_slots] == [15, 15, 80, 55, 15, 15]
+        # greedy floors: every hour after the charge (0.7 / 1.2 > 0.3 * (1 + loss)) is worth covering -> Min SOC 15
+        assert [s["target_soc"] for s in tou_slots] == [15, 15, 80, 15, 15, 15]
         assert [s["time"] for s in tou_slots if s["role"] == "peak"] == ["18:00"]
 
 
@@ -1803,8 +1801,8 @@ def test_reg108_does_not_ratchet_across_repeated_syncs(tmp_path, monkeypatch):
     with mock.patch("pstryk_engine.solarman_v5_client", client):
         for _ in range(4):
             pstryk_engine.sync_deye_inverter_tou_schedule(cache_dir=cache_dir, max_charge_current=written[-1], force=True)
-    # the charge running since 09:00 keeps its start; SOC 50 -> 90 needs 2 h of the 3 h left -> 67 A every time
-    assert written[1:] == [67, 67, 67, 67]
+    # greedy: the running cheapest hour charges at the 100 A ceiling every time (never the fed-back live value)
+    assert written[1:] == [100, 100, 100, 100]
 
     # Daytime outside the window restores the 100 A ceiling, not the live/CLI value
     freeze_now(monkeypatch, datetime(2026, 10, 17, 15, 0, tzinfo=WARSAW))
@@ -2802,45 +2800,49 @@ def _tops(plan):
     return [(iso(e["start"]), iso(e["end"]), e) for e in plan["plan_timeline"] if e["role"] == "topup"]
 
 
-def test_topup_placed_at_cheapest_hour_before_uncovered_morning_peak_sized_to_deficit():
-    # 22:00, SOC 20, 1 kW: the battery must carry 15 h (15 kWh) to tomorrow's 13:00 charge -> capped at Max SOC 90;
-    # 70 % of 10 kWh at 5 kW = 84 min -> 85 at the 5-min step, in the cheapest valley run before the 06:00 peak (23:00)
-    tops = _tops(_roll(_at(TOPUP_DAY, 22), soc=20))
-    assert len(tops) == 1
-    a, b, e = tops[0]
-    assert a == _at(TOPUP_DAY, 23) and b == _at(TOPUP_NEXT, 0, 25)  # one continuous entry across midnight
-    assert e["target_soc"] == 90 and e["charge_a"] == 100
+def _greedy(now, soc, load=1.0, **kw):
+    """Automatic (greedy cheapest-hour) plan on the TOPUP price days."""
+    return _roll(now, soc, load, charges=None, **kw)
 
 
-def test_no_topup_when_battery_covers_the_load_to_the_next_charge():
-    # 0.4 kW: the night valley is held (grid-covered); the 06:00 peak -> 13:00 charge needs 2.8 kWh = 28 % above Min
-    # SOC -> 50 % covers it, 40 % does not
-    assert _tops(_roll(_at(TOPUP_DAY, 22), soc=90, load=0.4)) == []
-    assert _tops(_roll(_at(TOPUP_DAY, 22), soc=50, load=0.4)) == []
-    assert _tops(_roll(_at(TOPUP_DAY, 22), soc=40, load=0.4))
+def _charge_hours(plan):
+    iso = pstryk_engine._iso_dt
+    return [(iso(e["start"]), iso(e["end"]), e) for e in plan["plan_timeline"] if e["role"] == "charge"]
 
 
-def test_topup_never_starts_in_the_past():
-    tops = _tops(_roll(_at(TOPUP_DAY, 23, 30), soc=20))
-    assert tops and all(a >= _at(TOPUP_DAY, 23, 30) for a, _, _ in tops)
+def test_greedy_first_night_charge_is_tonights_cheapest_hour_at_full_power():
+    # 22:00, SOC 20 = Min: 22:00 (0.95) has no earlier cheaper hour; 23:00 (0.80) is the cheapest hour before the
+    # first coverable shortfall -> the first grid charge, a full hour at the Reg 108 ceiling
+    a, b, e = _charge_hours(_greedy(_at(TOPUP_DAY, 22), soc=20))[0]
+    assert a == _at(TOPUP_DAY, 23) and b == _at(TOPUP_NEXT, 0) and e["charge_a"] == 100 and e["target_soc"] == 90
 
 
-def test_topup_is_capped_by_max_soc():
-    assert _tops(_roll(_at(TOPUP_DAY, 22), soc=20, load=5.0))[0][2]["target_soc"] == 90
+def test_higher_soc_and_lower_load_need_fewer_charge_hours():
+    hrs = lambda soc, load: {a for a, _, _ in _charge_hours(_greedy(_at(TOPUP_DAY, 22), soc=soc, load=load))}
+    assert hrs(90, 0.4) < hrs(20, 0.4)
+    assert hrs(90, 0.4) <= hrs(20, 1.0)
 
 
-def test_rolling_table_carries_tonights_topup_with_ceiling_current_and_six_slots():
-    plan = _roll(_at(TOPUP_DAY, 22), soc=20)
-    slots = plan["deye_tou_schedule"]
+def test_greedy_charge_never_starts_in_the_past():
+    now = _at(TOPUP_DAY, 23, 30)
+    ch = _charge_hours(_greedy(now, soc=20))
+    assert ch and all(a >= now for a, _, _ in ch)
+
+
+def test_greedy_charge_is_capped_by_max_soc():
+    tl = _greedy(_at(TOPUP_DAY, 22), soc=20, load=5.0)["plan_timeline"]
+    assert all(e["soc_end"] <= 90 + 1e-6 for e in tl)
+    assert all(e["target_soc"] == 90 for e in tl if e["role"] == "charge")
+
+
+def test_rolling_table_carries_tonights_charge_with_ceiling_current_and_six_slots():
+    slots = _greedy(_at(TOPUP_DAY, 22), soc=20)["deye_tou_schedule"]
     assert_valid_schedule(slots)
-    top = [s for s in slots if s["grid_charge"] and s["time"] == "23:00"]
-    assert top and top[0]["target_soc"] == 90 and top[0]["topup"] is True
-    assert top[0]["target_charge_current_a"] == int(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A)
-    # the slot after the top-up starts at its (step-rounded) end and does not grid-charge
-    nxt = slots[(slots.index(top[0]) + 1) % 6]
-    assert nxt["time"] == "00:25" and not nxt["grid_charge"]
-    # tomorrow's main charge is already in tonight's table
-    assert "13:00" in [s["time"] for s in slots if s["grid_charge"] and not s["topup"]]
+    night = next(s for s in slots if s["grid_charge"] and s["time"] == "23:00")
+    assert night["target_soc"] == 90 and night["topup"] is False
+    assert night["target_charge_current_a"] == int(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A)
+    # tomorrow's cheapest hour (13:00) is already in tonight's table
+    assert "13:00" in [s["time"] for s in slots if s["grid_charge"]]
 
 
 def test_reg108_modulation_covers_topup_window(monkeypatch):
@@ -2867,38 +2869,28 @@ def test_no_topup_when_valley_not_cheaper_than_peak_after_losses():
     assert _tops(_roll(_at(TOPUP_DAY, 22), soc=20, loss_pct=200.0)) == []  # 0.80 x 3 = 2.4 >= peak 2.0
 
 
-def test_topup_stays_inside_one_valley_run_never_spanning_charges():
+def test_explicit_charge_windows_get_no_extra_grid_charge():
+    # explicit windows (CLI / generate_deye_tou_schedule) are used as given: no greedy hours or top-ups are added
     prices = [0.5, 0.4, 0.3, 0.3, 0.4, 0.5] + [2.0] * 4 + [0.9] * 14
-    frames = _curve_frames(prices, TOPUP_DAY)
     charges = [{"start": _at(TOPUP_DAY, 1), "end": _at(TOPUP_DAY, 2), "charge_a": 100},
                {"start": _at(TOPUP_DAY, 4), "end": _at(TOPUP_DAY, 5), "charge_a": 100}]
-    tops = _tops(_roll(_at(TOPUP_DAY, 0), soc=20, load=8.0, frames=frames, charges=charges, capacity_kwh=100.0))
-    assert len(tops) == 1
-    a, b, _ = tops[0]
-    # the cycle after the last main charge (05:00 -> end) holds the 06-10 peak: its only valley hour before it is 05:00
-    assert a == _at(TOPUP_DAY, 5) and b <= _at(TOPUP_DAY, 6)
+    plan = _roll(_at(TOPUP_DAY, 0), soc=20, load=8.0, frames=_curve_frames(prices, TOPUP_DAY), charges=charges,
+                 capacity_kwh=100.0)
+    assert [(a, b) for a, b, _ in _charge_hours(plan)] == [(c["start"], c["end"]) for c in charges]
+    assert not [e for e in plan["plan_timeline"] if e["role"] == "topup"]
 
 
-def test_topup_start_and_duration_snap_to_minute_step(monkeypatch):
-    monkeypatch.setattr(energy_defaults, "TOU_SLOT_MINUTE_STEP", 5)
-    plan = _roll(_at(TOPUP_DAY, 23, 2), soc=20)
-    a, b, _ = _tops(plan)[0]
-    # now inside the 23:00 hour -> the table slot keeps its hour-boundary start (no drift with the clock); it charges
-    # from now and ends on the 5-min step
-    assert a == _at(TOPUP_DAY, 23, 2) and b.minute % 5 == 0
-    assert [s["time"] for s in plan["deye_tou_schedule"] if s["topup"]] == ["23:00"]
+def test_running_charge_hour_keeps_its_hour_start_in_the_table():
+    plan = _greedy(_at(TOPUP_DAY, 23, 2), soc=20)
+    a, _, _ = _charge_hours(plan)[0]
+    assert a == _at(TOPUP_DAY, 23, 2)  # the timeline charges from now ...
+    assert "23:00" in [s["time"] for s in plan["deye_tou_schedule"] if s["grid_charge"]]  # ... the slot keeps 23:00
 
 
-def test_topup_slot_flagged_and_badge_picks_main_charge():
+def test_no_slot_flagged_topup_and_badge_renders():
     import jinja2
-    slots = _roll(_at(TOPUP_DAY, 22), soc=20)["deye_tou_schedule"]
-    flagged = [s for s in slots if s.get("topup")]
-    assert len(flagged) == 1 and flagged[0]["time"] == "23:00"
-    assert all(s["topup"] is False for s in slots if s is not flagged[0])
-    # badge template (templates.yaml) selects the main charge slot, not the top-up
-    for s in slots:
-        if s.get("topup"):
-            s["target_charge_current_a"] = 999
+    slots = _greedy(_at(TOPUP_DAY, 22), soc=20)["deye_tou_schedule"]
+    assert all(s["topup"] is False for s in slots)
     path = os.path.join(os.path.dirname(__file__), "..", "..", "config", "templates.yaml")
     src = open(path, encoding="utf-8").read()
     i = src.index("unique_id: deye_inverter_recommended_charge_current")
@@ -2909,7 +2901,7 @@ def test_topup_slot_flagged_and_badge_picks_main_charge():
                states=lambda e: "100")
     env.filters["int"] = lambda v, d=0: int(float(v)) if str(v).replace(".", "").isdigit() else d
     out = env.from_string(state_tpl).render(**ctx).strip()
-    assert out != "999" and int(out) <= 100
+    assert int(out) <= 100
 
 
 # =====================================================================================================================
@@ -3106,12 +3098,11 @@ def _rolling(now, soc, profile, frames=None, **kw):
 
 
 @pytest.mark.parametrize("load", [0.3, 0.5])
-def test_topup_lands_at_today_2300(load):
+def test_greedy_first_charge_lands_at_today_2300(load):
     plan = _rolling(_dt_at(D22, 22), 30, _flat(load))
-    tops = [e for e in plan["plan_timeline"] if e["role"] == "topup"]
-    assert tops and pstryk_engine._iso_dt(tops[0]["start"]) == _dt_at(D22, 23), tops
-    # sized for the load up to tomorrow's main charge: covers at least min SOC + the 4 h morning peak
-    assert tops[0]["target_soc"] >= 20 + 4 * load / CAP_KWH * 100 - 1
+    ch = [e for e in plan["plan_timeline"] if e["role"] == "charge"]
+    assert ch and pstryk_engine._iso_dt(ch[0]["start"]) == _dt_at(D22, 23), ch
+    assert ch[0]["charge_a"] == 100 and ch[0]["target_soc"] == 90
 
 
 # ---- energy balance: hourly rolling re-syncs simulated through the written tables ----
@@ -3172,22 +3163,25 @@ def test_simulation_user_scenario_no_peak_grid_purchase(k, soc0):
 
 
 @pytest.mark.parametrize("now,soc0,k", [((22, 5), 30, 4), ((22, 5), 30, 2), ((17, 45), 30, 2)])
-def test_full_resync_flow_tops_up_at_today_2300_never_after_midnight(now, soc0, k):
+def test_full_resync_flow_charges_only_in_the_first_plans_charge_hours(now, soc0, k):
+    """Hourly re-plans on the simulated SOC charge only in hours the first plan already chose (no new hours appear
+    while the SOC follows the plan), tonight's 23:00 first."""
+    first = _rolling(_dt_at(D22, *now), soc0, _real(k))["plan_timeline"]
+    hours = {pstryk_engine._iso_dt(e["start"]).replace(minute=0) for e in first if e["role"] == "charge"}
     trace = []
-    _simulate(_dt_at(D22, *now), soc0, _real(k), end=_dt_at(D23, 11, 45), trace=trace)  # before the main charge
-    assert trace, "a top-up was expected"
-    assert all(_dt_at(D22, 23) <= t < _dt_at(D23, 0) for t in trace), [t.strftime("%d %H:%M") for t in trace]
+    _simulate(_dt_at(D22, *now), soc0, _real(k), end=_dt_at(D23, 11, 45), trace=trace)
+    assert trace and min(trace) >= _dt_at(D22, 23)
+    assert {t.astimezone(timezone.utc).replace(minute=0, second=0) for t in trace} <= hours, (trace, hours)
 
 
 @pytest.mark.parametrize("load", [0.5, 1.0])
-def test_todays_evening_valley_floor_keeps_energy_tomorrows_morning_peak_needs(load):
+def test_tonights_charge_only_with_tomorrows_prices(load):
     sl = _rolling(_dt_at(D22, 22, 1), 60, _flat(load))["deye_tou_schedule"]
-    evening = next(s for s in sl if s["time"] == "22:00")
-    assert evening["target_soc"] > 20 and not evening["grid_charge"], evening
-    # tomorrow unknown -> no peak ahead in the known prices: drained to Min SOC
+    assert next(s for s in sl if s["time"] == "23:00")["grid_charge"]  # tonight's cheapest hour serves tomorrow
+    # tomorrow unknown -> no worth-covering hour left in the known prices: no grid charge
     today_only = load_fixture(TWO_DAY_FIXTURE)["pricing_frames_today"]
-    assert next(s for s in _rolling(_dt_at(D22, 22, 1), 60, _flat(load), frames=today_only)["deye_tou_schedule"]
-                if s["time"] == "22:00")["target_soc"] == 20
+    assert not [s for s in _rolling(_dt_at(D22, 22, 1), 60, _flat(load), frames=today_only)["deye_tou_schedule"]
+                if s["grid_charge"]]
 
 
 def test_topup_slots_are_not_shorter_than_three_minute_steps(monkeypatch):
@@ -3241,10 +3235,11 @@ def test_computed_floors_snap_down_to_step_and_load_to_step():
         assert [s["target_soc"] for s in sl] == [s["target_soc"] for s in _gen(RV_PRICES, soc=60, load=1.0, pb=RV_PB)]
 
 
-def test_running_topup_keeps_its_start():
+def test_running_night_charge_keeps_its_slot():
     t0 = _rolling(_dt_at(D22, 22), 30, _flat(0.5))["deye_tou_schedule"]
     t1 = _rolling(_dt_at(D22, 23, 10), 33, _flat(0.5))["deye_tou_schedule"]
-    assert [s["time"] for s in t0 if s["topup"]] == [s["time"] for s in t1 if s["topup"]] == ["23:00"], (t0, t1)
+    pick = lambda sl: [(s["time"], s["target_soc"], s["charge_current_a"]) for s in sl if s["grid_charge"] and s["time"] == "23:00"]
+    assert pick(t0) == pick(t1) == [("23:00", 90, 100)], (t0, t1)
 
 
 def test_valley_before_reserve_peak_keeps_the_peaks_own_floor():
@@ -3257,12 +3252,12 @@ def test_valley_before_reserve_peak_keeps_the_peaks_own_floor():
     assert at(7)["soc_end"] < at(7)["soc_start"], (sl, at(7))  # the 06-09 peak gets the battery energy
 
 
-def test_topups_skipped_during_calibration():
-    assert [e for e in _rolling(_dt_at(D22, 22), 30, _flat(1.0))["plan_timeline"] if e["role"] == "topup"]
+def test_calibration_fills_to_100_in_the_cheapest_hours():
     cal = _rolling(_dt_at(D22, 22), 30, _flat(1.0), calibration_active=True)
     assert not [e for e in cal["plan_timeline"] if e["role"] == "topup"]
     assert all(s["target_soc"] == 100 for s in cal["deye_tou_schedule"] if s["grid_charge"])
     assert all(not s["topup"] for s in cal["deye_tou_schedule"])
+    assert max(e["soc_end"] for e in cal["plan_timeline"]) >= 100 - 1e-6
 
 
 @pytest.mark.parametrize("day", [D23, datetime(2026, 10, 25).date()])
@@ -3327,15 +3322,14 @@ def test_x8_profile_hourly_resyncs_top_up_at_most_once_per_night():
     assert writes <= 2, writes
 
 
-def test_valley_after_topup_holds_the_topup_target_until_the_peak():
+def test_hold_only_in_hours_not_worth_covering_and_never_above_the_projected_soc():
     plan = _rolling(_dt_at(D22, 22), 20.0, _real(8))
-    tl = plan["plan_timeline"]
-    i = next(i for i, e in enumerate(tl) if e["role"] == "topup")
-    for e in tl[i + 1:]:
-        if e["role"] == "peak":
-            break
-        assert e["target_soc"] >= tl[i]["target_soc"], (tl[i], e)
-        assert e["soc_end"] >= tl[i]["soc_end"] - 1e-6, (tl[i], e)
+    cheapest = min(f["metrics"]["pricing"]["price_gross"] for f in _fixture_frames()
+                   if pstryk_engine._iso_dt(f["end"]) > _dt_at(D22, 22))
+    for e in plan["plan_timeline"]:
+        if e["role"] == "hold":
+            assert e["price"] <= cheapest * (1 + LOSS / 100) + 1e-9, e
+            assert e["target_soc"] <= e["soc_start"] + 1e-6, e
 
 
 def test_main_charge_sized_from_projected_soc_at_its_start():
@@ -3345,13 +3339,15 @@ def test_main_charge_sized_from_projected_soc_at_its_start():
     assert ch and ch[-1]["soc_end"] >= 90 - 1, ch
 
 
-def test_running_main_charge_keeps_its_start():
+def test_running_charge_block_keeps_its_slots_while_it_runs():
+    """The 13:00 charge block is the same in the 12:00 and the 13:00 tables (only the elapsed 12:00 hour drops out)."""
     t12 = _rolling(_dt_at(D23, 12), 29.1, _real(8))
     ch12 = next(e for e in t12["plan_timeline"] if e["role"] == "charge")
     assert pstryk_engine._iso_dt(ch12["start"]) == _dt_at(D23, 12), ch12
     t13 = _rolling(_dt_at(D23, 13), 44.6, _real(8))
-    assert pstryk_engine.are_tou_slots_identical(t13["deye_tou_schedule"], t12["deye_tou_schedule"]), (
-        t12["deye_tou_schedule"], t13["deye_tou_schedule"])
+    pick = lambda p: [(s["time"], s["target_soc"], s["charge_current_a"]) for s in p["deye_tou_schedule"]
+                      if s["grid_charge"] and s["time"] >= "13:00"]
+    assert pick(t12) == pick(t13) and pick(t13), (t12["deye_tou_schedule"], t13["deye_tou_schedule"])
 
 
 def test_fit_tou_table_forced_tier4_merges_a_charge_into_the_closest_priced_peak():
@@ -3371,3 +3367,34 @@ def test_fit_tou_table_forced_tier4_merges_a_charge_into_the_closest_priced_peak
     merged = next(s for s in segs if s["start"] == h0 + timedelta(hours=6))
     assert merged["role"] == "charge" and merged["end"] == h0 + timedelta(hours=12), merged
     assert [s["role"] for s in segs].count("peak") == 2
+
+
+def test_sync_identical_skip_keeps_cached_active_tou_and_plan_fields_match(tmp_path):
+    """Skip path never rewrites the cached inverter table; rolling_plan_fields uses the same cached table as the sync."""
+    cache_dir = str(tmp_path)
+    write_price_cache(cache_dir, warsaw_day_frames(datetime.now(WARSAW).date(), evening_peak_price))
+    telem = {"success": True, "config": {"max_charge_soc": 90, "min_discharge_soc": 20, "max_charge_current": 100},
+             "telemetry": {"battery_soc": 50, "max_charge_current": 100}, "active_tou": {"enabled": True, "slots": []}}
+    cli = mock.MagicMock()
+    cli.read_inverter_telemetry.return_value = telem
+    cli.sync_tou_schedule.return_value = {"success": True}
+    cli.load_deye_cache.return_value = {"success": True, "active_tou": {"enabled": True, "slots": []}}
+    with mock.patch("pstryk_engine.solarman_v5_client", cli):
+        slots = pstryk_engine.sync_deye_inverter_tou_schedule(cache_dir=cache_dir)["slots"]
+        saved = cli.save_deye_cache.call_args[0][0]["active_tou"]["slots"]
+        assert saved == slots  # written -> cache holds what was written
+
+        telem["active_tou"] = {"enabled": True, "slots": slots}
+        cli.load_deye_cache.return_value = {"success": True, "active_tou": {"enabled": True, "slots": slots}}
+        cli.save_deye_cache.reset_mock()
+        res = pstryk_engine.sync_deye_inverter_tou_schedule(cache_dir=cache_dir)
+        assert res["unchanged"] is True
+        cli.save_deye_cache.assert_not_called()
+
+        payload = json.load(open(pstryk_engine.get_cache_file_path("dol", cache_dir=cache_dir)))
+        soc = res["soc_limits"]
+        fields = pstryk_engine.rolling_plan_fields(
+            payload, current_soc=soc["current_soc"], min_soc=soc["min_soc"], max_soc=soc["max_soc"],
+            capacity_kwh=soc["battery_capacity_kwh"], voltage=soc["nominal_voltage"], loss_pct=soc["loss_buffer_pct"],
+            calibration_active=False, max_discharge_current=soc["max_discharge_current"])
+        assert fields["deye_tou_schedule"] == res["slots"]

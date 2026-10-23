@@ -12,7 +12,6 @@ This module dynamically parses .env / .env.example at load time.
 import os
 from typing import Any, Dict, List, Optional
 
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 _ALIASES = [
     ("BATTERY_CHARGE_CURRENT_A", "BATTERY_MAX_CHARGE_CURRENT"),
@@ -56,10 +55,8 @@ def _load_all_env_defaults() -> Dict[str, str]:
 
     # 1. Parse .env.example as the baseline template (canonical defaults)
     example_paths = [
-        os.path.join(_REPO_ROOT, ".env.example"),
         os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env.example"),
         "/config/.env.example",
-        os.path.join(os.getcwd(), ".env.example"),
     ]
     for p in example_paths:
         if os.path.isfile(p):
@@ -69,9 +66,7 @@ def _load_all_env_defaults() -> Dict[str, str]:
     # 2. Overlay real .env files if present (user configuration overrides baseline)
     env_paths = [
         "/config/.env",
-        os.path.join(_REPO_ROOT, ".env"),
         os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"),
-        os.path.join(os.getcwd(), ".env"),
     ]
     for p in env_paths:
         if os.path.isfile(p):
@@ -172,9 +167,6 @@ DEYE_CACHE_TTL = get_default_float("DEYE_CACHE_TTL_SECONDS")
 LOAD_HISTORY_DAYS = get_default_int("LOAD_HISTORY_DAYS")
 # Minimum hours between Deye history fetch retries after a failure (negative cache)
 DEYE_HISTORY_RETRY_HOURS = get_default_float("DEYE_HISTORY_RETRY_HOURS")
-# Peak top-up sizing: minimum slot length in TOU_SLOT_MINUTE_STEP steps and minimum SOC % it must buy
-TOPUP_MIN_STEPS = get_default_int("TOPUP_MIN_STEPS")
-TOPUP_MIN_DEFICIT_SOC = get_default_int("TOPUP_MIN_DEFICIT_SOC")
 PSTRYK_CACHE_TTL = get_default_float("PSTRYK_CACHE_TTL_SECONDS")
 
 # --- 6. Pstryk API & Energy Market Defaults ---

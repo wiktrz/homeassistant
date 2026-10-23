@@ -296,16 +296,20 @@ def test_timeline_continuous_across_midnight_to_last_priced_hour():
     assert iso(tl[-1]["end"]) == iso(r["horizon_end"]) == datetime(2026, 10, 24, 0, 0, tzinfo=W).astimezone(timezone.utc)  # end of the last priced hour (23:00-24:00)
 
 
-def test_timeline_same_beyond_now_for_1745_and_2205():
+def test_replan_at_2205_with_projected_soc_keeps_the_1745_plan_beyond_now():
+    """Greedy plans depend on the SOC: a re-plan at 22:05 from the SOC the 17:45 plan projects there keeps the same
+    behaviour (roles, floors, charge hours) for the rest of the horizon."""
     a = plan(datetime(2026, 10, 22, 17, 45, tzinfo=W), 60, prof())["plan_timeline"]
-    b = plan(NOW, 60, prof())["plan_timeline"]
+    e = role_at(a, NOW)
+    soc = e["soc_start"] + (e["soc_end"] - e["soc_start"]) * ((NOW - iso(e["start"])) / (iso(e["end"]) - iso(e["start"])))
+    b = plan(NOW, soc, prof())["plan_timeline"]
     t0 = datetime(2026, 10, 22, 23, 0, tzinfo=W)
     for m in range(0, 24 * 60, 30):
         t = t0 + timedelta(minutes=m)
         if t >= datetime(2026, 10, 23, 23, tzinfo=W):
             break
         ea, eb = role_at(a, t), role_at(b, t)
-        assert ea and eb and (ea["role"], ea["target_soc"]) == (eb["role"], eb["target_soc"]), t
+        assert ea and eb and (ea["role"], ea["target_soc"], ea["charge_a"]) == (eb["role"], eb["target_soc"], eb["charge_a"]), t
 
 
 @pytest.mark.parametrize("soc", [30, 60, 90])
@@ -335,39 +339,29 @@ def test_peaks_classified_per_price_day():
                 assert e["price"] > mean
 
 
-def _topups(tl):
-    return [e for e in tl if e["role"] == "topup"]
+def _charges(tl):
+    return [e for e in tl if e["role"] == "charge"]
 
 
 @pytest.mark.parametrize("k,soc", [(2, 30), (4, 45)])
-def test_user_scenario_topup_at_2300(k, soc):
+def test_user_scenario_greedy_night_charge_at_2300(k, soc):
+    """22:05, real profile x k: tonight's cheapest hour (23:00) is the first grid charge, one hour at the Reg 108
+    ceiling; the battery stays >= Min SOC; every charge hour is an hour of plan_charge_hours."""
     r = plan(NOW, soc, prof(k))
-    tu = _topups(r["plan_timeline"])
-    assert tu, "top-up required"
-    assert iso(tu[0]["start"]) == datetime(2026, 10, 22, 23, 0, tzinfo=W).astimezone(timezone.utc)
-    assert iso(tu[0]["end"]) - iso(tu[0]["start"]) <= timedelta(minutes=60)
-    charge13 = datetime(2026, 10, 23, 13, 0, tzinfo=W)
+    ch = _charges(r["plan_timeline"])
+    assert ch and iso(ch[0]["start"]) == datetime(2026, 10, 22, 23, 0, tzinfo=W).astimezone(timezone.utc)
+    assert iso(ch[0]["end"]) - iso(ch[0]["start"]) == timedelta(hours=1) and ch[0]["charge_a"] == 100
     for e in r["plan_timeline"]:
-        if iso(e["start"]) < charge13.astimezone(timezone.utc) and iso(e["end"]) > NOW.astimezone(timezone.utc):
-            assert e["soc_end"] >= 20 - 1e-6, e
-    # first main charge: the 13-15 valley, stretched earlier when the SOC projected at its start needs more hours
-    ch = [e for e in r["plan_timeline"] if e["role"] == "charge"]
-    assert iso(ch[0]["start"]) <= charge13.astimezone(timezone.utc)
-    assert iso(ch[0]["end"]) == datetime(2026, 10, 23, 15, 0, tzinfo=W).astimezone(timezone.utc)
-    assert ch[0]["soc_end"] >= 90 - 1, ch[0]
+        assert e["soc_end"] >= 20 - 1e-6, e
 
 
-def test_real_profile_soc_30_covers_the_morning_peak_without_top_up():
-    # the night valley is held (grid-covered): 30 % covers the 06:00 peak -> 13:00 charge at the real load
-    assert not _topups(plan(NOW, 30, prof(1))["plan_timeline"])
+def test_higher_soc_never_needs_more_charge_hours():
+    hours = lambda soc: {e["start"] for e in _charges(plan(NOW, soc, prof(2))["plan_timeline"])}
+    assert hours(90) <= hours(60) <= hours(30)
 
 
-@pytest.mark.parametrize("k", [1, 2, 4])
-def test_no_topup_when_soc_high(k):
-    assert not _topups(plan(NOW, 90, prof(k))["plan_timeline"])
-
-
-def test_no_profile_no_topups_no_reserve():
+def test_no_profile_fills_to_max_soc_in_the_cheapest_hours():
     r = plan(NOW, 30, None)
-    assert not _topups(r["plan_timeline"])
+    assert not [e for e in r["plan_timeline"] if e["role"] == "topup"]
+    assert _charges(r["plan_timeline"])[-1]["soc_end"] >= 90 - 1e-6
     assert len(r["deye_tou_schedule"]) == 6

@@ -24,7 +24,7 @@ All rule text lives in `AI_DEVELOPMENT_GUIDELINES.md` (imported above). Do not d
 7. Rule 7 (see AI_DEVELOPMENT_GUIDELINES.md): end every substantive session with the structured retrospective and re-validation.
 8. Rule 8 (see AI_DEVELOPMENT_GUIDELINES.md): English-only identifiers; Polish only in user-facing UI/TTS/notifications.
 9. Rule 9 (see AI_DEVELOPMENT_GUIDELINES.md): zero hardcoded battery/inverter hardware parameters (see `SPEC_DEYE_BATTERY_SYSTEM.md`).
-10. Rule 10 (see AI_DEVELOPMENT_GUIDELINES.md): fallbacks live only in `.env.example`; run `--search` before adding variables, `--validate` must pass.
+10. Rule 10 (see AI_DEVELOPMENT_GUIDELINES.md): fallbacks live only in `config/.env.example` (single template; real `config/.env`, no root copies); run `--search` before adding variables, `--validate` must pass.
 11. Rule 11 (see AI_DEVELOPMENT_GUIDELINES.md): Lovelace conditional cards nest `entities:`/`cards:` under `card:`; no empty lists.
 
 ## Definition of Done (Claude)
@@ -41,7 +41,7 @@ A task that changed files is done only when every item holds:
 
 `/verify` (`.claude/commands/verify.md`) runs the whole checklist and reports a pass/fail table.
 
-**Enforced by project hooks** (`.claude/settings.json` -> `.claude/hooks/guard.py`): PreToolUse denies `git add`/`git stage`/`git commit -a`; PostToolUse runs `--validate` after edits to `config/*.py`, `.env.example`, `config/configuration.yaml`, `config/templates.yaml`; a successful `tests/runner.py` run is recorded per diff fingerprint in `.claude/state/` (gitignored); the Stop hook blocks once (then only warns) when the runner pass, doc sync or scenario registration is missing.
+**Enforced by project hooks** (`.claude/settings.json` -> `.claude/hooks/guard.py`): PreToolUse denies `git add`/`git stage`/`git commit -a`; PostToolUse runs `--validate` after edits to `config/*.py`, `config/.env.example`, `config/configuration.yaml`, `config/templates.yaml`; a successful `tests/runner.py` run is recorded per diff fingerprint in `.claude/state/` (gitignored); the Stop hook blocks once (then only warns) when the runner pass, doc sync or scenario registration is missing.
 
 ## Project Overview
 
@@ -256,7 +256,7 @@ python3 tests/runner.py --stop         # Teardown test containers
 
 ## Secrets
 
-Secrets live in `config/secrets.yaml` and `config/.env` — never paste values into docs.
+Secrets live in `config/secrets.yaml` and `config/.env` (the only env file; the only template is `config/.env.example`; no root-level copies) — never paste values into docs.
 
 ## Important Files
 

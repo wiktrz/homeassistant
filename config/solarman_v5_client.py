@@ -37,13 +37,7 @@ def load_dotenv(paths: Optional[List[str]] = None) -> None:
     """Zero-dependency .env file loader for environment configuration."""
     if paths is None:
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        repo_root = os.path.abspath(os.path.join(script_dir, ".."))
-        paths = [
-            "/config/.env",
-            os.path.join(repo_root, ".env"),
-            os.path.join(script_dir, ".env"),
-            os.path.join(os.getcwd(), ".env"),
-        ]
+        paths = ["/config/.env", os.path.join(script_dir, ".env")]
     for p in paths:
         if os.path.exists(p) and os.path.isfile(p):
             try:

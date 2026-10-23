@@ -31,7 +31,7 @@ def search_existing_definitions(term: str) -> None:
     matches_found = 0
 
     # 1. Search .env.example
-    env_example = os.path.join(REPO_ROOT, ".env.example")
+    env_example = os.path.join(CONFIG_DIR, ".env.example")
     if os.path.exists(env_example):
         with open(env_example, "r", encoding="utf-8") as f:
             for line_no, line in enumerate(f, 1):

@@ -20,7 +20,7 @@ ROOT = os.environ.get("HA_GUARD_ROOT") or os.environ.get("CLAUDE_PROJECT_DIR") o
 STATE = os.path.join(ROOT, ".claude", "state", "runner_pass.json")
 WATCHED = ("config/", "tests/", "scripts/")
 DOCS = {"PLACES_AND_BEHAVIORS.md", "AGENT.md", "AGENTS.md", "llms.txt"}
-VALIDATE_PATHS = re.compile(r"^(config/[^/]+\.py|\.env\.example|config/configuration\.yaml|config/templates\.yaml)$")
+VALIDATE_PATHS = re.compile(r"^(config/[^/]+\.py|config/\.env\.example|config/configuration\.yaml|config/templates\.yaml)$")
 RUNNER_OK = "ALL TEST TIERS COMPLETED SUCCESSFULLY"
 # runner.py rewrites last_verified timestamps in tests/test_registry.yaml; ignore them or a pass never sticks.
 VOLATILE = re.compile(rb"^[+-]\s*last_verified:.*$", re.M)
@@ -111,7 +111,7 @@ def post_edit(data):
         return None
     return {"decision": "block", "reason": (
         f"Rule 10 violation after editing {rel}: `python3 scripts/check_duplicate_variable.py --validate` "
-        f"exited {r.returncode}. Move fallbacks to .env.example and import them via config/energy_defaults.py.\n"
+        f"exited {r.returncode}. Move fallbacks to config/.env.example and import them via config/energy_defaults.py.\n"
         + (r.stdout + r.stderr).strip()[-3000:])}
 
 
