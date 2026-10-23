@@ -141,7 +141,10 @@ def _chat(messages: List[Dict[str, str]], key: str) -> Tuple[Optional[str], Opti
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 box["data"] = json.loads(resp.read().decode("utf-8"))
-        except Exception as e:  # HTTP, timeout, parse: never echo the key (exceptions do not carry headers)
+        except urllib.error.HTTPError as e:  # keep status + provider message for diagnosis, key scrubbed
+            detail = e.read().decode("utf-8", "replace")[:300].replace(key, "***")
+            box["error"] = f"ai_call_failed: HTTP {e.code} {detail}".strip()
+        except Exception as e:  # timeout, parse: never echo the key (exceptions do not carry headers)
             box["error"] = f"ai_call_failed: {type(e).__name__}"
 
     # urlopen's timeout is per socket op; a daemon thread + join bounds the whole call (shell_command hard kill)
