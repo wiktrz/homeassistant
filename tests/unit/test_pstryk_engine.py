@@ -3345,7 +3345,7 @@ def test_main_charge_sized_from_projected_soc_at_its_start():
     plan = _rolling(_dt_at(D23, 0), 76.0, _real(8), terminal_fill=False)
     ch = [e for e in plan["plan_timeline"] if e["role"] == "charge"
           and pstryk_engine._iso_dt(e["start"]).astimezone(WARSAW).date() == D23]
-    assert ch and ch[-1]["soc_end"] >= 90 - 1, ch
+    assert ch and max(e["soc_end"] for e in ch) >= 90 - 1, ch  # a later top-up for the evening peak may follow
 
 
 def test_running_charge_block_keeps_its_slots_while_it_runs():

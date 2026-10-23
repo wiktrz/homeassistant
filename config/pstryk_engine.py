@@ -1741,6 +1741,10 @@ def plan_charge_hours(
     walk = lambda charges: _soc_walk(cand, worth, charges, current_soc, load_kwh_by_hour, min_soc=min_soc,
                                      max_soc=max_soc, capacity_kwh=cap)
 
+    # peak SOC an hour at i could reach: its start SOC counts too (a worth-covering hour discharges its own load,
+    # so the end SOC alone shows a room that is not there)
+    peak = lambda tl, i, k=None: max([tl[i - 1][0] if i else float(current_soc)] + [x[0] for x in tl[i:k]])
+
     charges: Dict[int, float] = {}
     skipped = set()
     for _ in range(len(cand) * len(cand)):
@@ -1756,7 +1760,7 @@ def plan_charge_hours(
             stop = next((j for j in range(k + 1, len(cand)) if cand[j][2] <= cand[i][2]), len(cand))
             served = math.fsum(x[1] for x in tl[k:stop])
             # need-sized: only the energy that shortfall needs, capped by the hour's ceiling energy and the room to Max
-            e = min(max_kwh * frac[i] - charges.get(i, 0.0), (float(max_soc) - max(x[0] for x in tl[i:k])) / 100.0 * cap,
+            e = min(max_kwh * frac[i] - charges.get(i, 0.0), (float(max_soc) - peak(tl, i, k)) / 100.0 * cap,
                     served)
             # hysteresis (flash wear, no "keep at Max" trickle): a new hour that stores, or serves, less than one
             # TOU_FLOOR_SOC_STEP of capacity is not worth a charge slot - that small shortfall stays grid-bought; an
@@ -1777,7 +1781,7 @@ def plan_charge_hours(
         for _, i in sorted((cand[i][2], i) for i in range(len(cand)) if published[i]
                            and cand[i][2] * (1.0 + float(loss_pct) / 100.0)
                            <= day_mean.get(cand[i][0].astimezone(WARSAW_TZ).date(), 0.0)):
-            e = min(max_kwh * frac[i] - charges.get(i, 0.0), (float(max_soc) - max(x[0] for x in tl[i:])) / 100.0 * cap)
+            e = min(max_kwh * frac[i] - charges.get(i, 0.0), (float(max_soc) - peak(tl, i)) / 100.0 * cap)
             if e >= (eps if i in charges or (held and cand[i][0] in held) else step_kwh - eps):
                 charges[i] = charges.get(i, 0.0) + e
                 tl = walk(charges)

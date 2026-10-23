@@ -70,3 +70,27 @@ def test_ai_prompt_carries_the_terminal_fill_rule():
     ctx = ai_tou_planner.build_context(LIVE_FRAMES, _at(19, 8), 17, PROFILE, None, **P)
     rules = ai_tou_planner.build_prompt(ctx)[0]["content"]
     assert "unknown" in rules and "mean price of their own day" in rules and str(P["loss_pct"]) in rules
+
+
+def test_live_fixture_saturday_block_ends_at_the_cheap_valley_not_in_the_dearer_hour():
+    res = pstryk_engine.plan_rolling_tou(LIVE_FRAMES, _at(19, 8), 17, PROFILE, **P)
+    sat = (_at(0) + timedelta(days=1)).date()
+    ch = [(pstryk_engine._iso_dt(e["start"]).astimezone(pstryk_engine.WARSAW_TZ),
+           pstryk_engine._iso_dt(e["end"]).astimezone(pstryk_engine.WARSAW_TZ))
+          for e in res["plan_timeline"] if e["role"] == "charge"]
+    midday = [c for c in ch if c[0].date() == sat and 11 <= c[0].hour < 16]
+    assert midday and min(c[0] for c in midday).strftime("%H:%M") == "11:10"
+    assert max(c[1] for c in midday).strftime("%H:%M") == "14:00"
+
+
+def test_hour_after_reaching_max_in_the_valley_is_never_charged():
+    start = _at(8)
+    prices = [0.30, 0.30, 0.30, 0.30, 0.90, 0.95, 1.00, 1.00]
+    hours = []
+    for n, p in enumerate(prices):
+        a = start + timedelta(hours=n)
+        hours.append((a, a + timedelta(hours=1), p, {"metrics": {"pricing": {"price_gross": p}}}))
+    load = {h[0]: 3.0 for h in hours}
+    picks = _plan(hours, start, 20, load)
+    assert picks
+    assert all(p["start"] < hours[4][0] for p in picks), [p["start"] for p in picks]
