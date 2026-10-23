@@ -194,3 +194,16 @@ TOU_DISCHARGE_SOC_THRESHOLD = 30
 TOU_POWER_DIFF_TOLERANCE_W = 50
 TOU_SLOT_COUNT = 6  # Deye hybrid inverters expose exactly 6 TOU slots (regs 248..273)
 TOU_LABEL_SOC_TOLERANCE = 1  # SOC % margin around min/max when labelling a TOU slot
+
+# --- AI-first TOU planner (ai_tou_planner.py); the API key is read at call time, never stored here ---
+AI_TOU_BASE_URL = get_default_str("AI_TOU_BASE_URL")
+AI_TOU_MODEL = get_default_str("AI_TOU_MODEL")
+AI_TOU_REASONING_EFFORT = get_default_str("AI_TOU_REASONING_EFFORT")
+AI_TOU_MAX_TOKENS = get_default_int("AI_TOU_MAX_TOKENS")
+AI_TOU_TIMEOUT_S = get_default_float("AI_TOU_TIMEOUT_S")
+# Home Assistant shell_command hard kill (s): AI timeout + LOCAL_TIME_BUDGET_S must fit inside it
+SHELL_COMMAND_TIMEOUT_S = get_default_float("SHELL_COMMAND_TIMEOUT_S")
+AI_TOU_DEVIATION_SOC = get_default_float("AI_TOU_DEVIATION_SOC")
+AI_TOU_MIN_INTERVAL_MIN = get_default_float("AI_TOU_MIN_INTERVAL_MIN")
+AI_TOU_MAX_COST_RATIO = get_default_float("AI_TOU_MAX_COST_RATIO")
+AI_TOU_CACHE_FILE = get_default_str("AI_TOU_CACHE_FILE")

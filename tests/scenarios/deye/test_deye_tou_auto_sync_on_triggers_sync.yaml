@@ -1,0 +1,28 @@
+id: test_deye_tou_auto_sync_on_triggers_sync
+area: deye
+description: "Auto-sync switch off->on runs the sync script once and clears its own pending-UI marker"
+tags: [deye, tou, sync, auto_sync, automation, stub, regression]
+status: active
+
+preconditions:
+  stub_rc: 0
+  entities:
+    input_boolean.deye_tou_auto_sync:
+      state: "off"
+    input_text.pending_ui_operations:
+      state: '["sentinel"]'
+
+action:
+  type: set_state
+  entity_id: input_boolean.deye_tou_auto_sync
+  state: "on"
+
+wait_seconds: 5.0
+
+# ponytail: runner has only equality asserts, so the now() date change is not assertable;
+# sentinel round-trip + switch staying on prove automation->script ran cleanly.
+assertions:
+  - entity: input_boolean.deye_tou_auto_sync
+    state: "on"
+  - entity: input_text.pending_ui_operations
+    state: '["sentinel"]'

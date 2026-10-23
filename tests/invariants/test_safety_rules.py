@@ -325,3 +325,25 @@ if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 
 
+
+
+def test_ai_tou_planner_never_writes_registers_or_leaks_the_key():
+    """
+    INVARIANT: the AI planner only proposes a table; it never writes inverter registers (no Reg 108/109/112 writes,
+    no client write calls) and never prints the API key.
+    """
+    import ast
+    path = os.path.join(REPO_ROOT, "config", "ai_tou_planner.py")
+    with open(path, "r", encoding="utf-8") as f:
+        tree = ast.parse(f.read(), filename=path)
+    banned_calls = {"set_charge_current", "set_charge_current_with_fallback", "write_register", "write_registers",
+                    "sync_tou_schedule", "apply_confirmed_battery_safety_limits"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and node.value in (108, 109, 112) and not isinstance(node.value, bool):
+            raise AssertionError(f"register literal {node.value} at line {node.lineno}")
+        if isinstance(node, ast.Call):
+            name = getattr(node.func, "attr", None) or getattr(node.func, "id", None)
+            assert name not in banned_calls, f"register/inverter write call {name} at line {node.lineno}"
+            if name == "print":
+                names = {n.id for a in node.args for n in ast.walk(a) if isinstance(n, ast.Name)}
+                assert "key" not in names, f"print of the API key at line {node.lineno}"

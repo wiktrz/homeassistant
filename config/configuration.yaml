@@ -56,6 +56,10 @@ shell_command:
     python3 /config/pstryk_engine.py --apply-battery-safety-limits {% if states('input_text.deye_inverter_ip') not in ['unknown', 'unavailable', ''] %}--inverter-host {{ states('input_text.deye_inverter_ip') }}{% endif %} {% if states('input_number.deye_inverter_port') not in ['unknown', 'unavailable', ''] and states('input_number.deye_inverter_port') | int(0) > 1 %}--inverter-port {{ states('input_number.deye_inverter_port') | int }}{% endif %} --min-soc {{ states('input_number.deye_battery_min_discharge_soc') | default('20', true) | int(20) }} --shutdown-soc {{ states('input_number.deye_battery_shutdown_soc') | default('5', true) | int(5) }}
   sync_deye_inverter_tou: >-
     python3 /config/pstryk_engine.py --sync-deye-tou {% if states('input_text.deye_inverter_ip') not in ['unknown', 'unavailable', ''] %}--inverter-host {{ states('input_text.deye_inverter_ip') }}{% endif %} {% if states('input_number.deye_inverter_port') not in ['unknown', 'unavailable', ''] and states('input_number.deye_inverter_port') | int(0) > 1 %}--inverter-port {{ states('input_number.deye_inverter_port') | int }}{% endif %} {% if calibration is defined and (calibration | bool) %}--calibration{% endif %} {% if force is defined and (force | bool) %}--force{% endif %} {% if states('sensor.deye_battery_soc') not in ['unknown', 'unavailable', ''] and states('sensor.deye_battery_soc') | int(0) > 0 %}--current-soc {{ states('sensor.deye_battery_soc') | int }}{% endif %} {% if states('input_number.deye_battery_max_charge_soc') not in ['unknown', 'unavailable', ''] %}--max-soc {{ states('input_number.deye_battery_max_charge_soc') | int }}{% endif %} {% if states('input_number.deye_battery_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('input_number.deye_battery_min_discharge_soc') | int }}{% elif states('sensor.deye_inverter_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('sensor.deye_inverter_min_discharge_soc') | int }}{% endif %} {% if states('input_number.deye_battery_shutdown_soc') not in ['unknown', 'unavailable', ''] %}--shutdown-soc {{ states('input_number.deye_battery_shutdown_soc') | int }}{% elif states('sensor.deye_inverter_shutdown_soc') not in ['unknown', 'unavailable', ''] %}--shutdown-soc {{ states('sensor.deye_inverter_shutdown_soc') | int }}{% endif %} {% if states('sensor.deye_inverter_max_discharge_current') | float(0) > 0 %}--max-discharge-current {{ states('sensor.deye_inverter_max_discharge_current') | float }}{% endif %} {% if states('sensor.powerbank_total_capacity_kwh') | float(0) > 0 %}--battery-capacity {{ states('sensor.powerbank_total_capacity_kwh') | float }}{% endif %} {% if states('sensor.powerbank_voltage_v') | float(0) > 0 %}--nominal-voltage {{ states('sensor.powerbank_voltage_v') | float }}{% endif %} --sell-target-hours "{{ states('input_select.battery_discharge_target_hours') }}" --ev-target-hours "{{ states('input_select.ev_charging_target_hours') }}"
+  sync_deye_manual_tou: >-
+    python3 /config/pstryk_engine.py --sync-manual-tou '{{ manual_slots_json }}' {% if is_state('input_boolean.deye_tou_auto_sync', 'off') %}--auto-sync-off{% endif %} {% if states('input_text.deye_inverter_ip') not in ['unknown', 'unavailable', ''] %}--inverter-host {{ states('input_text.deye_inverter_ip') }}{% endif %} {% if states('input_number.deye_inverter_port') not in ['unknown', 'unavailable', ''] and states('input_number.deye_inverter_port') | int(0) > 1 %}--inverter-port {{ states('input_number.deye_inverter_port') | int }}{% endif %} {% if states('sensor.deye_battery_soc') not in ['unknown', 'unavailable', ''] and states('sensor.deye_battery_soc') | int(0) > 0 %}--current-soc {{ states('sensor.deye_battery_soc') | int }}{% endif %} {% if states('input_number.deye_battery_max_charge_soc') not in ['unknown', 'unavailable', ''] %}--max-soc {{ states('input_number.deye_battery_max_charge_soc') | int }}{% endif %} {% if states('input_number.deye_battery_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('input_number.deye_battery_min_discharge_soc') | int }}{% elif states('sensor.deye_inverter_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('sensor.deye_inverter_min_discharge_soc') | int }}{% endif %} {% if states('input_number.deye_battery_shutdown_soc') not in ['unknown', 'unavailable', ''] %}--shutdown-soc {{ states('input_number.deye_battery_shutdown_soc') | int }}{% elif states('sensor.deye_inverter_shutdown_soc') not in ['unknown', 'unavailable', ''] %}--shutdown-soc {{ states('sensor.deye_inverter_shutdown_soc') | int }}{% endif %} {% if states('sensor.deye_inverter_max_discharge_current') | float(0) > 0 %}--max-discharge-current {{ states('sensor.deye_inverter_max_discharge_current') | float }}{% endif %} {% if states('sensor.powerbank_total_capacity_kwh') | float(0) > 0 %}--battery-capacity {{ states('sensor.powerbank_total_capacity_kwh') | float }}{% endif %} {% if states('sensor.powerbank_voltage_v') | float(0) > 0 %}--nominal-voltage {{ states('sensor.powerbank_voltage_v') | float }}{% endif %} 
+  restore_deye_charge_current: >-
+    python3 /config/pstryk_engine.py --restore-charge-current {% if states('input_text.deye_inverter_ip') not in ['unknown', 'unavailable', ''] %}--inverter-host {{ states('input_text.deye_inverter_ip') }}{% endif %} {% if states('input_number.deye_inverter_port') not in ['unknown', 'unavailable', ''] and states('input_number.deye_inverter_port') | int(0) > 1 %}--inverter-port {{ states('input_number.deye_inverter_port') | int }}{% endif %}
   fetch_deye_load_history: >-
     python3 /config/deye_cloud_client.py --fetch-history
   force_refresh_deye_inverter_status: >-
@@ -270,6 +274,27 @@ notify:
     services: []
 
 input_boolean:
+  deye_tou_auto_sync:
+    name: "Automatyczne przeliczanie TOU"
+    icon: mdi:robot
+  deye_manual_tou_grid_charge_1:
+    name: "Ręczne TOU slot 1: Ładowanie z sieci"
+    icon: mdi:transmission-tower-import
+  deye_manual_tou_grid_charge_2:
+    name: "Ręczne TOU slot 2: Ładowanie z sieci"
+    icon: mdi:transmission-tower-import
+  deye_manual_tou_grid_charge_3:
+    name: "Ręczne TOU slot 3: Ładowanie z sieci"
+    icon: mdi:transmission-tower-import
+  deye_manual_tou_grid_charge_4:
+    name: "Ręczne TOU slot 4: Ładowanie z sieci"
+    icon: mdi:transmission-tower-import
+  deye_manual_tou_grid_charge_5:
+    name: "Ręczne TOU slot 5: Ładowanie z sieci"
+    icon: mdi:transmission-tower-import
+  deye_manual_tou_grid_charge_6:
+    name: "Ręczne TOU slot 6: Ładowanie z sieci"
+    icon: mdi:transmission-tower-import
   motion_lights_disabled:
     name: Motion Lights Disabled
     icon: mdi:motion-sensor-off
@@ -566,6 +591,36 @@ input_select:
     initial: script.light_salon_color_1
 
 input_datetime:
+  deye_manual_tou_time_1:
+    name: "Ręczne TOU slot 1: Godzina"
+    has_date: false
+    has_time: true
+    icon: mdi:clock-outline
+  deye_manual_tou_time_2:
+    name: "Ręczne TOU slot 2: Godzina"
+    has_date: false
+    has_time: true
+    icon: mdi:clock-outline
+  deye_manual_tou_time_3:
+    name: "Ręczne TOU slot 3: Godzina"
+    has_date: false
+    has_time: true
+    icon: mdi:clock-outline
+  deye_manual_tou_time_4:
+    name: "Ręczne TOU slot 4: Godzina"
+    has_date: false
+    has_time: true
+    icon: mdi:clock-outline
+  deye_manual_tou_time_5:
+    name: "Ręczne TOU slot 5: Godzina"
+    has_date: false
+    has_time: true
+    icon: mdi:clock-outline
+  deye_manual_tou_time_6:
+    name: "Ręczne TOU slot 6: Godzina"
+    has_date: false
+    has_time: true
+    icon: mdi:clock-outline
   pora_nocna:
     name: Pora Nocna
     has_date: false
@@ -619,6 +674,54 @@ input_datetime:
     icon: mdi:calendar-sync
 
 input_number:
+  deye_manual_tou_soc_1:
+    name: "Ręczne TOU slot 1: Docelowy SOC"
+    min: 10
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    icon: mdi:battery-charging-medium
+  deye_manual_tou_soc_2:
+    name: "Ręczne TOU slot 2: Docelowy SOC"
+    min: 10
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    icon: mdi:battery-charging-medium
+  deye_manual_tou_soc_3:
+    name: "Ręczne TOU slot 3: Docelowy SOC"
+    min: 10
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    icon: mdi:battery-charging-medium
+  deye_manual_tou_soc_4:
+    name: "Ręczne TOU slot 4: Docelowy SOC"
+    min: 10
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    icon: mdi:battery-charging-medium
+  deye_manual_tou_soc_5:
+    name: "Ręczne TOU slot 5: Docelowy SOC"
+    min: 10
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    icon: mdi:battery-charging-medium
+  deye_manual_tou_soc_6:
+    name: "Ręczne TOU slot 6: Docelowy SOC"
+    min: 10
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    icon: mdi:battery-charging-medium
   deye_tou_stale_sync_hours:
     name: "Alarm: Maks. Wiek Synchronizacji TOU (h, 0 = wyłączony)"
     min: 0

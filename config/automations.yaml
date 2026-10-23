@@ -2762,7 +2762,10 @@
     - trigger: state
       entity_id: input_button.sync_deye_inverter_soc
       id: manual_trigger
-  conditions: []
+  conditions:
+    - condition: state
+      entity_id: input_boolean.deye_tou_auto_sync
+      state: "on"
   actions:
     - choose:
         - conditions:
@@ -3113,12 +3116,17 @@
   triggers:
     - trigger: time_pattern
       minutes: 2
+    - trigger: time_pattern
+      minutes: "/15"
     - trigger: time
       at: "00:00:30"
     - trigger: state
       entity_id: binary_sensor.pstryk_has_tomorrow_pricing_dol
       to: "on"
   conditions:
+    - condition: state
+      entity_id: input_boolean.deye_tou_auto_sync
+      state: "on"
     - condition: template
       value_template: >-
         {% set tlm = state_attr('sensor.deye_inverter_status', 'telemetry') %}
@@ -3139,6 +3147,9 @@
       for:
         seconds: 5
   conditions:
+    - condition: state
+      entity_id: input_boolean.deye_tou_auto_sync
+      state: "on"
     - condition: template
       value_template: >-
         {% set tlm = state_attr('sensor.deye_inverter_status', 'telemetry') %}
@@ -3228,7 +3239,7 @@
 
 - id: deye_tou_stale_sync_alert
   alias: 'Deye: Alarm Nieaktualnej Synchronizacji TOU'
-  description: 'Gdy synchronizacja TOU ustanie, falownik codziennie odtwarza ostatnią tabelę. Powiadamia, jeśli input_datetime.deye_tou_last_synced_date jest starsze niż input_number.deye_tou_stale_sync_hours (0 = wyłączone).'
+  description: 'Gdy synchronizacja TOU ustanie, falownik codziennie odtwarza ostatnią tabelę. Powiadamia, jeśli input_datetime.deye_tou_last_synced_date jest starsze niż input_number.deye_tou_stale_sync_hours (0 = wyłączone). Przy wyłączonym automatycznym TOU komunikat wskazuje aktywny tryb ręczny.'
   triggers:
     - trigger: time_pattern
       minutes: '5'
@@ -3243,6 +3254,131 @@
     - action: persistent_notification.create
       data:
         title: "⚠️ Nieaktualna synchronizacja TOU Deye"
-        message: "Harmonogram TOU nie był synchronizowany z falownikiem od ponad {{ states('input_number.deye_tou_stale_sync_hours') | int(0) }} h. Falownik odtwarza ostatnią tabelę – sprawdź połączenie i silnik Pstryk."
+        message: "Harmonogram TOU nie był synchronizowany z falownikiem od ponad {{ states('input_number.deye_tou_stale_sync_hours') | int(0) }} h. Falownik odtwarza ostatnią tabelę – {{ 'aktywny jest tryb ręczny (automatyczne przeliczanie TOU wyłączone) – włącz je, jeśli to niezamierzone.' if is_state('input_boolean.deye_tou_auto_sync', 'off') else 'sprawdź połączenie i silnik Pstryk.' }}"
         notification_id: deye_tou_stale_sync
+  mode: single
+
+- id: deye_tou_auto_sync_toggled
+  alias: 'Deye: Przełącznik Automatycznego Przeliczania TOU'
+  description: 'Włączenie: jednorazowa synchronizacja TOU. Wyłączenie: przywraca Reg 108 do pułapu i kopiuje aktualną tabelę falownika do ręcznych pól edytora.'
+  triggers:
+    - trigger: state
+      entity_id: input_boolean.deye_tou_auto_sync
+      from: "off"
+      to: "on"
+      id: turned_on
+    - trigger: state
+      entity_id: input_boolean.deye_tou_auto_sync
+      from: "on"
+      to: "off"
+      id: turned_off
+  actions:
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'turned_on' }}"
+          sequence:
+            - action: script.sync_deye_inverter_tou
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'turned_off' }}"
+          sequence:
+            - action: shell_command.restore_deye_charge_current
+              continue_on_error: true
+            - action: homeassistant.update_entity
+              continue_on_error: true
+              target:
+                entity_id: sensor.deye_inverter_status
+            - variables:
+                slots: "{{ (state_attr('sensor.deye_inverter_status', 'active_tou') or {}).get('slots', []) }}"
+            - condition: template
+              value_template: "{{ slots | length > 0 }}"
+            - action: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.deye_manual_tou_time_1
+              data:
+                time: "{{ slots[0].time }}:00"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.deye_manual_tou_soc_1
+              data:
+                value: "{{ [[slots[0].target_soc | int(0), state_attr('input_number.deye_manual_tou_soc_1', 'min') | int(0)] | max, state_attr('input_number.deye_manual_tou_soc_1', 'max') | int(100)] | min }}"
+            - action: "input_boolean.turn_{{ 'on' if slots[0].grid_charge else 'off' }}"
+              target:
+                entity_id: input_boolean.deye_manual_tou_grid_charge_1
+            - condition: template
+              value_template: "{{ slots | length > 1 }}"
+            - action: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.deye_manual_tou_time_2
+              data:
+                time: "{{ slots[1].time }}:00"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.deye_manual_tou_soc_2
+              data:
+                value: "{{ [[slots[1].target_soc | int(0), state_attr('input_number.deye_manual_tou_soc_2', 'min') | int(0)] | max, state_attr('input_number.deye_manual_tou_soc_2', 'max') | int(100)] | min }}"
+            - action: "input_boolean.turn_{{ 'on' if slots[1].grid_charge else 'off' }}"
+              target:
+                entity_id: input_boolean.deye_manual_tou_grid_charge_2
+            - condition: template
+              value_template: "{{ slots | length > 2 }}"
+            - action: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.deye_manual_tou_time_3
+              data:
+                time: "{{ slots[2].time }}:00"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.deye_manual_tou_soc_3
+              data:
+                value: "{{ [[slots[2].target_soc | int(0), state_attr('input_number.deye_manual_tou_soc_3', 'min') | int(0)] | max, state_attr('input_number.deye_manual_tou_soc_3', 'max') | int(100)] | min }}"
+            - action: "input_boolean.turn_{{ 'on' if slots[2].grid_charge else 'off' }}"
+              target:
+                entity_id: input_boolean.deye_manual_tou_grid_charge_3
+            - condition: template
+              value_template: "{{ slots | length > 3 }}"
+            - action: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.deye_manual_tou_time_4
+              data:
+                time: "{{ slots[3].time }}:00"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.deye_manual_tou_soc_4
+              data:
+                value: "{{ [[slots[3].target_soc | int(0), state_attr('input_number.deye_manual_tou_soc_4', 'min') | int(0)] | max, state_attr('input_number.deye_manual_tou_soc_4', 'max') | int(100)] | min }}"
+            - action: "input_boolean.turn_{{ 'on' if slots[3].grid_charge else 'off' }}"
+              target:
+                entity_id: input_boolean.deye_manual_tou_grid_charge_4
+            - condition: template
+              value_template: "{{ slots | length > 4 }}"
+            - action: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.deye_manual_tou_time_5
+              data:
+                time: "{{ slots[4].time }}:00"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.deye_manual_tou_soc_5
+              data:
+                value: "{{ [[slots[4].target_soc | int(0), state_attr('input_number.deye_manual_tou_soc_5', 'min') | int(0)] | max, state_attr('input_number.deye_manual_tou_soc_5', 'max') | int(100)] | min }}"
+            - action: "input_boolean.turn_{{ 'on' if slots[4].grid_charge else 'off' }}"
+              target:
+                entity_id: input_boolean.deye_manual_tou_grid_charge_5
+            - condition: template
+              value_template: "{{ slots | length > 5 }}"
+            - action: input_datetime.set_datetime
+              target:
+                entity_id: input_datetime.deye_manual_tou_time_6
+              data:
+                time: "{{ slots[5].time }}:00"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.deye_manual_tou_soc_6
+              data:
+                value: "{{ [[slots[5].target_soc | int(0), state_attr('input_number.deye_manual_tou_soc_6', 'min') | int(0)] | max, state_attr('input_number.deye_manual_tou_soc_6', 'max') | int(100)] | min }}"
+            - action: "input_boolean.turn_{{ 'on' if slots[5].grid_charge else 'off' }}"
+              target:
+                entity_id: input_boolean.deye_manual_tou_grid_charge_6
   mode: single

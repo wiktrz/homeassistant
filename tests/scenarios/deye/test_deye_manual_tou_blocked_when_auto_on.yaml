@@ -1,0 +1,22 @@
+id: test_deye_manual_tou_blocked_when_auto_on
+area: deye
+description: "Auto-sync on: script.sync_deye_manual_tou stops at its guard (script finishes, off)"
+tags: [deye, tou, manual, auto_sync, stub, regression]
+status: active
+
+preconditions:
+  stub_rc: 0
+  entities:
+    input_boolean.deye_tou_auto_sync:
+      state: "on"
+
+action:
+  type: call_service
+  service: script.sync_deye_manual_tou
+  data: {}
+
+wait_seconds: 3.0
+
+assertions:
+  - entity: script.sync_deye_manual_tou
+    state: "off"

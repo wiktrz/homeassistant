@@ -202,6 +202,9 @@ homeassistant:
 
 ### Dynamic Energy Pricing (Pstryk)
 - Hourly dynamic pricing via `config/pstryk_engine.py` (`pstryk_pricing.py` is legacy/unused)
+- AI-first TOU planner (`config/ai_tou_planner.py`, env in `config/.env.example` section 7; key `AI_TOU_API_KEY` only in `config/.env`, never printed): `AI_TOU_BASE_URL`, `AI_TOU_MODEL`, `AI_TOU_REASONING_EFFORT`, `AI_TOU_MAX_TOKENS`, `AI_TOU_TIMEOUT_S`, `AI_TOU_DEVIATION_SOC`, `AI_TOU_MIN_INTERVAL_MIN`, `AI_TOU_MAX_COST_RATIO`, `AI_TOU_CACHE_FILE`.
+  - CLI (`python3 config/pstryk_engine.py ...`): `--print-tou --ai` (read-only AI vs algorithm tables), `--ai-prompt` (prints prompt, key masked), `--ai-response-file <path>` (offline saved answer), `--prices-file`, `--now` (offline testing), `--sync-deye-tou --force` (fresh AI call), `--sync-manual-tou '<json>'` with `--dry-run` (validate and print, no write).
+  - Connectivity check: `python3 config/ai_tou_planner.py --test-call` (prints status and latency, never the key).
 - Sensors: `sensor.pstryk_price_meter_dol`, `_gora`, `sensor.pstryk_best_window_dol`, `_gora`
 - Binary sensors: `binary_sensor.pstryk_in_best_window_dol`, `_gora`
 - Automations:

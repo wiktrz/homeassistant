@@ -135,6 +135,7 @@ def validate_no_duplicate_defaults() -> List[str]:
 
     files_to_check = [
         os.path.join(CONFIG_DIR, "pstryk_engine.py"),
+        os.path.join(CONFIG_DIR, "ai_tou_planner.py"),
         os.path.join(CONFIG_DIR, "solarman_v5_client.py"),
         os.path.join(CONFIG_DIR, "deye_cloud_client.py"),
     ]

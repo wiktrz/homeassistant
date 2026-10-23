@@ -1185,6 +1185,9 @@ sync_deye_inverter_tou:
   alias: Synchronizuj Harmonogram TOU z Falownikiem Deye
   description: Przelicza dynamiczny 6-slotowy harmonogram Time-of-Use i przesyła go do falownika Deye (Solarman V5 Modbus / Deye Cloud).
   sequence:
+    - condition: state
+      entity_id: input_boolean.deye_tou_auto_sync
+      state: "on"
     - action: script.set_ui_operation_pending
       data:
         operation: deye_tou_sync
@@ -1236,6 +1239,37 @@ sync_deye_inverter_tou:
   mode: queued
   max: 2
   icon: mdi:sync
+
+sync_deye_manual_tou:
+  alias: Wyślij Ręczny Harmonogram TOU do Falownika Deye
+  description: Wysyła 6 slotów z ręcznego edytora do falownika (tylko gdy automatyczne przeliczanie TOU jest wyłączone).
+  sequence:
+    - condition: state
+      entity_id: input_boolean.deye_tou_auto_sync
+      state: "off"
+    - action: shell_command.sync_deye_manual_tou
+      continue_on_error: true
+      data:
+        manual_slots_json: >-
+          [{"time":"{{ states('input_datetime.deye_manual_tou_time_1')[:5] }}","target_soc":{{ states('input_number.deye_manual_tou_soc_1') | int(0) }},"grid_charge":{{ 'true' if is_state('input_boolean.deye_manual_tou_grid_charge_1','on') else 'false' }}},{"time":"{{ states('input_datetime.deye_manual_tou_time_2')[:5] }}","target_soc":{{ states('input_number.deye_manual_tou_soc_2') | int(0) }},"grid_charge":{{ 'true' if is_state('input_boolean.deye_manual_tou_grid_charge_2','on') else 'false' }}},{"time":"{{ states('input_datetime.deye_manual_tou_time_3')[:5] }}","target_soc":{{ states('input_number.deye_manual_tou_soc_3') | int(0) }},"grid_charge":{{ 'true' if is_state('input_boolean.deye_manual_tou_grid_charge_3','on') else 'false' }}},{"time":"{{ states('input_datetime.deye_manual_tou_time_4')[:5] }}","target_soc":{{ states('input_number.deye_manual_tou_soc_4') | int(0) }},"grid_charge":{{ 'true' if is_state('input_boolean.deye_manual_tou_grid_charge_4','on') else 'false' }}},{"time":"{{ states('input_datetime.deye_manual_tou_time_5')[:5] }}","target_soc":{{ states('input_number.deye_manual_tou_soc_5') | int(0) }},"grid_charge":{{ 'true' if is_state('input_boolean.deye_manual_tou_grid_charge_5','on') else 'false' }}},{"time":"{{ states('input_datetime.deye_manual_tou_time_6')[:5] }}","target_soc":{{ states('input_number.deye_manual_tou_soc_6') | int(0) }},"grid_charge":{{ 'true' if is_state('input_boolean.deye_manual_tou_grid_charge_6','on') else 'false' }}}]
+      response_variable: manual_res
+    - if:
+        - condition: template
+          value_template: "{{ manual_res is defined and manual_res is mapping and manual_res.get('returncode') == 0 }}"
+      then:
+        - action: homeassistant.update_entity
+          target:
+            entity_id:
+              - sensor.deye_inverter_status
+              - sensor.deye_tou_last_sync
+      else:
+        - action: persistent_notification.create
+          data:
+            title: "⚠️ Deye TOU: Błąd Ręcznej Synchronizacji"
+            message: "Nie udało się wysłać ręcznego harmonogramu TOU do falownika."
+            notification_id: deye_tou_sync_status
+  mode: single
+  icon: mdi:calendar-edit
 
 sync_deye_inverter_soc:
   alias: Synchronizuj Harmonogram TOU z Falownikiem Deye (Alias)

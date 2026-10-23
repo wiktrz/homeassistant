@@ -13,7 +13,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-23T18:12:40.012577'
+  last_verified: '2026-10-23T19:00:04.567135'
 - id: test_salon_cinema_mode_on_night
   area: salon
   file: scenarios/salon/test_cinema_mode.yaml
@@ -27,7 +27,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-23T18:12:42.041207'
+  last_verified: '2026-10-23T19:00:06.604343'
 - id: test_kitchen_island_light_state
   area: kuchnia
   file: scenarios/kuchnia/test_kitchen_island_light.yaml
@@ -40,7 +40,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-23T18:12:43.068852'
+  last_verified: '2026-10-23T19:00:07.630094'
 - id: test_local01_heating_routine_selection
   area: termostaty
   file: scenarios/termostaty/test_local01_heating_routine.yaml
@@ -53,7 +53,7 @@ tests:
   - rental
   - regression
   status: active
-  last_verified: '2026-10-23T18:12:44.587654'
+  last_verified: '2026-10-23T19:00:09.146982'
 - id: test_local01_heating_routine_bidirectional_sync
   area: termostaty
   file: scenarios/termostaty/test_local01_heating_routine_bidirectional_sync.yaml
@@ -67,7 +67,7 @@ tests:
   - sync
   - regression
   status: active
-  last_verified: '2026-10-23T18:12:46.109479'
+  last_verified: '2026-10-23T19:00:10.671306'
 - id: test_protected_power_supplies_integrity
   area: bezpieczenstwo
   file: scenarios/bezpieczenstwo/test_power_supplies_untouched.yaml
@@ -80,7 +80,7 @@ tests:
   - safety
   - regression
   status: active
-  last_verified: '2026-10-23T18:12:47.627586'
+  last_verified: '2026-10-23T19:00:12.251905'
 - id: test_pstryk_price_meter_dol_state
   area: pstryk
   file: scenarios/pstryk/test_energy_price_sensor.yaml
@@ -93,7 +93,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-23T18:12:48.654117'
+  last_verified: '2026-10-23T19:00:13.285810'
 - id: test_radio_volume_up_execution
   area: multimedia
   file: scenarios/multimedia/test_radio_volume_up.yaml
@@ -105,7 +105,7 @@ tests:
   - script
   - regression
   status: active
-  last_verified: '2026-10-23T18:12:50.173769'
+  last_verified: '2026-10-23T19:00:14.812982'
 - id: test_radio_station_switch_playing
   area: multimedia
   file: scenarios/multimedia/test_radio_station_switch_playing.yaml
@@ -119,7 +119,7 @@ tests:
   - alias
   - regression
   status: active
-  last_verified: '2026-10-23T18:12:51.698280'
+  last_verified: '2026-10-23T19:00:16.342212'
 - id: test_pstryk_engine_unit_suite
   area: pstryk
   file: unit/test_pstryk_engine.py
@@ -161,7 +161,7 @@ tests:
   - local00
   - regression
   status: active
-  last_verified: '2026-10-23T18:12:53.228619'
+  last_verified: '2026-10-23T19:00:17.880657'
 - id: test_solar_engine_unit_suite
   area: solar
   file: unit/test_solar_engine.py
@@ -260,7 +260,7 @@ tests:
   - sync
   - regression
   status: active
-  last_verified: '2026-10-23T18:12:55.765190'
+  last_verified: '2026-10-23T19:00:20.415803'
 - id: test_deye_load_history_fetch
   area: deye
   file: scenarios/deye/test_deye_load_history_fetch.yaml
@@ -273,7 +273,7 @@ tests:
   - stub
   - regression
   status: active
-  last_verified: '2026-10-23T18:13:00.295300'
+  last_verified: '2026-10-23T19:00:24.958891'
 - id: test_deye_tou_sync_success
   area: deye
   file: scenarios/deye/test_deye_tou_sync_success.yaml
@@ -286,7 +286,7 @@ tests:
   - stub
   - regression
   status: active
-  last_verified: '2026-10-23T18:13:04.821031'
+  last_verified: '2026-10-23T19:00:29.491053'
 - id: test_deye_tou_sync_failure
   area: deye
   file: scenarios/deye/test_deye_tou_sync_failure.yaml
@@ -299,7 +299,7 @@ tests:
   - stub
   - regression
   status: active
-  last_verified: '2026-10-23T18:13:09.355094'
+  last_verified: '2026-10-23T19:00:34.033589'
 - id: test_single_env_location_invariant
   area: pstryk
   file: invariants/test_single_env_location.py
@@ -311,3 +311,56 @@ tests:
   - invariant
   - regression
   status: active
+- id: test_deye_tou_auto_sync_off_blocks_sync
+  area: deye
+  file: scenarios/deye/test_deye_tou_auto_sync_off_blocks_sync.yaml
+  description: 'Auto-sync switch off: sync script stops at its guard, last-synced
+    date untouched'
+  tags:
+  - deye
+  - tou
+  - auto_sync
+  - stub
+  - regression
+  status: active
+  last_verified: '2026-10-23T19:00:38.559736'
+- id: test_deye_tou_auto_sync_on_triggers_sync
+  area: deye
+  file: scenarios/deye/test_deye_tou_auto_sync_on_triggers_sync.yaml
+  description: Auto-sync switch off->on runs the sync script and clears its pending-UI
+    marker
+  tags:
+  - deye
+  - tou
+  - auto_sync
+  - automation
+  - stub
+  - regression
+  status: active
+  last_verified: '2026-10-23T19:00:44.094002'
+- id: test_deye_manual_tou_blocked_when_auto_on
+  area: deye
+  file: scenarios/deye/test_deye_manual_tou_blocked_when_auto_on.yaml
+  description: 'Auto-sync on: manual TOU script stops at its guard'
+  tags:
+  - deye
+  - tou
+  - manual
+  - auto_sync
+  - stub
+  - regression
+  status: active
+  last_verified: '2026-10-23T19:00:47.635482'
+- id: test_deye_manual_tou_runs_when_auto_off
+  area: deye
+  file: scenarios/deye/test_deye_manual_tou_runs_when_auto_off.yaml
+  description: 'Auto-sync off: manual TOU script runs stubbed shell_command to completion'
+  tags:
+  - deye
+  - tou
+  - manual
+  - auto_sync
+  - stub
+  - regression
+  status: active
+  last_verified: '2026-10-23T19:00:52.162571'

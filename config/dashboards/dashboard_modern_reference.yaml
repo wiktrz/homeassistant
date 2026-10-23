@@ -535,6 +535,11 @@ views:
               - entity: binary_sensor.pstryk_in_sell_window_dol
                 name: Trwa Szczyt Cenowy
                 icon: mdi:battery-arrow-down
+          - type: markdown
+            content: >-
+              {% set src = state_attr('sensor.pstryk_price_meter_dol', 'plan_source') %}
+              {% set why = state_attr('sensor.pstryk_price_meter_dol', 'fallback_reason') %}
+              **Plan:** {{ 'AI' if src == 'ai' else ('Algorytm' ~ (' (' ~ why ~ ')' if why else '') if src else '—') }}
           - type: button
             name: Szczegółowy Raport i Historia Zużycia
             icon: mdi:chart-timeline-variant
@@ -605,6 +610,77 @@ views:
         cards:
           - type: heading
             heading: Ustawienia baterii
+          - type: entities
+            title: Automatyczne TOU
+            show_header_toggle: false
+            entities:
+              - entity: input_boolean.deye_tou_auto_sync
+                name: Automatyczne przeliczanie TOU
+                icon: mdi:robot
+          - type: conditional
+            conditions:
+              - entity: input_boolean.deye_tou_auto_sync
+                state: "off"
+            card:
+              type: entities
+              title: Ręczny Harmonogram TOU
+              show_header_toggle: false
+              entities:
+                - type: section
+                  label: Slot 1
+                - entity: input_datetime.deye_manual_tou_time_1
+                  name: Godzina
+                - entity: input_number.deye_manual_tou_soc_1
+                  name: Docelowy SOC
+                - entity: input_boolean.deye_manual_tou_grid_charge_1
+                  name: Ładowanie z sieci
+                - type: section
+                  label: Slot 2
+                - entity: input_datetime.deye_manual_tou_time_2
+                  name: Godzina
+                - entity: input_number.deye_manual_tou_soc_2
+                  name: Docelowy SOC
+                - entity: input_boolean.deye_manual_tou_grid_charge_2
+                  name: Ładowanie z sieci
+                - type: section
+                  label: Slot 3
+                - entity: input_datetime.deye_manual_tou_time_3
+                  name: Godzina
+                - entity: input_number.deye_manual_tou_soc_3
+                  name: Docelowy SOC
+                - entity: input_boolean.deye_manual_tou_grid_charge_3
+                  name: Ładowanie z sieci
+                - type: section
+                  label: Slot 4
+                - entity: input_datetime.deye_manual_tou_time_4
+                  name: Godzina
+                - entity: input_number.deye_manual_tou_soc_4
+                  name: Docelowy SOC
+                - entity: input_boolean.deye_manual_tou_grid_charge_4
+                  name: Ładowanie z sieci
+                - type: section
+                  label: Slot 5
+                - entity: input_datetime.deye_manual_tou_time_5
+                  name: Godzina
+                - entity: input_number.deye_manual_tou_soc_5
+                  name: Docelowy SOC
+                - entity: input_boolean.deye_manual_tou_grid_charge_5
+                  name: Ładowanie z sieci
+                - type: section
+                  label: Slot 6
+                - entity: input_datetime.deye_manual_tou_time_6
+                  name: Godzina
+                - entity: input_number.deye_manual_tou_soc_6
+                  name: Docelowy SOC
+                - entity: input_boolean.deye_manual_tou_grid_charge_6
+                  name: Ładowanie z sieci
+                - type: button
+                  name: Wyślij TOU do falownika
+                  icon: mdi:upload
+                  action_name: Wyślij
+                  tap_action:
+                    action: call-service
+                    service: script.sync_deye_manual_tou
           - type: conditional
             conditions:
               - entity: binary_sensor.deye_battery_critical_parameters_pending

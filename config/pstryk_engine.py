@@ -1978,17 +1978,7 @@ def plan_rolling_tou(
             if e["end"] + day > horizon_end]
 
     # 4. the written 6-slot table: 24 h from the anchor below, projected onto clock minutes once here
-    _, eff_volts, _, eff_dis = resolve_battery_hardware_parameters(
-        battery_capacity_kwh=cap, nominal_voltage=voltage, max_discharge_current=max_discharge_current)
-    clamp_w = lambda w: min(energy_defaults.INVERTER_MAX_POWER_W, max(energy_defaults.INVERTER_MIN_POWER_W, int(round(w, -1))))
-    if max_discharge_current is not None and float(max_discharge_current) > 0:
-        base_w = clamp_w(float(max_discharge_current) * eff_volts)
-    elif default_power_w:
-        base_w = int(default_power_w)
-    elif eff_dis > 0 and eff_volts > 0:
-        base_w = clamp_w(eff_dis * eff_volts)
-    else:
-        base_w = energy_defaults.DEFAULT_TRANSFER_POWER_W
+    eff_volts, eff_dis, base_w = tou_base_power(cap, voltage, max_discharge_current, default_power_w)
     # table anchor: start of the behaviour running now (its run through today's earlier hours, or the hour start of a
     # top-up running now), so hourly re-syncs write the same table while that behaviour lasts (flash wear)
     beh = lambda c: (c["role"], c["target_soc"], c["charge_a"])
@@ -2037,6 +2027,45 @@ def plan_rolling_tou(
         "price": e["price"], "estimated": e["estimated"],
     } for e in entries]
     return {"plan_timeline": timeline, "deye_tou_schedule": slots, "horizon_end": _iso_z(horizon_end)}
+
+
+def tou_base_power(capacity_kwh: float, voltage: float, max_discharge_current: Optional[float] = None,
+                   default_power_w: Optional[int] = None) -> Tuple[float, float, int]:
+    """(voltage, discharge A, TOU base power W) every slot of a written table carries (full discharge power)."""
+    _, eff_volts, _, eff_dis = resolve_battery_hardware_parameters(
+        battery_capacity_kwh=capacity_kwh, nominal_voltage=voltage, max_discharge_current=max_discharge_current)
+    clamp_w = lambda w: min(energy_defaults.INVERTER_MAX_POWER_W, max(energy_defaults.INVERTER_MIN_POWER_W, int(round(w, -1))))
+    if max_discharge_current is not None and float(max_discharge_current) > 0:
+        base_w = clamp_w(float(max_discharge_current) * eff_volts)
+    elif default_power_w:
+        base_w = int(default_power_w)
+    elif eff_dis > 0 and eff_volts > 0:
+        base_w = clamp_w(eff_dis * eff_volts)
+    else:
+        base_w = energy_defaults.DEFAULT_TRANSFER_POWER_W
+    return eff_volts, eff_dis, base_w
+
+
+def plan_tou(frames: List[Dict[str, Any]], now_dt: datetime, current_soc: float,
+             profile: Optional[Dict[str, List[float]]], *, allow_ai_call: bool = False, force_ai: bool = False,
+             ai_response: Any = None, update_cache: bool = True,
+             active_slots: Optional[List[Dict[str, Any]]] = None, sync_started: Optional[float] = None,
+             **kw: Any) -> Optional[Dict[str, Any]]:
+    """AI-first TOU plan: plan_rolling_tou (fallback + reference), then ai_tou_planner.choose_plan. The AI is called
+    over the network only when allow_ai_call (sync path / explicit CLI); otherwise its cache file is read.
+    Adds plan_source ("ai" | "algorithm"), fallback_reason, ai_last_call, algorithm_schedule."""
+    algo = plan_rolling_tou(frames, now_dt, current_soc, profile, active_slots=active_slots, **kw)
+    if not algo or not algo.get("deye_tou_schedule"):
+        return algo
+    import ai_tou_planner
+    try:
+        return ai_tou_planner.choose_plan(algo, frames, now_dt, current_soc, profile, allow_ai_call=allow_ai_call,
+                                          force_ai=force_ai, ai_response=ai_response, update_cache=update_cache,
+                                          active_slots=active_slots, sync_started=sync_started, **kw)
+    except Exception as e:  # the AI layer must never break planning
+        print(f"[ai-tou] planner error {type(e).__name__}: {e}", file=sys.stderr)
+        return dict(algo, plan_source="algorithm", fallback_reason=f"ai_error: {type(e).__name__}",
+                    ai_last_call=None, algorithm_schedule=algo["deye_tou_schedule"])
 
 
 def _window_minute_intervals(w: Any) -> List[Tuple[int, int]]:
@@ -2252,6 +2281,43 @@ def payload_pricing_frames(payload: Any) -> List[Dict[str, Any]]:
     return payload.get("pricing_frames") or []
 
 
+def _write_tou_slots(slots: List[Dict[str, Any]], host: Optional[str], port: Optional[int]) -> Dict[str, Any]:
+    """Writes a 6-slot table: Solarman V5 (local, with its own cloud fallback), else Deye Cloud once; on success the
+    cached active_tou is updated. Never touches Reg 108/109/112."""
+    sync_result = {"success": False, "message": "solarman_v5_client module not available", "cloud_attempted": False}
+    if solarman_v5_client is not None:
+        try:
+            sync_result = solarman_v5_client.sync_tou_schedule(slots=slots, host=host, port=port)
+        except Exception as e:
+            sync_result = {"success": False, "error": str(e), "cloud_attempted": False}
+
+    # Fallback to Deye Cloud OpenAPI only if the local client did not already try it
+    # (solarman_v5_client.sync_tou_schedule falls back to the cloud internally when local writes fail).
+    if not sync_result.get("success") and sync_result.get("cloud_attempted", True) is False:
+        try:
+            import deye_cloud_client
+            cloud_cfg = deye_cloud_client.get_deye_cloud_config()
+            if cloud_cfg.get("api_key") or cloud_cfg.get("app_id") or cloud_cfg.get("email"):
+                cloud_res = deye_cloud_client.sync_tou_schedule(slots=slots, cfg=cloud_cfg)
+                if isinstance(cloud_res, dict):
+                    cloud_res["local_fallback_reason"] = sync_result.get("error") or sync_result.get("message", "Local Modbus failed or port closed")
+                    sync_result = cloud_res
+        except Exception:
+            pass
+
+    if sync_result.get("success"):
+        if solarman_v5_client is not None:
+            try:
+                cached = solarman_v5_client.load_deye_cache(ignore_ttl=True)
+                if cached and isinstance(cached, dict):
+                    cached["active_tou"] = {"enabled": True, "slots": slots}
+                    solarman_v5_client.save_deye_cache(cached)
+            except Exception:
+                pass
+
+    return sync_result
+
+
 def sync_deye_inverter_tou_schedule(
     host: Optional[str] = None,
     port: Optional[int] = None,
@@ -2279,6 +2345,7 @@ def sync_deye_inverter_tou_schedule(
     rate limits); force=True bypasses it. Register 108 (Max A Charge) follows the active grid-charge slot, else the
     next grid-charge entry of the timeline, else the ceiling baseline.
     """
+    sync_started = time.monotonic()
     global solarman_v5_client
     if solarman_v5_client is None:
         try:
@@ -2357,8 +2424,9 @@ def sync_deye_inverter_tou_schedule(
         err_msg = "Brak poprawnych danych cenowych Pstryk"
     plan = None
     if err_msg is None:
-        plan = plan_rolling_tou(
+        plan = plan_tou(
             payload_pricing_frames(source_data), datetime.now(WARSAW_TZ), eff_current_soc, load_household_profile(),
+            allow_ai_call=True, force_ai=force, sync_started=sync_started,
             min_soc=eff_min_soc, max_soc=eff_max_soc, capacity_kwh=eff_capacity_kwh, voltage=eff_nominal_voltage,
             ceiling_a=energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A, loss_pct=eff_loss_buffer_pct,
             calibration_active=calibration_active, max_discharge_current=eff_max_discharge_current,
@@ -2407,41 +2475,16 @@ def sync_deye_inverter_tou_schedule(
             "slots": slots,
             "plan_timeline": plan["plan_timeline"],
             "horizon_end": plan["horizon_end"],
+            "plan_source": plan.get("plan_source", "algorithm"),
+            "fallback_reason": plan.get("fallback_reason"),
+            "ai_last_call": plan.get("ai_last_call"),
         }
         save_last_tou_sync_result(unchanged_res)
         return unchanged_res
 
-    sync_result = {"success": False, "message": "solarman_v5_client module not available", "cloud_attempted": False}
-    if solarman_v5_client is not None:
-        try:
-            sync_result = solarman_v5_client.sync_tou_schedule(slots=slots, host=host, port=port)
-        except Exception as e:
-            sync_result = {"success": False, "error": str(e), "cloud_attempted": False}
-
-    # Fallback to Deye Cloud OpenAPI only if the local client did not already try it
-    # (solarman_v5_client.sync_tou_schedule falls back to the cloud internally when local writes fail).
-    if not sync_result.get("success") and sync_result.get("cloud_attempted", True) is False:
-        try:
-            import deye_cloud_client
-            cloud_cfg = deye_cloud_client.get_deye_cloud_config()
-            if cloud_cfg.get("api_key") or cloud_cfg.get("app_id") or cloud_cfg.get("email"):
-                cloud_res = deye_cloud_client.sync_tou_schedule(slots=slots, cfg=cloud_cfg)
-                if isinstance(cloud_res, dict):
-                    cloud_res["local_fallback_reason"] = sync_result.get("error") or sync_result.get("message", "Local Modbus failed or port closed")
-                    sync_result = cloud_res
-        except Exception:
-            pass
-
+    sync_result = _write_tou_slots(slots, host, port)
     if sync_result.get("success"):
         _DISPATCH_CACHE = None
-        if solarman_v5_client is not None:
-            try:
-                cached = solarman_v5_client.load_deye_cache(ignore_ttl=True)
-                if cached and isinstance(cached, dict):
-                    cached["active_tou"] = {"enabled": True, "slots": slots}
-                    solarman_v5_client.save_deye_cache(cached)
-            except Exception:
-                pass
 
     final_result = {
         "success": sync_result.get("success", False),
@@ -2465,10 +2508,98 @@ def sync_deye_inverter_tou_schedule(
         "slots": slots,
         "plan_timeline": plan["plan_timeline"],
         "horizon_end": plan["horizon_end"],
+        "plan_source": plan.get("plan_source", "algorithm"),
+        "fallback_reason": plan.get("fallback_reason"),
+        "ai_last_call": plan.get("ai_last_call"),
         "inverter_response": sync_result,
     }
     save_last_tou_sync_result(final_result)
     return final_result
+
+
+def sync_manual_tou_schedule(
+    slots_json: str,
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    min_soc: Optional[int] = None,
+    max_soc: Optional[int] = None,
+    battery_capacity_kwh: Optional[float] = None,
+    nominal_voltage: Optional[float] = None,
+    max_discharge_current: Optional[float] = None,
+    dry_run: bool = False,
+    auto_sync_off: bool = False,
+    force: bool = False,
+) -> Dict[str, Any]:
+    """
+    Manual TOU (HA editor, auto sync switch off): validates a JSON list of 6 {time "HH:MM", target_soc, grid_charge}
+    with the AI bounds check (no cost guard), builds the engine slot dicts (grid charge at the
+    BATTERY_CHARGE_CURRENT_MAX_CEILING_A ceiling) and writes them; dry_run validates and returns the slots only.
+    A real write needs auto_sync_off (passed by the HA shell_command only while input_boolean.deye_tou_auto_sync is
+    off) and a battery reported by the inverter telemetry; it is skipped when identical to the active table unless
+    force. No Reg 108 modulation, Reg 109/112 never written.
+    """
+    import ai_tou_planner
+
+    def fail(msg: str) -> Dict[str, Any]:
+        res = {"success": False, "plan_source": "manual", "error": f"Ręczne TOU odrzucone: {msg}"}
+        if not dry_run:
+            save_last_tou_sync_result(res)
+        return res
+
+    try:
+        raw = json.loads(slots_json)
+    except (TypeError, ValueError):
+        return fail("niepoprawny JSON")
+    eff_max, eff_min, _, _, _ = resolve_battery_dispatch_parameters(max_soc=max_soc, min_soc=min_soc)
+    if isinstance(raw, list):
+        for x in raw:
+            if isinstance(x, dict) and "charge_current_a" not in x:
+                x["charge_current_a"] = energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A if x.get("grid_charge") is True else 0
+    ctx = {"battery": {"min_soc": eff_min, "max_soc": eff_max,
+                       "charge_current_ceiling_a": energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A},
+           "table": {"slot_count": int(energy_defaults.TOU_SLOT_COUNT),
+                     "minute_step": int(energy_defaults.TOU_SLOT_MINUTE_STEP)}}
+    ok, reason = ai_tou_planner.validate_ai_slots(raw, ctx)
+    if not ok:
+        return fail(str(reason))
+    cap, _, _, _ = resolve_battery_hardware_parameters(battery_capacity_kwh=battery_capacity_kwh, nominal_voltage=nominal_voltage)
+    volts, dis_a, base_w = tou_base_power(cap, nominal_voltage, max_discharge_current)
+    slots = ai_tou_planner.slots_from_ai(raw, min_soc=eff_min, voltage=volts, discharge_a=dis_a, base_power_w=base_w)
+    if dry_run:
+        return {"success": True, "dry_run": True, "plan_source": "manual", "slots": slots,
+                "soc_limits": {"min_soc": eff_min, "max_soc": eff_max}}
+    if not auto_sync_off:
+        return fail("automatyczne przeliczanie TOU jest włączone")
+    global solarman_v5_client
+    if solarman_v5_client is None:
+        try:
+            import solarman_v5_client
+        except ImportError:
+            pass
+    if solarman_v5_client is None:
+        return fail("brak klienta falownika")
+    host = solarman_v5_client.get_configured_inverter_ip(host)
+    port = solarman_v5_client.get_configured_inverter_port(port)
+    try:
+        live = solarman_v5_client.read_inverter_telemetry(host=host, port=port)
+    except Exception as e:
+        live = {"success": False, "error": str(e)}
+    live = live if isinstance(live, dict) else {}
+    if (live.get("telemetry") or {}).get("battery_installed") is not True:
+        return fail("brak zainstalowanego magazynu energii")
+    active = live.get("active_tou") if isinstance(live.get("active_tou"), dict) else {}
+    if not force and active.get("enabled", True) and are_tou_slots_identical(slots, active.get("slots") or []):
+        res = {"success": True, "unchanged": True, "dry_run": False, "plan_source": "manual",
+               "message": "Ręczny harmonogram TOU jest identyczny z aktywnym — pominięto zapis.",
+               "timestamp": datetime.now().isoformat(), "host": host, "port": port, "slots": slots}
+        save_last_tou_sync_result(res)
+        return res
+    sync_result = _write_tou_slots(slots, host, port)
+    res = {"success": bool(sync_result.get("success")), "dry_run": False, "plan_source": "manual",
+           "timestamp": datetime.now().isoformat(), "host": host, "port": port, "slots": slots,
+           "soc_limits": {"min_soc": eff_min, "max_soc": eff_max}, "inverter_response": sync_result}
+    save_last_tou_sync_result(res)
+    return res
 
 
 def aggregate_frames(data: Dict[str, Any]) -> Dict[str, float]:
@@ -2906,8 +3037,9 @@ def rolling_plan_fields(
     active_slots: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """plan_timeline / deye_tou_schedule / horizon_end of a consolidated payload: one plan_rolling_tou call on its
-    pricing_frames from now with the household load profile (the same call the inverter sync makes)."""
-    plan = plan_rolling_tou(
+    pricing_frames from now with the household load profile (the same plan the inverter sync makes; the AI plan is
+    read from its cache only, never a network call here)."""
+    plan = plan_tou(
         payload_pricing_frames(payload), datetime.now(WARSAW_TZ), current_soc, load_household_profile(),
         min_soc=min_soc, max_soc=max_soc, capacity_kwh=capacity_kwh, voltage=voltage,
         ceiling_a=energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A, loss_pct=loss_pct,
@@ -2915,7 +3047,8 @@ def rolling_plan_fields(
         active_slots=active_slots if active_slots is not None else _cached_active_slots(),
     ) or {}
     return {"plan_timeline": plan.get("plan_timeline", []), "deye_tou_schedule": plan.get("deye_tou_schedule", []),
-            "horizon_end": plan.get("horizon_end")}
+            "horizon_end": plan.get("horizon_end"), "plan_source": plan.get("plan_source", "algorithm"),
+            "fallback_reason": plan.get("fallback_reason"), "ai_last_call": plan.get("ai_last_call")}
 
 
 def fetch_consolidated_data(
@@ -3296,6 +3429,30 @@ def fetch_consolidated_data(
     return consolidated
 
 
+def _cli_plan_inputs(args: Any, api_key: Optional[str], sell_hours: Any, ev_hours: Any) -> Tuple[Any, ...]:
+    """(frames, now, current SOC, profile, plan kwargs) for the AI CLI flags; --prices-file / --now run offline."""
+    if args.prices_file:
+        with open(args.prices_file, encoding="utf-8") as f:
+            d = json.load(f)
+        frames = d.get("pricing_frames") or (d.get("pricing_frames_today") or []) + (d.get("pricing_frames_tomorrow") or [])
+    else:
+        frames = payload_pricing_frames(fetch_consolidated_data(
+            api_key=api_key, installation=args.installation, hours_ahead=args.hours, use_cache=not args.no_cache,
+            sell_target_hours=sell_hours, ev_target_hours=ev_hours))
+    now_dt = datetime.fromisoformat(args.now) if args.now else datetime.now(WARSAW_TZ)
+    if now_dt.tzinfo is None:
+        now_dt = now_dt.replace(tzinfo=WARSAW_TZ)
+    max_s, min_s, _, cur, loss = resolve_battery_dispatch_parameters(
+        max_soc=args.max_soc, min_soc=args.min_soc, current_soc=args.current_soc, loss_buffer_pct=args.loss_buffer_pct)
+    cap, volts, _, _ = resolve_battery_hardware_parameters(
+        battery_capacity_kwh=args.battery_capacity, nominal_voltage=args.nominal_voltage,
+        max_discharge_current=args.max_discharge_current)
+    kw = dict(min_soc=min_s, max_soc=max_s, capacity_kwh=cap, voltage=volts,
+              ceiling_a=energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A, loss_pct=loss,
+              calibration_active=args.calibration, max_discharge_current=args.max_discharge_current)
+    return frames, now_dt, cur, load_household_profile(), kw
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     import argparse
 
@@ -3315,6 +3472,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--apply-battery-safety-limits", action="store_true", help="Apply confirmed battery safety limits (Reg 110 Min SOC & Reg 111 Shutdown SOC) to Deye inverter")
     parser.add_argument("--calibration", action="store_true", help="Flag to charge to 100 percent for BMS calibration")
     parser.add_argument("--print-tou", action="store_true", help="Print the rolling plan timeline and the 6-slot TOU table (24 h from now) without writing to the inverter")
+    parser.add_argument("--auto-sync-off", action="store_true",
+                        help="Set by the HA shell_command only while input_boolean.deye_tou_auto_sync is off (manual TOU write gate)")
     parser.add_argument("--force", action="store_true", help="Force TOU write even if schedule is identical to current inverter settings")
     parser.add_argument("--max-charge-current", type=float, default=None, help="Inverter max charge current override (Amperes)")
     parser.add_argument("--max-discharge-current", type=float, default=None, help="Inverter max discharge current override (Amperes)")
@@ -3325,6 +3484,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--sell-target-hours", default=str(energy_defaults.SELL_TARGET_HOURS), help='Battery sell/discharge window length in hours (int or HA value like "3h")')
     parser.add_argument("--ev-target-hours", default="auto", help='EV charging window hours: "auto" (2h weekday / 4h weekend), int, or HA value like "3h" / "Auto 2h/4h"')
     parser.add_argument("--loss-buffer-pct", type=float, default=energy_defaults.DEFAULT_LOSS_BUFFER_PCT, help="Charging energy loss buffer percentage")
+    parser.add_argument("--ai", action="store_true", help="With --print-tou: AI-first plan vs algorithm side by side (read-only, cache untouched)")
+    parser.add_argument("--ai-prompt", action="store_true", help="Print the exact AI prompt JSON (no AI call, key masked)")
+    parser.add_argument("--ai-response-file", default=None, help="Use a saved AI answer instead of calling the API")
+    parser.add_argument("--sync-manual-tou", default=None, metavar="JSON", help='Write a manual 6-slot TOU table: JSON list of {"time":"HH:MM","target_soc":int,"grid_charge":bool}')
+    parser.add_argument("--dry-run", action="store_true", help="With --sync-manual-tou: validate and print the slots, no write")
+    parser.add_argument("--prices-file", default=None, help="Offline prices (payload with pricing_frames, or pricing_frames_today/_tomorrow) for --ai-prompt / --print-tou --ai")
+    parser.add_argument("--now", default=None, help="ISO timestamp overriding now for --ai-prompt / --print-tou --ai (offline testing)")
 
     args = parser.parse_args(argv)
     sell_hours = parse_target_hours(args.sell_target_hours, energy_defaults.SELL_TARGET_HOURS)
@@ -3350,8 +3516,50 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(json.dumps(res, indent=2))
         return 0 if res.get("success") else 1
 
+    if args.sync_manual_tou is not None:
+        res = sync_manual_tou_schedule(
+            args.sync_manual_tou, host=args.inverter_host, port=args.inverter_port, min_soc=args.min_soc,
+            max_soc=args.max_soc, battery_capacity_kwh=args.battery_capacity, nominal_voltage=args.nominal_voltage,
+            max_discharge_current=args.max_discharge_current, dry_run=args.dry_run,
+            auto_sync_off=args.auto_sync_off, force=args.force)
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        return 0 if res.get("success") else 1
+
     resolved_key, key_source = resolve_api_key(args.installation, args.key)
     api_key = resolved_key or DEFAULT_API_KEY
+
+    if args.ai_prompt or (args.print_tou and args.ai):
+        import ai_tou_planner
+        frames, now_dt, cur_soc, profile, kw = _cli_plan_inputs(args, api_key, sell_hours, ev_hours)
+        if args.ai_prompt:
+            algo = plan_rolling_tou(frames, now_dt, cur_soc, profile, **kw)
+            if not algo:
+                print(json.dumps({"error": "no prices ending after now"}))
+                return 1
+            ctx = ai_tou_planner.build_context(frames, now_dt, cur_soc, profile, algo, active_slots=_cached_active_slots(), **kw)
+            print(json.dumps({"model": energy_defaults.AI_TOU_MODEL, "base_url": energy_defaults.AI_TOU_BASE_URL,
+                              "api_key": ai_tou_planner.mask_key(ai_tou_planner.ai_api_key()),
+                              "messages": ai_tou_planner.build_prompt(ctx)}, indent=2, ensure_ascii=False))
+            return 0
+        answer = None
+        if args.ai_response_file:
+            with open(args.ai_response_file, encoding="utf-8") as f:
+                answer = f.read()
+        plan = plan_tou(frames, now_dt, cur_soc, profile, allow_ai_call=True, force_ai=True, ai_response=answer,
+                        update_cache=False, active_slots=_cached_active_slots(), **kw)
+        if not plan:
+            print("Brak harmonogramu (brak cen Pstryk).")
+            return 1
+        print(f"plan_source: {plan.get('plan_source')}")
+        print(f"fallback_reason: {plan.get('fallback_reason')}")
+        if plan.get("ai_cost") is not None:
+            print(f"simulated cost: AI {plan['ai_cost']:.2f} zł | ALGORYTM {plan['algorithm_cost']:.2f} zł")
+        ai_rows = plan["deye_tou_schedule"] if plan.get("plan_source") == "ai" else []
+        print(f"\n{'Slot':<5} | {'AI':<28} | ALGORYTM")
+        for i, alg in enumerate(plan["algorithm_schedule"]):
+            fmt = lambda x: f"{x['time']} SOC {x['target_soc']:>3} {'SIEĆ' if x['grid_charge'] else '    '} {x['charge_current_a']:>3}A"
+            print(f"{i + 1:<5} | {(fmt(ai_rows[i]) if i < len(ai_rows) else '-'):<28} | {fmt(alg)}")
+        return 0
 
     if args.print_tou:
         data = fetch_consolidated_data(

@@ -195,6 +195,13 @@ TOU_FUNCTIONS = (
     "_tou_minute_rows",
     "_tou_row_at",
     "_cached_active_slots",
+    "plan_tou",
+    "tou_base_power",
+    "sync_manual_tou_schedule",
+)
+AI_TOU_FUNCTIONS = (
+    "build_context", "build_prompt", "validate_ai_slots", "simulate_table", "slots_from_ai", "evaluate_ai_slots",
+    "choose_plan", "_planned_soc",
 )
 # Unit-conversion / structural ints: 0, 1, -1 (indices), 60 (min/h), 1440 (min/day), 24 (h/day), 2 (only in comparisons,
 # e.g. len(x) == 2). 100 and 1000 are accepted ONLY as the right operand of a division (percent -> fraction, W -> kW).
@@ -256,6 +263,17 @@ def test_tou_functions_have_no_clock_duration_weekday_or_tolerance_literals():
     functions = {n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name in TOU_FUNCTIONS}
     violations = [v for name in TOU_FUNCTIONS if name in functions for v in _tou_function_violations(functions[name])]
     assert not violations, "Hardcoded heuristics in TOU functions:\n" + "\n".join(violations)
+
+
+def test_ai_tou_planner_functions_have_no_clock_duration_weekday_or_tolerance_literals():
+    """INVARIANT (Rule 12): the AI planner's validation, simulation and selection are data-derived too."""
+    path = os.path.join(CONFIG_DIR, "ai_tou_planner.py")
+    with open(path, "r", encoding="utf-8") as f:
+        tree = ast.parse(f.read(), filename=path)
+    functions = {n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name in AI_TOU_FUNCTIONS}
+    assert set(functions) == set(AI_TOU_FUNCTIONS), f"missing: {set(AI_TOU_FUNCTIONS) - set(functions)}"
+    violations = [v for name in AI_TOU_FUNCTIONS for v in _tou_function_violations(functions[name])]
+    assert not violations, "Hardcoded heuristics in ai_tou_planner:\n" + "\n".join(violations)
 
 
 def test_automatic_charge_path_does_not_use_window_min_hours_or_valley_window():

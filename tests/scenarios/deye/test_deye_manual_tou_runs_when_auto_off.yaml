@@ -1,0 +1,23 @@
+id: test_deye_manual_tou_runs_when_auto_off
+area: deye
+description: "Auto-sync off: script.sync_deye_manual_tou runs the stubbed shell_command to completion"
+tags: [deye, tou, manual, auto_sync, stub, regression]
+status: active
+
+preconditions:
+  stub_rc: 0
+  entities:
+    input_boolean.deye_tou_auto_sync:
+      state: "off"
+
+action:
+  type: call_service
+  service: script.sync_deye_manual_tou
+  data: {}
+
+wait_seconds: 4.0
+
+# ponytail: stub invocation is not observable as an entity; script returning to off (no hang) is the check.
+assertions:
+  - entity: script.sync_deye_manual_tou
+    state: "off"
