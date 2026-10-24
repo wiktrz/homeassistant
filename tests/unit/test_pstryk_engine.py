@@ -2127,18 +2127,18 @@ def test_m6_discharge_starts_at_sell_start():
     assert by_time["18:00"]["target_soc"] == 20 and not by_time["18:00"]["grid_charge"]
 
 
-def test_m1_charge_ceiling_is_hard_capped_at_100(monkeypatch):
+def test_m1_charge_ceiling_follows_config_without_cap(monkeypatch):
     import importlib
     try:
         monkeypatch.setenv("BATTERY_MAX_CHARGE_CURRENT", "140")
         monkeypatch.setenv("BATTERY_CHARGE_CURRENT_A", "140")
         importlib.reload(energy_defaults)
         assert energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT == 140.0
-        assert energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A == 100.0
+        assert energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A == 140.0
     finally:
         monkeypatch.undo()
         importlib.reload(energy_defaults)
-    assert energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A <= 100.0
+    assert energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A == energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT
 
 
 @pytest.mark.parametrize("day,skip,expected", [

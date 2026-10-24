@@ -16,7 +16,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Set
 
 ALLOWED_KEYS = {"time", "target_soc", "grid_charge", "charge_current_a"}
@@ -45,10 +45,13 @@ def grid_minutes(slots: List[Dict[str, Any]]) -> Set[int]:
     return out
 
 
-def window_minutes(windows: List[Dict[str, Any]]) -> Set[int]:
+def window_minutes(windows: List[Dict[str, Any]], now: Optional[datetime] = None) -> Set[int]:
+    """Clock minutes of the windows, clipped to the 24 h the clock table covers from now."""
     out: Set[int] = set()
     for w in windows or []:
         a, b = datetime.fromisoformat(w["start"]), datetime.fromisoformat(w["end"])
+        if now is not None:
+            a, b = max(a, now), min(b, now + timedelta(days=1))
         start_m = a.hour * 60 + a.minute
         out.update((start_m + k) % DAY_MIN for k in range(int((b - a).total_seconds() // 60)))
     return out
@@ -91,17 +94,19 @@ def validate(slots: Any, ctx: Dict[str, Any]) -> List[str]:
             errors.append(f"slot_{i}_charge_target_not_max")
     if structural:
         return errors
-    windows = window_minutes(ctx.get("charge_windows"))
+    now = datetime.fromisoformat(ctx["now"]) if ctx.get("now") else None
+    windows = window_minutes(ctx.get("charge_windows"), now)
     if windows:
         grid = grid_minutes(slots)
-        if windows - grid:
+        algo_grid = grid_minutes((ctx.get("algorithm_reference") or {}).get("table"))
+        # A clock table cannot hold two days of one clock minute: the algorithm table decides which window minutes
+        # exist in it (required); the AI must cover those and may charge only in windows or the algorithm's top-up.
+        if (windows & algo_grid) - grid:
             errors.append("charge_window_not_covered")
-        allowed = windows | grid_minutes((ctx.get("algorithm_reference") or {}).get("table"))
-        if grid - allowed:
+        if grid - (windows | algo_grid):
             errors.append("grid_charge_outside_window")
     active = ctx.get("active_slots") or []
-    if len(active) == t["slot_count"] and ctx.get("now"):
-        now = datetime.fromisoformat(ctx["now"])
+    if len(active) == t["slot_count"] and now:
         minute = now.hour * 60 + now.minute
         new, old = _active_row(slots, minute), _active_row(active, minute)
         tol = 0 if new[1] or old[1] else t.get("soc_step", 0)

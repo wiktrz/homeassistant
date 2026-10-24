@@ -165,6 +165,9 @@ def test_cost_ratio_breach_falls_back(monkeypatch):
     bad = [{"time": s["time"], "target_soc": P["max_soc"], "grid_charge": True, "charge_current_a": CEIL}
            for s in algo["deye_tou_schedule"]]
     plan = _plan(_Urlopen({"slots": bad}), monkeypatch=monkeypatch)
+    assert plan["plan_source"] == "algorithm" and plan["fallback_reason"].startswith("invalid_")  # guard: outside window
+    monkeypatch.setattr(ai_tou_planner.ai_tou_guard, "validate", lambda slots, ctx: [])  # isolate the cost guard
+    plan = _plan(_Urlopen({"slots": bad}), monkeypatch=monkeypatch, force=True)
     assert plan["plan_source"] == "algorithm" and "cost" in plan["fallback_reason"]
 
 
