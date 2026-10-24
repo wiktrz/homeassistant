@@ -243,7 +243,7 @@ The installation uses industrial BoneIO DIN rail hardware:
     - **CLI:** `pstryk_engine.py --print-tou` prints the rolling timeline and the 6-slot table (24 h from now) without writing.
 - **Dynamic Multi-Window Dispatch (with Average Prices in UI):**
   - **EV Charging Window (`ev_best_window`):** Weekdays 2h continuous, weekends 4h continuous in `auto` (selectable via `input_select.ev_charging_target_hours`) (`sensor.pstryk_ev_best_window_dol`, e.g. `01:00 - 03:00 (śr. 0.88 zł/kWh)`).
-  - **Power Bank Window (`powerbank_best_window`):** the cheapest block of N hours inside a price valley, N = max(`CHARGE_WINDOW_MIN_HOURS`, energy need at the Reg 108 ceiling); informational only (sensors, 22:00 notification, explicit-window path), it does not drive the greedy grid charge plan, 1-hour granularity, shown as `binary_sensor.pstryk_in_powerbank_best_window_dol` (e.g. `11:00 - 14:00 (śr. 0.90 zł/kWh)`).
+  - **Power Bank Window (`powerbank_best_window`):** the R1 charge window of the day (`find_charge_window`, the same window the rolling plan charges, via `charge_window_summary`); 1-hour granularity, shown as `binary_sensor.pstryk_in_powerbank_best_window_dol` (e.g. `11:00 - 14:00 (śr. 0.90 zł/kWh)`).
   - **Peak Sell / Discharge Window (`best_sell_window`):** UI/notification display only (the engine ranks discharge peaks by gross retail buy price): peak window (length from `input_select.battery_discharge_target_hours`, 1h–5h, default 3h) + 1h spike (`sensor.pstryk_best_sell_window_dol`, e.g. `17:00 - 21:00 (śr. 1.34 zł/kWh, pik 19:00: 1.48 zł)`).
 - **Battery Health & 100% BMS Calibration Scheduling:**
   - LiFePO4 cells require periodic 100% saturation for BMS top cell balancing and state-of-charge drift correction.

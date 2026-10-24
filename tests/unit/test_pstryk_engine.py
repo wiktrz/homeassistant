@@ -1948,7 +1948,9 @@ def test_incomplete_price_coverage_blocks_tou_and_cache(monkeypatch, tmp_path):
     assert sync["success"] is False
     assert "Niepełne" in sync["error"]
     client.sync_tou_schedule.assert_not_called()
-    client.set_charge_current.assert_not_called()
+    # abort path: no cached plan covers this hour -> the configured ceiling is restored (never a reduced leftover)
+    client.set_charge_current.assert_called_once()
+    assert client.set_charge_current.call_args.kwargs["current_a"] == int(round(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A))
 
 
 @pytest.mark.parametrize("raw,default,expected", [
@@ -3106,11 +3108,11 @@ def _rolling(now, soc, profile, frames=None, **kw):
 
 @pytest.mark.parametrize("load", [0.3, 0.5])
 def test_no_charge_after_the_elapsed_window_first_charge_is_on_the_next_day(load):
-    # R1/R5 (intentional change): 22.10's window (00-06) is over, so tonight's cheap 23:00 is not charged any more;
-    # the first charge is a pre-window top-up or the window of 23.10 (13-15)
+    # 22.10's window (00-06) is over; a past window must not suppress the greedy top-up, so a charge now (tonight's
+    # cheap 23:00) is allowed when it covers a dearer later shortfall; the 23.10 window is charged as well
     plan = _rolling(_dt_at(D22, 22), 30, _flat(load))
     ch = [e for e in plan["plan_timeline"] if e["role"] == "charge"]
-    assert ch and pstryk_engine._iso_dt(ch[0]["start"]) >= _dt_at(D23, 0), ch
+    assert ch and pstryk_engine._iso_dt(ch[0]["start"]) >= _dt_at(D22, 22), ch
     assert ch[0]["charge_a"] == int(round(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A)) and ch[0]["target_soc"] == round(ch[0]["soc_end"])
 
 
@@ -3180,9 +3182,9 @@ def test_full_resync_flow_charges_only_in_the_first_plans_charge_hours(now, soc0
     hours = {pstryk_engine._iso_dt(e["start"]).replace(minute=0) for e in first if e["role"] == "charge"}
     trace = []
     _simulate(_dt_at(D22, *now), soc0, _real(k), end=_dt_at(D23, 11, 45), trace=trace, estimate_beyond_horizon=False)
-    assert trace and min(trace) >= _dt_at(D22, 23)
-    # R1 (intentional change): the pre-window top-ups of 23.10 re-size with the live SOC at every re-plan, so only the
-    # window itself (13-15) is fixed; every traced hour is a first-plan hour or lies before that window
+    assert trace and min(trace) >= _dt_at(D22, 22)
+    # the pre-window top-ups re-size with the live SOC at every re-plan, so only the window itself (13-15) is fixed;
+    # every traced hour is a first-plan hour or lies before that window
     win = pstryk_engine.find_charge_window(_fixture_frames(), _dt_at(D22, *now))[-1]["start"]
     assert {t.astimezone(timezone.utc).replace(minute=0, second=0) for t in trace
             if t.astimezone(timezone.utc).replace(minute=0, second=0) >= win} <= hours, (trace, hours)
@@ -3191,9 +3193,8 @@ def test_full_resync_flow_charges_only_in_the_first_plans_charge_hours(now, soc0
 @pytest.mark.parametrize("load", [0.5, 1.0])
 def test_tonights_charge_only_with_tomorrows_prices(load):
     sl = _rolling(_dt_at(D22, 22, 1), 60, _flat(load), terminal_fill=False)["deye_tou_schedule"]
-    # R1 (intentional change): tomorrow's price window (13:00) is charged, tonight's cheap 23:00 is not any more
+    # tomorrow's price window (13:00) is charged (tonight's cheap hour may top up too: past window, greedy is free)
     assert next(s for s in sl if s["time"] == "13:00")["grid_charge"]
-    assert not any(s["grid_charge"] and s["time"].startswith("23:") for s in sl)
     # tomorrow unknown, published prices only -> no worth-covering hour left in the known prices: no grid charge
     today_only = load_fixture(TWO_DAY_FIXTURE)["pricing_frames_today"]
     assert not [s for s in _rolling(_dt_at(D22, 22, 1), 60, _flat(load), frames=today_only, terminal_fill=False,
@@ -3425,3 +3426,85 @@ def test_sync_identical_skip_keeps_cached_active_tou_and_plan_fields_match(tmp_p
             capacity_kwh=soc["battery_capacity_kwh"], voltage=soc["nominal_voltage"], loss_pct=soc["loss_buffer_pct"],
             calibration_active=False, max_discharge_current=soc["max_discharge_current"])
         assert fields["deye_tou_schedule"] == res["slots"]
+
+
+# ---- review fixes: past window, ceiling sanity, abort restore, running-hour weight, guard types, one window finder ----
+def test_past_window_does_not_suppress_greedy_topup_for_a_dearer_later_peak():
+    day = datetime(2026, 6, 10).date()
+    pr = {2: .2, 3: .2, 4: .2, 14: .35, 15: .35, 18: 1.2, 19: 1.2, 20: 1.2, 21: 1.2}
+    fr = warsaw_day_frames(day, lambda h: pr.get(h, .6))
+    kw = dict(min_soc=10, max_soc=100, capacity_kwh=energy_defaults.FALLBACK_BATTERY_CAPACITY_KWH,
+              voltage=energy_defaults.FALLBACK_BATTERY_NOMINAL_VOLTAGE, loss_pct=energy_defaults.DEFAULT_LOSS_BUFFER_PCT,
+              ceiling_a=energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A)
+    r = pstryk_engine.plan_rolling_tou(fr, datetime(2026, 6, 10, 13, 0, tzinfo=WARSAW), 15,
+                                       {k: [1.5] * 24 for k in ("weekday", "weekend")}, **kw)
+    ch = [e for e in r["plan_timeline"] if e["role"] == "charge"]
+    assert ch and all(pstryk_engine._iso_dt(e["start"]) >= datetime(2026, 6, 10, 13, 0, tzinfo=WARSAW) for e in ch)
+    assert next(e for e in r["plan_timeline"] if e["role"] == "peak")["soc_end"] > 10.5
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), 0.0, -5.0, None])
+def test_charge_current_ceiling_must_be_finite_positive(monkeypatch, bad):
+    with pytest.raises(ValueError):
+        energy_defaults.validated_charge_current_ceiling(bad)
+    monkeypatch.setattr(energy_defaults, "BATTERY_CHARGE_CURRENT_MAX_CEILING_A", bad)
+    with pytest.raises(ValueError):
+        pstryk_engine.check_and_apply_charge_current_modulation(slots=[])
+    assert energy_defaults.validated_charge_current_ceiling(250.0) == 250.0  # no upper cap
+
+
+def test_abort_keeps_reduced_current_only_inside_the_cached_plan(monkeypatch, tmp_path):
+    freeze_now(monkeypatch, datetime(2026, 10, 21, 12, 30, tzinfo=WARSAW))
+    this_hour = pstryk_engine._iso_z(datetime(2026, 10, 21, 10, 0, tzinfo=timezone.utc))
+    for cached, expect_write in (({"charge_current_plan": {this_hour: 30}}, False), ({"charge_current_plan": {}}, True)):
+        client = mock.MagicMock()
+        client.read_inverter_telemetry.return_value = {"success": True, "config": {}, "telemetry": {}}
+        src = dict(cached, price_coverage_complete=False, tou_error="x", pricing_frames=[])
+        with mock.patch("pstryk_engine.read_cache", return_value=src), \
+             mock.patch("pstryk_engine.cache_is_reusable", return_value=True), \
+             mock.patch("pstryk_engine.resolve_api_key", return_value=(None, "test")), \
+             mock.patch("pstryk_engine.solarman_v5_client", client):
+            res = pstryk_engine.sync_deye_inverter_tou_schedule(cache_dir=str(tmp_path))
+        assert res["success"] is False
+        assert client.set_charge_current.called is expect_write
+
+
+def test_charge_current_plan_running_hour_weighted_by_remaining_fraction_reaches_max():
+    s = datetime(2026, 6, 11, 0, tzinfo=timezone.utc)
+    w = {"hours": [s + timedelta(hours=i) for i in range(3)], "prices": [.2, .21, .22]}
+    cap, V, loss = energy_defaults.FALLBACK_BATTERY_CAPACITY_KWH, energy_defaults.FALLBACK_BATTERY_NOMINAL_VOLTAGE, \
+        energy_defaults.DEFAULT_LOSS_BUFFER_PCT
+    soc, t = 40.0, s
+    while t < s + timedelta(hours=3):
+        m = pstryk_engine.charge_current_plan(w, soc, 100, cap, V, loss,
+                                              energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A, now=t)
+        a = m[pstryk_engine._iso_z(t.replace(minute=0))]
+        soc = min(100.0, soc + a * V / 1000 * 0.25 * (1 - loss / 100) / cap * 100)
+        t += timedelta(minutes=15)
+    assert soc >= 99.0
+
+
+def test_guard_bad_active_slot_soc_types_never_raise(tmp_path):
+    import ai_tou_guard, json as _json
+    ctx = {"battery": {"min_soc": 10, "max_soc": 90}, "table": {"slot_count": 2, "minute_step": 1, "soc_step": 5},
+           "now": "2026-10-22T12:00:00+02:00",
+           "active_slots": [{"time": "00:00", "target_soc": None, "grid_charge": False},
+                            {"time": "13:00", "target_soc": "x", "grid_charge": False}]}
+    ok = [{"time": "00:00", "target_soc": 50, "grid_charge": False}, {"time": "13:00", "target_soc": 50, "grid_charge": False}]
+    assert ai_tou_guard.validate(ok, ctx) == []
+    bad = [{"time": "00:00", "target_soc": None, "grid_charge": False}, {"time": "13:00", "target_soc": 50, "grid_charge": False}]
+    assert "slot_1_soc_type" in ai_tou_guard.validate(bad, ctx)
+    r, c = tmp_path / "r.json", tmp_path / "c.json"
+    r.write_text(_json.dumps({"slots": bad})); c.write_text(_json.dumps(ctx))
+    assert ai_tou_guard.main(["--response", str(r), "--context", str(c)]) == 1
+
+
+def test_powerbank_sensor_window_is_the_plan_charge_window():
+    day = datetime(2026, 6, 10).date()
+    fr = warsaw_day_frames(day, lambda h: {2: .2, 3: .2, 4: .25}.get(h, .6))
+    now = datetime(2026, 6, 10, 0, 30, tzinfo=WARSAW)
+    w = pstryk_engine.find_charge_window(fr, now)[0]
+    pb = pstryk_engine.charge_window_summary(fr, now, day)
+    assert pb["start"] == pstryk_engine._iso_z(w["start"].astimezone(timezone.utc)) and pb["duration_hours"] == len(w["hours"])
+    assert {"start", "end", "duration_hours", "average_price", "slots", "display", "is_consecutive"} <= set(pb)
+    assert "error" in pstryk_engine.charge_window_summary([], now, day)

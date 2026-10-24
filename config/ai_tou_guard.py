@@ -85,6 +85,7 @@ def validate(slots: Any, ctx: Dict[str, Any]) -> List[str]:
         soc = s.get("target_soc")
         if type(soc) is not int:
             errors.append(f"slot_{i}_soc_type")
+            structural = True
         elif not b["min_soc"] <= soc <= b["max_soc"]:
             errors.append(f"slot_{i}_soc_bounds")
         if not isinstance(s.get("grid_charge"), bool):
@@ -108,10 +109,14 @@ def validate(slots: Any, ctx: Dict[str, Any]) -> List[str]:
     active = ctx.get("active_slots") or []
     if len(active) == t["slot_count"] and now:
         minute = now.hour * 60 + now.minute
-        new, old = _active_row(slots, minute), _active_row(active, minute)
-        tol = 0 if new[1] or old[1] else t.get("soc_step", 0)
-        if new[1] != old[1] or abs(new[2] - old[2]) > tol:
-            errors.append("active_slot_changed")
+        try:
+            new, old = _active_row(slots, minute), _active_row(active, minute)
+        except (TypeError, AttributeError):
+            new = old = None  # unusable inverter slots (no time): nothing to compare against
+        if new and old and type(new[2]) is int and type(old[2]) is int:
+            tol = 0 if new[1] or old[1] else t.get("soc_step", 0)
+            if new[1] != old[1] or abs(new[2] - old[2]) > tol:
+                errors.append("active_slot_changed")
     return errors
 
 

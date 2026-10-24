@@ -1709,6 +1709,22 @@ def find_charge_window(frames: List[Dict[str, Any]], now_dt: datetime) -> List[D
     return out
 
 
+def charge_window_summary(frames: List[Dict[str, Any]], now_dt: datetime, day: Any) -> Dict[str, Any]:
+    """Informational power-bank window of one Warsaw day (powerbank_best_window* sensors): the SAME window the rolling
+    plan charges (find_charge_window), in the sensor's stable attribute shape; {"error": ...} without one."""
+    w = next((x for x in find_charge_window(frames, now_dt) if x["day"] == day.isoformat()), None)
+    if w is None:
+        return {"error": "No charge window"}
+    start_str, end_str = _iso_z(w["start"].astimezone(timezone.utc)), _iso_z(w["end"].astimezone(timezone.utc))
+    avg = round(math.fsum(w["prices"]) / len(w["prices"]), 3)
+    slots = [f"{format_hhmm(_iso_z(a.astimezone(timezone.utc)))} - {format_hhmm(_iso_z((a + timedelta(hours=1)).astimezone(timezone.utc)))}"
+             for a in w["hours"]]
+    return {"start": start_str, "end": end_str, "duration_hours": len(w["hours"]), "min_hours": len(w["hours"]),
+            "average_price": avg, "min_price": round(min(w["prices"]), 3), "max_price": round(max(w["prices"]), 3),
+            "slots": slots, "is_consecutive": True,
+            "display": f"{format_hhmm(start_str)} - {format_hhmm(end_str)} (śr. {avg:.2f} zł/kWh)"}
+
+
 def charge_current_plan(window: Dict[str, Any], soc_start: float, max_soc: float, capacity_kwh: float,
                         voltage: float, loss_pct: float, ceiling_a: float,
                         now: Optional[datetime] = None) -> Dict[str, int]:
@@ -1716,7 +1732,7 @@ def charge_current_plan(window: Dict[str, Any], soc_start: float, max_soc: float
     Price-weighted Reg 108 currents of one charge window: {UTC hour start ISO: A}.
       - weight: the window's cheapest hour 1.0 down linearly to CHARGE_CURRENT_MIN_WEIGHT at its dearest hour;
       - energy E = (max_soc - soc_start)/100 * capacity / (1 - loss%) * (1 + CHARGE_WINDOW_ENERGY_MARGIN_PCT/100);
-      - I_h = E * w_h / (V * sum(w)) over the hours still to run (now: the running hour and later ones), so a running
+      - I_h = E * w_h / (V * sum(w)) over the hours still to run (now: the running hour weighted by its remaining fraction, and later ones), so a running
         window re-sizes from the live SOC; clamped to [BATTERY_CHARGE_CURRENT_MIN_FLOOR_A, ceiling] (the floor wins).
     """
     lo, hi = min(window["prices"]), max(window["prices"])
@@ -1727,7 +1743,9 @@ def charge_current_plan(window: Dict[str, Any], soc_start: float, max_soc: float
         return {}
     need_kwh = max(0.0, float(max_soc) - float(soc_start)) / 100.0 * float(capacity_kwh) / (1.0 - float(loss_pct) / 100.0) \
         * (1.0 + float(energy_defaults.CHARGE_WINDOW_ENERGY_MARGIN_PCT) / 100.0)
-    per_weight_a = need_kwh / (float(voltage) / 1000.0) / math.fsum(w for _, w in todo)
+    # the running hour only has its remaining fraction left to charge: weight its time, not a full hour
+    frac = lambda a: 1.0 if now is None else min(1.0, max(0.0, (a + timedelta(hours=1) - now) / timedelta(hours=1)))
+    per_weight_a = need_kwh / (float(voltage) / 1000.0) / math.fsum(w * frac(a) for a, w in todo)
     top = min(float(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A), float(ceiling_a))
     floor = float(energy_defaults.BATTERY_CHARGE_CURRENT_MIN_FLOOR_A)
     return {_iso_z(a.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0)): int(round(max(floor, min(top, per_weight_a * w))))
@@ -1832,7 +1850,7 @@ def plan_charge_hours(
     charges: Dict[int, float] = {}
     fixed = set()  # window hours: whole hours at the ceiling, outside the need-sizing / hysteresis below
     day_of = lambda t: t.astimezone(WARSAW_TZ).date()
-    window_start = {day_of(w["start"]): w["start"] for w in sorted(windows or [], key=lambda w: w["start"])}
+    window_start: Dict[Any, datetime] = {}  # only windows actually charged and still ahead (past/skipped ones don't count)
     for w in sorted(windows or [], key=lambda w: w["start"]):
         idx = [i for i, h in enumerate(cand) if w["start"] <= h[0] < w["end"]]
         if not idx:
@@ -1840,6 +1858,7 @@ def plan_charge_hours(
         tl = walk(charges)
         if (tl[idx[0] - 1][0] if idx[0] else float(current_soc)) > float(max_soc) - float(energy_defaults.TOU_FLOOR_SOC_STEP):
             continue  # no maintenance trickle: the battery is already (nearly) full when the window opens
+        window_start.setdefault(day_of(w["start"]), w["start"])
         for i in idx:
             charges[i] = max_kwh * frac[i]
             fixed.add(i)
@@ -2380,7 +2399,8 @@ def check_and_apply_charge_current_modulation(
     With a non-empty charge_current_plan ({UTC hour ISO Z: A}, plan_rolling_tou) the map decides: the running hour's
     value (the ceiling outside the map), except that the NEXT hour's value is written in advance when that hour starts
     within one sync interval (TOU_SYNC_INTERVAL_MIN) and is not lower than the running one (the current is never
-    lowered early); otherwise it changes at the first sync after the boundary. Without a map, from the TOU slots:
+    lowered early); otherwise it changes at the first sync after the boundary. With a non-empty map the slot path
+    below is skipped entirely. Without a map, from the TOU slots:
     - Inside a grid-charge slot: that slot's target_charge_current_a (ceiling * min_h / T from the energy need).
     - Outside every grid-charge slot: the BATTERY_CHARGE_CURRENT_MAX_CEILING_A baseline (Rule 12: no pre-set of the
       next charge's current; a reduced-current charge may run up to one sync interval at the ceiling before the next
@@ -2390,7 +2410,8 @@ def check_and_apply_charge_current_modulation(
     """
     now_warsaw = now.astimezone(WARSAW_TZ) if now is not None else datetime.now(WARSAW_TZ)
     now_m = now_warsaw.hour * 60 + now_warsaw.minute
-    ceiling_curr = int(round(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A))
+    ceiling_curr = int(round(energy_defaults.validated_charge_current_ceiling(
+        energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A)))
     floor_curr = int(round(energy_defaults.BATTERY_CHARGE_CURRENT_MIN_FLOOR_A))
     if charge_current_plan:
         this_hour = now_warsaw.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0)
@@ -2607,6 +2628,15 @@ def sync_deye_inverter_tou_schedule(
             "success": False,
             "error": f"Nie można zsynchronizować TOU z falownikiem: {err_msg}. Przerwano zapis, aby zachować dotychczasowy harmonogram.",
         }
+        # a reduced Reg 108 must not outlive its window: outside the last cached plan restore the ceiling
+        cached_map = source_data.get("charge_current_plan") if isinstance(source_data, dict) else None
+        this_hour = _iso_z(datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0))
+        if not (isinstance(cached_map, dict) and this_hour in cached_map):
+            try:
+                err_dict["charge_current_modulation"] = check_and_apply_charge_current_modulation(
+                    slots=[], host=host, port=port)
+            except Exception as e:
+                err_dict["charge_current_modulation"] = {"success": False, "error": str(e)}
         save_last_tou_sync_result(err_dict)
         return err_dict
     slots = plan["deye_tou_schedule"]
@@ -3462,11 +3492,7 @@ def fetch_consolidated_data(
     # Dispatch windows for TODAY (stable across all 24h of the current day)
     target_today_data = {"frames": frames_today} if frames_today else (forward_data if (isinstance(forward_data, dict) and forward_data.get("frames")) else today_data)
     ev_window_today = find_ev_best_window(target_today_data, target_hours=ev_target_hours, now_dt=now_warsaw)
-    charge_need_kw = dict(
-        current_soc=eff_current_soc, max_soc=eff_max_soc, capacity_kwh=eff_capacity, voltage=eff_voltage,
-        ceiling_a=energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A, loss_pct=eff_loss_buffer_pct,
-    )
-    pb_window_today = find_powerbank_best_window(target_today_data, target_hours="auto", allow_disjoint=False, now_dt=now_warsaw, **charge_need_kw)
+    pb_window_today = charge_window_summary(target_today_data.get("frames", []), now_warsaw, today_date)
     discharge_windows_today = find_best_discharge_windows(target_today_data)
     sell_window_today = find_best_sell_window(target_today_data, target_hours=sell_target_hours)
     tou_error = None
@@ -3476,9 +3502,7 @@ def fetch_consolidated_data(
             "nie wyliczono harmonogramu TOU (zachowano dotychczasowy)."
         )
     if has_tomorrow_pricing:
-        pb_window_tomorrow = find_powerbank_best_window(
-            {"frames": frames_tomorrow}, target_hours="auto", allow_disjoint=False, now_dt=now_warsaw + timedelta(days=1),
-            **dict(charge_need_kw, current_soc=eff_max_soc))  # sized like the rolling planner sizes a later price day
+        pb_window_tomorrow = charge_window_summary(frames_tomorrow, now_warsaw, tomorrow_date)
     else:
         pb_window_tomorrow = None
     # Dispatch windows for TOMORROW (published ~12:00 Warsaw time)

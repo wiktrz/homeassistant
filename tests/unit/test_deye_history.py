@@ -347,11 +347,11 @@ def _charges(tl):
 
 @pytest.mark.parametrize("k,soc", [(2, 30), (4, 45)])
 def test_user_scenario_greedy_night_charge_at_2300(k, soc):
-    """22:05, real profile x k. R1 (intentional change): 22.10's price window is over, so tonight's cheap 23:00 is not
-    charged; the first grid charge is on 23.10 (pre-window top-up or the 23.10 window) at the ceiling; SOC >= Min."""
+    """22:05, real profile x k. 22.10's price window is over (past windows do not
+    suppress the greedy top-up): tonight's cheap 23:00 is charged at the ceiling for the dearer later shortfall; SOC >= Min."""
     r = plan(NOW, soc, prof(k))
     ch = _charges(r["plan_timeline"])
-    assert ch and iso(ch[0]["start"]) >= datetime(2026, 10, 23, 0, 0, tzinfo=W).astimezone(timezone.utc)
+    assert ch and iso(ch[0]["start"]) >= datetime(2026, 10, 22, 23, 0, tzinfo=W).astimezone(timezone.utc) - timedelta(minutes=1)
     assert all(e["charge_a"] == int(round(pe.energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A)) for e in ch)
     for e in r["plan_timeline"]:
         assert e["soc_end"] >= 20 - 1e-6, e
