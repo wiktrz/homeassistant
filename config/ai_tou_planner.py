@@ -9,6 +9,7 @@ CLI; the sensor path reads the cache file only. The API key is read at call time
 """
 import hashlib
 import json
+import math
 import os
 import re
 import sys
@@ -19,6 +20,7 @@ import urllib.request
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
+import ai_tou_guard
 import energy_defaults
 import pstryk_engine as pe
 
@@ -63,6 +65,12 @@ def compact_slots(slots: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 def build_context(frames, now_dt, current_soc, profile, algo, *, active_slots=None, min_soc, max_soc, capacity_kwh,
                   voltage, ceiling_a, loss_pct, **_ignored) -> Dict[str, Any]:
+    # Charge slots target Max SOC (not the projected end SOC the engine timeline carries).
+    timeline = [dict(e, target_soc=max_soc) if e.get("role") == "charge" else e
+                for e in (algo or {}).get("plan_timeline", [])]
+    windows = [{"start": pe._iso_dt(w["start"]).astimezone(pe.WARSAW_TZ).isoformat(),
+                "end": pe._iso_dt(w["end"]).astimezone(pe.WARSAW_TZ).isoformat(),
+                "avg_price": w.get("avg_price")} for w in (algo or {}).get("charge_windows") or []]
     hours = [h for h in _priced_hours(frames) if h[1] > now_dt]
     loads: Dict[datetime, float] = {}
     if hours:
@@ -80,9 +88,10 @@ def build_context(frames, now_dt, current_soc, profile, algo, *, active_slots=No
         "table": {"slot_count": int(energy_defaults.TOU_SLOT_COUNT),
                   "minute_step": int(energy_defaults.TOU_SLOT_MINUTE_STEP),
                   "soc_step": int(energy_defaults.TOU_FLOOR_SOC_STEP)},
+        "charge_windows": windows,
         "active_slots": compact_slots(active_slots),
         "algorithm_reference": {"table": compact_slots((algo or {}).get("deye_tou_schedule")),
-                                "plan_timeline": (algo or {}).get("plan_timeline", [])},
+                                "plan_timeline": timeline},
     }
 
 
@@ -96,8 +105,12 @@ def build_prompt(ctx: Dict[str, Any]) -> List[Dict[str, str]]:
         "repeats daily, so it covers the next 24 h. Each slot: target_soc (integer, "
         f"{b['min_soc']}..{b['max_soc']}; in a non-charge slot the battery discharges for the load down to target_soc "
         "then holds), grid_charge (boolean; true charges from the grid up to target_soc), charge_current_a "
-        f"(0..{b['charge_current_ceiling_a']}). Charge in the cheapest hours first, sized to the energy need "
-        f"(round-trip loss {b['loss_pct']} %), discharge in the dearest hours; peaks are identified per price day. "
+        f"(0..{b['charge_current_ceiling_a']}; the engine owns the real current). Grid-charge target = Max SOC "
+        f"({b['max_soc']}) in every grid_charge slot. charge_windows (when not empty) are the price windows to grid-charge "
+        "through completely: grid_charge exactly covers them (clock times, Europe/Warsaw) and nowhere else except "
+        "the same pre-window top-up hours the algorithm_reference table has; the slot active now must keep the "
+        f"behaviour of active_slots. Discharge in the dearest hours (round-trip loss {b['loss_pct']} %); peaks are "
+        "identified per price day. "
         "Prices after the last hour in hours are unknown: end that horizon as full as possible (up to max_soc), but "
         f"fill only in hours whose price * (1 + {b['loss_pct']} / 100) is at most the mean price of their own day. "
         "Battery health: few and short charge blocks, avoid sitting at max SOC, skip cycles that do not pay back "
@@ -214,7 +227,7 @@ def validate_ai_slots(slots: Any, ctx: Dict[str, Any]) -> Tuple[bool, Optional[s
 
 
 def simulate_table(slots, frames, now_dt, current_soc, profile, *, min_soc, max_soc, capacity_kwh, voltage, ceiling_a,
-                   loss_pct, **_ignored) -> Tuple[float, List[List[Any]]]:
+                   loss_pct, charge_current_plan=None, **_ignored) -> Tuple[float, List[List[Any]]]:
     """Grid cost of running a clock table over [now, end of prices) with Deye floor semantics (same SOC walk as the
     engine). Returns (cost, [[hour start ISO, SOC]])."""
     hours = [h for h in _priced_hours(frames) if h[1] > now_dt]
@@ -240,7 +253,13 @@ def simulate_table(slots, frames, now_dt, current_soc, profile, *, min_soc, max_
             price_of.append(price)
             t = e
     loss = float(loss_pct) / 100.0
-    charge_kw = min(float(ceiling_a), float(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A)) * float(voltage) / 1000.0 / (1.0 + loss)
+    ceiling = min(float(ceiling_a), float(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A))
+    charge_kw = ceiling * float(voltage) / 1000.0 / (1.0 + loss)
+    amps = charge_current_plan or {}
+    for c in cells:  # price-weighted Reg 108 current of the hour when the engine plans one
+        a = amps.get(pe._iso_z(hour_key(c["start"])))
+        if a is not None:
+            c["charge_kw"] = min(float(a), ceiling) * float(voltage) / 1000.0 / (1.0 + loss)
     proj = pe.project_soc_timeline(cells, current_soc, 0.0, now_dt, min_soc=min_soc, max_soc=max_soc,
                                    capacity_kwh=capacity_kwh, charge_kw=charge_kw)
     cap, cost, points = float(capacity_kwh), 0.0, []
@@ -275,8 +294,14 @@ def evaluate_ai_slots(ai_slots, algo, ctx, frames, now_dt, current_soc, profile,
     ok, reason = validate_ai_slots(ai_slots, ctx)
     if not ok:
         return {"ok": False, "reason": f"invalid_{reason}"}
+    errors = ai_tou_guard.validate(ai_slots, ctx)
+    if errors:
+        return {"ok": False, "reason": f"invalid_{errors[0]}"}
+    kw = dict(kw, charge_current_plan=algo.get("charge_current_plan"))
     ai_cost, points = simulate_table(ai_slots, frames, now_dt, current_soc, profile, **kw)
     algo_cost, _ = simulate_table(algo["deye_tou_schedule"], frames, now_dt, current_soc, profile, **kw)
+    if not (math.isfinite(ai_cost) and math.isfinite(algo_cost)):
+        return {"ok": False, "reason": "invalid_cost_not_finite"}
     res = {"ai_cost": round(ai_cost, 4), "algorithm_cost": round(algo_cost, 4), "soc_points": points}
     margin = abs(algo_cost) * (float(energy_defaults.AI_TOU_MAX_COST_RATIO) - 1.0)
     if ai_cost - algo_cost > margin + pe._KWH_EPS:
@@ -285,6 +310,8 @@ def evaluate_ai_slots(ai_slots, algo, ctx, frames, now_dt, current_soc, profile,
     slots = slots_from_ai(ai_slots, min_soc=kw["min_soc"], voltage=ref["voltage"],
                           discharge_a=ref["discharge_current_a"], base_power_w=ref["power_w"],
                           calibration_active=bool(kw.get("calibration_active")))
+    if any(x["power_w"] != ref["power_w"] or x.get("enable_sell") or x.get("enable_generation") for x in slots):
+        return dict(res, ok=False, reason="invalid_power_or_export")
     return dict(res, ok=True, reason=None, slots=slots)
 
 

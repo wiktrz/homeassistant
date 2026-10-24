@@ -333,7 +333,11 @@ def test_ai_tou_planner_never_writes_registers_or_leaks_the_key():
     no client write calls) and never prints the API key.
     """
     import ast
-    path = os.path.join(REPO_ROOT, "config", "ai_tou_planner.py")
+    for module in ("ai_tou_planner.py", "ai_tou_guard.py"):
+        _assert_no_register_writes(ast, os.path.join(REPO_ROOT, "config", module))
+
+
+def _assert_no_register_writes(ast, path):
     with open(path, "r", encoding="utf-8") as f:
         tree = ast.parse(f.read(), filename=path)
     banned_calls = {"set_charge_current", "set_charge_current_with_fallback", "write_register", "write_registers",

@@ -1705,14 +1705,15 @@ def test_fetch_consolidated_cache_hit_reevaluates_tou(tmp_path):
 def test_battery_charge_current_ceiling_clamp_and_discharge_readonly():
     """
     Verifies that:
-    1. Register 108 (Max Charge Current) can never exceed BATTERY_CHARGE_CURRENT_MAX_CEILING_A (100A).
+    1. Register 108 (Max Charge Current) can never exceed BATTERY_CHARGE_CURRENT_MAX_CEILING_A (configured).
     2. Register 109 (Max Discharge Current) is strictly read-only and never modified.
     """
     import energy_defaults
     import solarman_v5_client
     import deye_cloud_client
 
-    assert energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A == 100.0
+    # the ceiling is the configured value only (no hardcoded cap; may exceed 100 A)
+    assert energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A == energy_defaults.FALLBACK_BATTERY_MAX_CHARGE_CURRENT
 
     # 1. Modulation clamp
     with mock.patch("solarman_v5_client.set_charge_current", return_value={"success": True}):

@@ -119,8 +119,8 @@ FALLBACK_BATTERY_NOMINAL_VOLTAGE = get_default_float("BATTERY_NOMINAL_VOLTAGE")
 FALLBACK_BATTERY_MAX_CHARGE_CURRENT = get_default_float(
     "BATTERY_MAX_CHARGE_CURRENT", alias="BATTERY_CHARGE_CURRENT_A"
 )
-# Hard safety cap for Reg 108 (Max A Charge): never above 100 A, even if .env/env configures more
-BATTERY_CHARGE_CURRENT_MAX_CEILING_A = min(100.0, FALLBACK_BATTERY_MAX_CHARGE_CURRENT)
+# Reg 108 (Max A Charge) ceiling: the configured value only (may exceed 100 A; no hardcoded cap)
+BATTERY_CHARGE_CURRENT_MAX_CEILING_A = FALLBACK_BATTERY_MAX_CHARGE_CURRENT
 # Lowest Reg 108 charge current the TOU charge-window stretch / modulation may set (hardware floor)
 BATTERY_CHARGE_CURRENT_MIN_FLOOR_A = get_default_float("BATTERY_CHARGE_CURRENT_MIN_FLOOR_A")
 # User minimum TOU grid-charge window length in hours (N = max(energy need, this))

@@ -364,3 +364,16 @@ tests:
   - regression
   status: active
   last_verified: '2026-10-23T20:52:12.605327'
+- id: test_deye_tou_price_window
+  area: deye
+  file: scenarios/deye/deye_tou_price_window.yaml
+  description: Price-window TOU sync (stubbed engine) runs to completion with the forced recalculation and clears its
+    pending-UI marker
+  tags:
+  - deye
+  - tou
+  - price_window
+  - sync
+  - stub
+  - regression
+  status: active

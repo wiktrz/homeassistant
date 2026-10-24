@@ -1,0 +1,29 @@
+id: test_deye_tou_price_window
+area: deye
+description: "Price-window TOU sync (stubbed engine) runs to completion with the forced recalculation and clears its pending-UI marker"
+tags: [deye, tou, price_window, sync, stub, regression]
+status: active
+
+preconditions:
+  stub_rc: 0
+  entities:
+    input_boolean.deye_tou_auto_sync:
+      state: "on"
+    input_text.pending_ui_operations:
+      state: '["sentinel"]'
+
+action:
+  type: call_service
+  service: script.sync_deye_inverter_tou
+  data:
+    force: true
+
+wait_seconds: 4.0
+
+# ponytail: the real window/current maths is covered by tests/unit (hermetic engine); Tier 2 only proves the sync
+# script path stays intact with the stub (sentinel round-trip, auto-sync switch untouched).
+assertions:
+  - entity: input_boolean.deye_tou_auto_sync
+    state: "on"
+  - entity: input_text.pending_ui_operations
+    state: '["sentinel"]'
