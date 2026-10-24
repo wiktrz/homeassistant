@@ -1,0 +1,29 @@
+id: test_deye_recommended_charge_current_plan
+area: deye
+description: "Recommended charge current uses charge_current_plan only when the current hour is a plan hour; otherwise it falls back to the schedule chain"
+tags: [deye, charge_current, plan, regression]
+status: active
+
+preconditions:
+  entities:
+    sensor.pstryk_price_meter_dol:
+      state: "0.5"
+      attributes:
+        charge_current_plan:
+          "2099-01-01T06:00:00Z": 42
+          "2099-01-01T07:00:00Z": 56
+        charge_taper_source: "default"
+        deye_tou_schedule:
+          - {time: "00:00", grid_charge: true, target_charge_current_a: 99}
+
+action:
+  type: set_state
+  entity_id: sensor.pstryk_price_meter_dol
+  state: "0.6"
+
+wait_seconds: 3.0
+
+# ponytail: runner asserts state only; far-future plan hours (engine Z keys) are never the current hour, so the schedule value wins.
+assertions:
+  - entity: sensor.deye_inverter_recommended_charge_current
+    state: "99"

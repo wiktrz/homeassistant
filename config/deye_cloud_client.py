@@ -970,10 +970,17 @@ def fetch_consumption_history(
         _write_history_cache(cache_path, cached, dict(cached, failed=True, last_attempt=now.isoformat()))
         return old_frames
     frames.sort(key=lambda f: f["ts"])
-    _write_history_cache(cache_path, cached, {
-        "days": days, "frames": _history_to_json(frames), "fetched_date": today.isoformat(),
-        "variant": state.get("variant"),
-    })
+    new = {k: v for k, v in cached.items() if k not in ("failed", "last_attempt")}  # keep other keys (charge_taper...)
+    new.update(days=days, frames=_history_to_json(frames), fetched_date=today.isoformat(), variant=state.get("variant"))
+    try:  # charge taper fit from the fetched frames (no extra Cloud call); kept as is when the data is too thin
+        import pstryk_engine
+        fit = pstryk_engine.fit_charge_taper(frames, voltage=energy_defaults.FALLBACK_BATTERY_NOMINAL_VOLTAGE,
+                                             ceiling_a=energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A)
+        if fit.get("source") == "fitted":
+            new["charge_taper"] = fit
+    except Exception as exc:
+        print(f"charge taper fit failed: {exc!r}", file=sys.stderr)
+    _write_history_cache(cache_path, cached, new)
     return frames
 
 

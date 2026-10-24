@@ -434,7 +434,11 @@
       unit_of_measurement: "A"
       state: >
         {% set sched = state_attr('sensor.pstryk_price_meter_dol', 'deye_tou_schedule') %}
-        {% if sched %}
+        {% set plan = state_attr('sensor.pstryk_price_meter_dol', 'charge_current_plan') %}
+        {% set now_key = utcnow().strftime('%Y-%m-%dT%H:00:00Z') %}
+        {% if plan and plan[now_key] is defined %}
+          {{ plan[now_key] | int }}
+        {% elif sched %}
           {% set chg = sched | selectattr('grid_charge', 'defined') | selectattr('grid_charge', 'equalto', true) | rejectattr('topup', 'true') | list %}
           {% if chg | length > 0 and chg[0].target_charge_current_a is defined %}
             {{ chg[0].target_charge_current_a | int }}
@@ -445,6 +449,18 @@
           {{ states('sensor.deye_inverter_max_charge_current') | int(100) }}
         {% endif %}
       attributes:
+        plan_hours_local: >-
+          {% set plan = state_attr('sensor.pstryk_price_meter_dol', 'charge_current_plan') %}
+          {% set ns = namespace(rows=[]) %}
+          {% if plan %}
+            {% set now_key = utcnow().strftime('%Y-%m-%dT%H:00:00Z') %}
+            {% for k in plan.keys() | sort if k >= now_key %}
+              {% set ns.rows = ns.rows + [{'time': as_local(as_datetime(k)).strftime('%H:%M'), 'amps': plan[k] | int}] %}
+            {% endfor %}
+          {% endif %}
+          {{ ns.rows }}
+        charge_taper_source: >-
+          {{ state_attr('sensor.pstryk_price_meter_dol', 'charge_taper_source') or 'default' }}
         planned_window_hours: >-
           {% set pb = state_attr('sensor.pstryk_price_meter_dol', 'powerbank_best_window') %}
           {{ pb.duration_hours if pb and pb.duration_hours is defined else 2 }}

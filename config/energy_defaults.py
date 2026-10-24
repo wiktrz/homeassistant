@@ -144,6 +144,10 @@ CHARGE_WINDOW_SEED_HOURS = get_default_int("CHARGE_WINDOW_SEED_HOURS")
 CHARGE_WINDOW_EXTEND_PRICE_DELTA = get_default_float("CHARGE_WINDOW_EXTEND_PRICE_DELTA")
 CHARGE_WINDOW_ENERGY_MARGIN_PCT = get_default_float("CHARGE_WINDOW_ENERGY_MARGIN_PCT")
 CHARGE_CURRENT_MIN_WEIGHT = get_default_float("CHARGE_CURRENT_MIN_WEIGHT")
+# Charge taper default curve (SOC knee %, fraction of the ceiling at 100 %) and the minimum frames for the history fit
+BATTERY_CHARGE_TAPER_KNEE_SOC = get_default_float("BATTERY_CHARGE_TAPER_KNEE_SOC")
+BATTERY_CHARGE_TAPER_END_FRACTION = get_default_float("BATTERY_CHARGE_TAPER_END_FRACTION")
+BATTERY_TAPER_FIT_MIN_SAMPLES = get_default_int("BATTERY_TAPER_FIT_MIN_SAMPLES")
 TOU_SYNC_INTERVAL_MIN = get_default_int("TOU_SYNC_INTERVAL_MIN")
 # Minute step the peak top-up start (ceil) and duration (round up) snap to
 TOU_SLOT_MINUTE_STEP = get_default_int("TOU_SLOT_MINUTE_STEP")

@@ -123,6 +123,9 @@ command_line:
         - best_sell_window_tomorrow
         - has_tomorrow_pricing
         - battery_model
+        - charge_current_plan
+        - charge_windows
+        - charge_taper_source
   # Installation: góra (upper floor)
   - sensor:
       name: Pstryk Price Meter Gora

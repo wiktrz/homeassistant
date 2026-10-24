@@ -936,6 +936,135 @@ def hhmm_to_minutes(hhmm: Optional[str]) -> Optional[int]:
         return None
 
 
+_TAPER_CACHE: Dict[str, Any] = {}
+_SOC_FULL = float(100)  # SOC (%) of a full battery
+
+
+def default_charge_taper() -> Dict[str, Any]:
+    return {"knee": float(energy_defaults.BATTERY_CHARGE_TAPER_KNEE_SOC),
+            "end_fraction": float(energy_defaults.BATTERY_CHARGE_TAPER_END_FRACTION), "source": "default"}
+
+
+def load_charge_taper() -> Dict[str, Any]:
+    """Charge taper curve {knee, end_fraction, source}: the history fit from the load-history CACHE FILE (key
+    charge_taper, written by the daily --fetch-history job; never a network call), else the env default."""
+    try:
+        import deye_cloud_client
+        path = deye_cloud_client._history_cache_path()
+        mtime = os.path.getmtime(path) if os.path.exists(path) else None
+        if _TAPER_CACHE.get("key") != (path, mtime):
+            t = deye_cloud_client._read_history_cache(path).get("charge_taper") if mtime else None
+            ok = isinstance(t, dict) and 0 < float(t["end_fraction"]) <= 1 and 0 < float(t["knee"]) < 100
+            _TAPER_CACHE.update(key=(path, mtime), curve=dict(t, source="fitted") if ok else default_charge_taper())
+        return dict(_TAPER_CACHE["curve"])
+    except Exception:
+        return default_charge_taper()
+
+
+def max_charge_current_at(soc: float, ceiling: float, curve: Optional[Dict[str, Any]] = None) -> float:
+    """Max charge current at a SOC: the full ceiling up to the knee, then linear down to end_fraction * ceiling at 100 %."""
+    curve = curve or load_charge_taper()
+    knee, end = float(curve["knee"]), float(curve["end_fraction"])
+    s = float(soc)
+    if s <= knee or knee >= _SOC_FULL:
+        return float(ceiling)
+    return float(ceiling) * (1.0 - (1.0 - end) * (min(s, 100.0) - knee) / (100.0 - knee))
+
+
+_TAPER_STEP_H = 1.0 / 60.0  # integration step; ponytail: minute steps are exact enough, finer if the curve gets steeper
+
+
+def _charge_walk(soc: float, rate_kw: float, capacity_kwh: float, curve: Optional[Dict[str, Any]] = None, *,
+                 hours: Optional[float] = None, kwh: Optional[float] = None, ceiling_kw: Optional[float] = None,
+                 stop_soc: float = _SOC_FULL) -> Tuple[float, float, float]:
+    """Charge from soc at min(rate_kw, taper(ceiling_kw)) (kW into the battery) for `hours` or until `kwh` is stored
+    (and never above stop_soc). Returns (soc_end, stored_kwh, hours_used)."""
+    curve = curve or load_charge_taper()
+    cap, ceil_kw = float(capacity_kwh), float(rate_kw if ceiling_kw is None else ceiling_kw)
+    soc = float(soc)
+    if not all(math.isfinite(x) for x in (cap, ceil_kw, float(rate_kw), soc)):
+        raise ValueError("charge walk needs finite capacity, rate and ceiling")
+    if cap <= 0 or rate_kw <= 0 or soc >= stop_soc:
+        return soc, 0.0, 0.0
+    frac = lambda x: max_charge_current_at(x, 1.0, curve)
+    e = float(kwh) if kwh is not None else rate_kw * float(hours)
+    end = soc + e / cap * 100.0
+    if ceil_kw * frac(min(end, 100.0)) >= rate_kw:  # constant rate all the way: closed form
+        e = max(0.0, min(e, (stop_soc - soc) / 100.0 * cap))
+        return soc + e / cap * 100.0, e, e / rate_kw
+    t = stored = 0.0
+    for _ in range(int(6000 * (1 + (hours or 0) / 100.0))):
+        r = min(rate_kw, ceil_kw * frac(soc))
+        if r <= 0 or soc >= stop_soc or (hours is not None and t >= hours - 1e-12) \
+                or (kwh is not None and stored >= kwh - 1e-12):
+            break
+        dt = _TAPER_STEP_H
+        if hours is not None:
+            dt = min(dt, hours - t)
+        if kwh is not None:
+            dt = min(dt, (kwh - stored) / r)
+        dt = min(dt, (stop_soc - soc) / 100.0 * cap / r)
+        stored += r * dt
+        soc += r * dt / cap * 100.0
+        t += dt
+    return soc, stored, t
+
+
+def fit_charge_taper(frames: Optional[List[Dict[str, Any]]], voltage: Optional[float] = None,
+                     ceiling_a: Optional[float] = None) -> Dict[str, Any]:
+    """Fit the charge taper from load-history frames {soc, battery_w, ts}. The charge sign is detected, not assumed:
+    the majority sign of battery_w on consecutive frames where SOC rises. Observed current = |battery_w| / voltage as a
+    fraction of the ceiling (both from the caller, default the env values); per 1 % SOC bin the 90th percentile is the
+    envelope; the knee (grid search) and end fraction (least squares) fit it. The fit is rejected (env default) when
+    fewer than BATTERY_TAPER_FIT_MIN_SAMPLES charging frames lie above the default knee, or when a bin at/below the fitted
+    knee has envelope < 0.9 of the ceiling (price-modulated Reg 108, not the battery's own limit). Pure."""
+    knee0 = float(energy_defaults.BATTERY_CHARGE_TAPER_KNEE_SOC)
+    volts = float(energy_defaults.FALLBACK_BATTERY_NOMINAL_VOLTAGE if voltage is None else voltage)
+    amps = float(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A if ceiling_a is None else ceiling_a)
+    ceil_w = amps * volts
+    if not (math.isfinite(ceil_w) and ceil_w > 0):
+        return default_charge_taper()
+    rows = []
+    for f in sorted(frames or [], key=lambda f: f.get("ts") or 0):
+        try:
+            rows.append((float(f["soc"]), float(f["battery_w"])))
+        except (KeyError, TypeError, ValueError):
+            continue
+    votes = 0
+    for (s1, w1), (s2, _) in zip(rows, rows[1:]):
+        if s2 > s1 and w1 != 0:
+            votes += 1 if w1 > 0 else -1
+    if votes == 0:
+        return default_charge_taper()
+    sign = 1.0 if votes > 0 else -1.0
+    bins: Dict[int, List[float]] = {}
+    n = 0
+    for soc, w in rows:
+        if w * sign <= 0 or soc < 80.0 or soc > 100.0:
+            continue
+        bins.setdefault(int(round(soc)), []).append(min(1.0, abs(w) / ceil_w))
+        n += soc >= knee0
+    if n < int(energy_defaults.BATTERY_TAPER_FIT_MIN_SAMPLES) or len(bins) < 3:
+        return default_charge_taper()
+    env = {b: sorted(v)[min(len(v) - 1, int(0.9 * len(v)))] for b, v in bins.items()}
+    best = None
+    for knee in range(80, 100):
+        xs = {b: (b - knee) / (100.0 - knee) for b in env if b > knee}
+        sxx = sum(x * x for x in xs.values())
+        if sxx <= 0:
+            continue
+        a = min(1.0, max(0.0, sum(x * (1.0 - env[b]) for b, x in xs.items()) / sxx))
+        sse = sum((env[b] - (1.0 if b <= knee else 1.0 - a * (b - knee) / (100.0 - knee))) ** 2 for b in env)
+        if best is None or sse < best[0] - 1e-12:
+            best = (sse, float(knee), a)
+    if best is None or best[2] >= 1.0:
+        return default_charge_taper()
+    below = [env[b] for b in env if b <= best[1]]
+    if not below or min(below) < 0.9:  # ponytail: fixed 0.9 envelope bar, env var if it ever needs tuning
+        return default_charge_taper()
+    return {"knee": best[1], "end_fraction": round(1.0 - best[2], 3), "source": "fitted"}
+
+
 def charge_energy_min_hours(
     current_soc: float, max_soc: float, capacity_kwh: float, voltage: float, ceiling_a: float, loss_pct: float
 ) -> int:
@@ -943,9 +1072,12 @@ def charge_energy_min_hours(
     Shortest whole-hour grid charge at the Reg 108 ceiling covering the energy need:
     need_kwh = (max_soc - current_soc)/100 * capacity_kwh * (1 + loss/100);  min_h = ceil(need_kwh / (ceiling_a * V / 1000)).
     """
-    need_kwh = max(0.0, float(max_soc) - float(current_soc)) / 100.0 * float(capacity_kwh) * (1.0 + float(loss_pct) / 100.0)
-    power_kw = float(ceiling_a) * float(voltage) / 1000.0
-    return max(1, math.ceil(need_kwh / power_kw)) if power_kw > 0 else 1
+    stored_kwh = max(0.0, float(max_soc) - float(current_soc)) / 100.0 * float(capacity_kwh)
+    rate_kw = float(ceiling_a) * float(voltage) / 1000.0 / (1.0 + float(loss_pct) / 100.0)
+    if rate_kw <= 0:
+        return 1
+    # time to store the need at the ceiling, slowed by the charge taper near full
+    return max(1, math.ceil(_charge_walk(current_soc, rate_kw, capacity_kwh, kwh=stored_kwh)[2] - 1e-9))
 
 
 def charge_window_min_hours(
@@ -1405,8 +1537,10 @@ def project_soc_timeline(
         hrs = (b - a).total_seconds() / 3600.0
         floor, start = float(sl["target_soc"]), soc
         if sl.get("grid_charge") and soc < floor:
-            rate = float(sl.get("charge_kw", charge_kw))
-            soc = min(soc + rate * hrs * 100.0 / cap, floor, float(max_soc)) if cap > 0 else soc
+            rate = float(sl.get("charge_kw", charge_kw))  # planned rate, slowed by the charge taper near full
+            stop = min(floor, float(max_soc))
+            soc = min(_charge_walk(soc, rate, cap, ceiling_kw=float(charge_kw), hours=hrs, stop_soc=stop)[0], stop) \
+                if cap > 0 else soc
         elif soc > floor:
             soc = max(floor, soc - load * hrs * 100.0 / cap) if cap > 0 else soc
         out.append({"start": a, "end": b, "soc_start": start, "soc_end": soc})
@@ -1729,27 +1863,85 @@ def charge_current_plan(window: Dict[str, Any], soc_start: float, max_soc: float
                         voltage: float, loss_pct: float, ceiling_a: float,
                         now: Optional[datetime] = None) -> Dict[str, int]:
     """
-    Price-weighted Reg 108 currents of one charge window: {UTC hour start ISO: A}.
+    Price-weighted, floor- and taper-aware Reg 108 currents of one charge window: {UTC hour start ISO: A}.
       - weight: the window's cheapest hour 1.0 down linearly to CHARGE_CURRENT_MIN_WEIGHT at its dearest hour;
       - energy E = (max_soc - soc_start)/100 * capacity / (1 - loss%) * (1 + CHARGE_WINDOW_ENERGY_MARGIN_PCT/100);
-      - I_h = E * w_h / (V * sum(w)) over the hours still to run (now: the running hour weighted by its remaining fraction, and later ones), so a running
-        window re-sizes from the live SOC; clamped to [BATTERY_CHARGE_CURRENT_MIN_FLOOR_A, ceiling] (the floor wins).
+      - I_h = E * w_h / (V * sum(w)) over the hours still to run (now: the running hour weighted by its remaining
+        fraction, and later ones), so a running window re-sizes from the live SOC;
+      - floor (R17): while a weighted current is below BATTERY_CHARGE_CURRENT_MIN_FLOOR_A the dearest hour is dropped
+        and the weights recomputed over the rest (one hour is always left); dropped hours get the floor current and the
+        energy they store (walked in time order, with the taper) is subtracted from the need first;
+      - taper (R16): the SOC walk applies the charge taper per hour; a shortfall to Max SOC is moved to the earlier
+        weighted hours (up to the ceiling), repeated until the window reaches Max SOC or has no headroom.
     """
-    lo, hi = min(window["prices"]), max(window["prices"])
-    low_w = float(energy_defaults.CHARGE_CURRENT_MIN_WEIGHT)
-    todo = [(a, 1.0 if hi <= lo else 1.0 - (1.0 - low_w) * (p - lo) / (hi - lo))
-            for a, p in zip(window["hours"], window["prices"]) if now is None or a + timedelta(hours=1) > now]
+    todo = [(a, p) for a, p in zip(window["hours"], window["prices"]) if now is None or a + timedelta(hours=1) > now]
     if not todo:
         return {}
-    need_kwh = max(0.0, float(max_soc) - float(soc_start)) / 100.0 * float(capacity_kwh) / (1.0 - float(loss_pct) / 100.0) \
-        * (1.0 + float(energy_defaults.CHARGE_WINDOW_ENERGY_MARGIN_PCT) / 100.0)
-    # the running hour only has its remaining fraction left to charge: weight its time, not a full hour
-    frac = lambda a: 1.0 if now is None else min(1.0, max(0.0, (a + timedelta(hours=1) - now) / timedelta(hours=1)))
-    per_weight_a = need_kwh / (float(voltage) / 1000.0) / math.fsum(w * frac(a) for a, w in todo)
+    low_w = float(energy_defaults.CHARGE_CURRENT_MIN_WEIGHT)
     top = min(float(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A), float(ceiling_a))
     floor = float(energy_defaults.BATTERY_CHARGE_CURRENT_MIN_FLOOR_A)
-    return {_iso_z(a.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0)): int(round(max(floor, min(top, per_weight_a * w))))
-            for a, w in todo}
+    volts, keep, cap = float(voltage), 1.0 - float(loss_pct) / 100.0, float(capacity_kwh)
+    # the running hour only has its remaining fraction left to charge: weight its time, not a full hour
+    frac = lambda a: 1.0 if now is None else min(1.0, max(0.0, (a + timedelta(hours=1) - now) / timedelta(hours=1)))
+    need_kwh = max(0.0, float(max_soc) - float(soc_start)) / 100.0 * cap / keep \
+        * (1.0 + float(energy_defaults.CHARGE_WINDOW_ENERGY_MARGIN_PCT) / 100.0)
+
+    curve = load_charge_taper()
+    ceil_kw = top * volts / 1000.0 * keep
+    margin = 1.0 + float(energy_defaults.CHARGE_WINDOW_ENERGY_MARGIN_PCT) / 100.0
+
+    def dropped_need(kept_hs):
+        """Grid kWh (loss + margin) that the dropped hours already deliver at the floor, walked in time order."""
+        soc_d, stored = float(soc_start), 0.0
+        for a, _ in todo:
+            if any(a == k for k, _ in kept_hs):
+                continue
+            r_kw = floor * volts / 1000.0 * keep
+            soc_d, got, _t = _charge_walk(soc_d, r_kw, cap, curve, hours=frac(a), ceiling_kw=ceil_kw, stop_soc=float(max_soc))
+            stored += got
+        return stored / keep * margin
+
+    def weigh(hs):
+        lo, hi = min(p for _, p in hs), max(p for _, p in hs)
+        ws = [(a, 1.0 if hi <= lo else 1.0 - (1.0 - low_w) * (p - lo) / (hi - lo)) for a, p in hs]
+        need = max(0.0, need_kwh - dropped_need(hs))
+        per_w = need / (volts / 1000.0) / math.fsum(w * frac(a) for a, w in ws)
+        return ws, per_w
+
+    kept = list(todo)
+    ws, per_w = weigh(kept)
+    while len(kept) > 1 and per_w * min(w for _, w in ws) < floor:
+        kept.remove(max(kept, key=lambda x: (x[1], x[0])))  # dearest (the later one on a tie)
+        ws, per_w = weigh(kept)
+    cur = {a: per_w * w for a, w in ws}
+    cur.update({a: floor for a, _ in todo if a not in cur})
+    hrs = [a for a, _ in todo]
+
+    def walk():
+        soc, first_short = float(soc_start), None
+        for a in hrs:
+            i = max(floor, min(top, cur[a]))
+            r_kw = i * volts / 1000.0 * keep
+            end, got, _ = _charge_walk(soc, r_kw, cap, curve, hours=frac(a), ceiling_kw=ceil_kw, stop_soc=float(max_soc))
+            if first_short is None and got < min(r_kw * frac(a), (float(max_soc) - soc) / 100.0 * cap) - _KWH_EPS:
+                first_short = a
+            soc = end
+        return soc, first_short
+
+    for _ in range(20):
+        soc, short_at = walk()
+        miss_kwh = (float(max_soc) - soc) / 100.0 * cap
+        if miss_kwh <= 0.005 * cap:
+            break
+        pool = [a for a, _ in kept if short_at is None or a < short_at] or [a for a, _ in kept]
+        room = {a: max(0.0, top - cur[a]) * volts / 1000.0 * keep * frac(a) for a in pool}
+        tot = math.fsum(room.values())
+        if tot <= 1e-9:
+            break
+        for a in pool:
+            cur[a] += min(1.0, miss_kwh / tot) * room[a] / (volts / 1000.0 * keep * frac(a)) if frac(a) > 0 else 0.0
+    return {_iso_z(a.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0)): int(round(max(floor, min(top, cur[a]))))
+            for a in hrs}
 
 
 _KWH_EPS = 1e-6  # kWh below this is float noise, not a shortfall
@@ -1757,15 +1949,20 @@ _KWH_EPS = 1e-6  # kWh below this is float noise, not a shortfall
 
 def _soc_walk(cand: List[Tuple[Any, ...]], worth: List[bool], charges: Dict[int, float], soc: float,
               load_kwh_by_hour: Dict[datetime, float], *, min_soc: float, max_soc: float,
-              capacity_kwh: float) -> List[Tuple[float, float]]:
+              capacity_kwh: float, spans: Optional[List[float]] = None,
+              ceiling_kw: Optional[float] = None, curve: Optional[Dict[str, Any]] = None) -> List[Tuple[float, float]]:
     """Hourly SOC walk over the candidate hours: a charge hour stores charges[i] kWh (grid serves the load), a
     worth-covering hour discharges its forecast load down to Min SOC, any other hour holds.
-    Returns [(SOC after the hour, grid-bought shortfall kWh)] per candidate."""
+    spans (hours per candidate) + ceiling_kw (stored kW at the Reg 108 ceiling): a charge hour stores at most what the
+    charge taper allows from its start SOC. Returns [(SOC after the hour, grid-bought shortfall kWh)] per candidate."""
     soc, cap, out = float(soc), float(capacity_kwh), []
     for i, h in enumerate(cand):
         short = 0.0
         if i in charges:
-            soc = min(float(max_soc), soc + charges[i] / cap * 100.0)
+            e = charges[i]
+            if spans is not None and ceiling_kw:
+                e = min(e, _charge_walk(soc, ceiling_kw, cap, curve, hours=spans[i], stop_soc=float(max_soc))[1])
+            soc = min(float(max_soc), soc + e / cap * 100.0)
         elif worth[i]:
             need = float(load_kwh_by_hour.get(h[0], 0.0)) / cap * 100.0
             short = max(0.0, need - max(0.0, soc - float(min_soc))) * cap / 100.0
@@ -1840,8 +2037,13 @@ def plan_charge_hours(
         if h[0] in load_kwh_by_hour:
             load_kwh_by_hour[h[0]] = float(load_kwh_by_hour[h[0]]) * f
 
+    curve = load_charge_taper()
+    spans = [max(0.0, (h[1] - max(h[0], now_dt)).total_seconds() / 3600.0) for h in cand]
     walk = lambda charges: _soc_walk(cand, worth, charges, current_soc, load_kwh_by_hour, min_soc=min_soc,
-                                     max_soc=max_soc, capacity_kwh=cap)
+                                     max_soc=max_soc, capacity_kwh=cap, spans=spans, ceiling_kw=max_kwh, curve=curve)
+    # energy hour i can still store at the ceiling given the SOC it starts at (charge taper), tl = current SOC walk
+    hour_cap = lambda i, tl: _charge_walk(tl[i - 1][0] if i else float(current_soc), max_kwh, cap, curve,
+                                          hours=spans[i], stop_soc=float(max_soc))[1]
 
     # peak SOC an hour at i could reach: its start SOC counts too (a worth-covering hour discharges its own load,
     # so the end SOC alone shows a room that is not there)
@@ -1871,14 +2073,14 @@ def plan_charge_hours(
         if k is None:
             break
         opts = sorted((cand[i][2], i) for i in range(k)
-                      if charges.get(i, 0.0) < max_kwh * frac[i] - eps and published[i] and before_window(i)
+                      if charges.get(i, 0.0) < hour_cap(i, tl) - eps and published[i] and before_window(i)
                       and cand[i][2] * (1.0 + float(loss_pct) / 100.0) < cand[k][2])
         for _, i in opts:
             # the shortfall this hour serves: from k up to the next hour at most as cheap (that one serves the rest)
             stop = next((j for j in range(k + 1, len(cand)) if cand[j][2] <= cand[i][2]), len(cand))
             served = math.fsum(x[1] for x in tl[k:stop])
             # need-sized: only the energy that shortfall needs, capped by the hour's ceiling energy and the room to Max
-            e = min(max_kwh * frac[i] - charges.get(i, 0.0), (float(max_soc) - peak(tl, i, k)) / 100.0 * cap,
+            e = min(hour_cap(i, tl) - charges.get(i, 0.0), (float(max_soc) - peak(tl, i, k)) / 100.0 * cap,
                     served)
             # hysteresis (flash wear, no "keep at Max" trickle): a new hour that stores, or serves, less than one
             # TOU_FLOOR_SOC_STEP of capacity is not worth a charge slot - that small shortfall stays grid-bought; an
@@ -1900,7 +2102,7 @@ def plan_charge_hours(
                            and day_of(cand[i][0]) not in window_start
                            and cand[i][2] * (1.0 + float(loss_pct) / 100.0)
                            <= day_mean.get(cand[i][0].astimezone(WARSAW_TZ).date(), 0.0)):
-            e = min(max_kwh * frac[i] - charges.get(i, 0.0), (float(max_soc) - peak(tl, i)) / 100.0 * cap)
+            e = min(hour_cap(i, tl) - charges.get(i, 0.0), (float(max_soc) - peak(tl, i)) / 100.0 * cap)
             if e >= (eps if i in charges or (held and cand[i][0] in held) else step_kwh - eps):
                 charges[i] = charges.get(i, 0.0) + e
                 tl = walk(charges)
@@ -1908,12 +2110,15 @@ def plan_charge_hours(
     # hysteresis band: time to store one TOU_FLOOR_SOC_STEP at the ceiling, snapped up to the step grid
     band = step * math.ceil(step_kwh / max_kwh * 3600.0 / step.total_seconds())
     out = []
+    tl_final = walk(charges)
     for i, e in sorted(charges.items()):
         a, b = cand[i][0], cand[i][1]
         if i in fixed:
             out.append({"start": a, "end": b, "energy_kwh": e, "charge_a": int(round(ceiling)), "price": cand[i][2]})
             continue
-        span = step * math.ceil((e - _KWH_EPS) / max_kwh * 3600.0 / step.total_seconds())
+        # time to store e at the ceiling from the hour's start SOC (slower near full: charge taper)
+        t_h = _charge_walk(tl_final[i - 1][0] if i else float(current_soc), max_kwh, cap, curve, kwh=e - _KWH_EPS)[2]
+        span = step * math.ceil(t_h * 3600.0 / step.total_seconds())
         hb = held.get(a) if isinstance(held, dict) else None
         held_len = hb[1] - max(hb[0], now_dt) if hb is not None else None
         if hb is not None and held_len - band <= span <= held_len + step:
@@ -2049,8 +2254,9 @@ def plan_rolling_tou(
             near_top = float(current_soc) > top - float(energy_defaults.TOU_FLOOR_SOC_STEP)
             for i in sorted(range(len(cand)), key=lambda j: (cand[j][2], cand[j][0])):
                 if near_top or full <= 0 or cap <= 0 or max([float(current_soc)] + [x[0] for x in _soc_walk(
-                        cand, flags, chosen, current_soc, loads, min_soc=min_soc, max_soc=top,
-                        capacity_kwh=cap)]) >= top - _KWH_EPS:
+                        cand, flags, chosen, current_soc, loads, min_soc=min_soc, max_soc=top, capacity_kwh=cap,
+                        spans=[max(0.0, (h[1] - max(h[0], now)).total_seconds() / 3600.0) for h in cand],
+                        ceiling_kw=full)]) >= top - _KWH_EPS:
                     break
                 chosen[i] = full
             picks = [{"start": cand[i][0], "end": cand[i][1], "energy_kwh": e, "charge_a": int(round(ceiling))}
@@ -2131,6 +2337,7 @@ def plan_rolling_tou(
     for c, p in zip(cells, proj):
         soc_at.setdefault(hour_key(c["start"]), p["soc_start"])
     amps: Dict[str, int] = {}
+    curve_src = load_charge_taper()["source"]
     for w in kept_windows:
         amps.update(charge_current_plan(w, current_soc if w["start"] <= now else soc_at.get(hour_key(w["start"]), current_soc),
                                         top, cap, voltage, loss_pct, ceiling, now=now))
@@ -2194,7 +2401,7 @@ def plan_rolling_tou(
     return {"plan_timeline": timeline, "deye_tou_schedule": slots, "horizon_end": _iso_z(horizon_end),
             "charge_windows": [{"start": _iso_z(w["start"]), "end": _iso_z(w["end"]), "avg_price": w["avg_price"],
                                 "hours": [_iso_z(a) for a in w["hours"]]} for w in kept_windows],
-            "charge_current_plan": amps}
+            "charge_current_plan": amps, "charge_taper_source": curve_src}
 
 
 def tou_base_power(capacity_kwh: float, voltage: float, max_discharge_current: Optional[float] = None,
@@ -3246,7 +3453,7 @@ def rolling_plan_fields(
     ) or {}
     return {"plan_timeline": plan.get("plan_timeline", []), "deye_tou_schedule": plan.get("deye_tou_schedule", []),
             "charge_windows": plan.get("charge_windows", []), "charge_current_plan": plan.get("charge_current_plan", {}),
-            "horizon_end": plan.get("horizon_end"), "plan_source": plan.get("plan_source", "algorithm"),
+            "charge_taper_source": plan.get("charge_taper_source", "default"), "horizon_end": plan.get("horizon_end"), "plan_source": plan.get("plan_source", "algorithm"),
             "fallback_reason": plan.get("fallback_reason"), "ai_last_call": plan.get("ai_last_call")}
 
 

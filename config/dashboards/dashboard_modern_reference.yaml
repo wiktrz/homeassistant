@@ -581,13 +581,23 @@ views:
               {% set slots = active['slots'] if active and active['slots'] is defined else (state_attr('sensor.deye_tou_active_schedule', 'slots') if state_attr('sensor.deye_tou_active_schedule', 'slots') is defined else []) %}
               {% set planned_a = states('sensor.deye_inverter_recommended_charge_current') if states('sensor.deye_inverter_recommended_charge_current') not in ['unknown', 'unavailable', ''] else (states('sensor.deye_inverter_max_charge_current') if states('sensor.deye_inverter_max_charge_current') not in ['unknown', 'unavailable', ''] else '-') %}
               {% set active_a = states('sensor.deye_inverter_max_charge_current') if states('sensor.deye_inverter_max_charge_current') not in ['unknown', 'unavailable', ''] else '-' %}
+              {% set plan_rows = state_attr('sensor.deye_inverter_recommended_charge_current', 'plan_hours_local') or [] %}
               {% if slots and slots | length == 6 -%}
               > ⚡ **Planowany Prąd Ładowania:** `{{ planned_a }}{% if planned_a != '-' %} A{% endif %}` &nbsp;|&nbsp; 🔌 **Deye Reg 108 (Aktualny w Falowniku):** `{{ active_a }}{% if active_a != '-' %} A{% endif %}`
+              {% if plan_rows %}
+              > 🕒 {% for r in plan_rows %}{{ r.time }} {{ r.amps }} A{{ ' · ' if not loop.last else '' }}{% endfor %}
+              {% endif %}
 
               | Godz. | Tryb | Cel | Sieć |
               |:---:|:---|:---:|:---:|
               {% for s in slots -%}
-              | `{{ s.time }}` | {% if s.grid_charge %}**⚡ Ładowanie: {{ s.target_charge_current_a if s.target_charge_current_a is defined and s.target_charge_current_a is not none else (s.charge_current_a if s.charge_current_a is defined and s.charge_current_a is not none else planned_a) }}{% if (s.target_charge_current_a if s.target_charge_current_a is defined and s.target_charge_current_a is not none else (s.charge_current_a if s.charge_current_a is defined and s.charge_current_a is not none else planned_a)) != '-' %} A{% endif %}**{% else %}Oddawanie: {{ s.display_power_w if s.display_power_w is defined and s.display_power_w is not none else (s.power_w if s.power_w is defined else 7170) }} W (~{{ s.display_current_a if s.display_current_a is defined and s.display_current_a is not none else (s.discharge_current_a if s.discharge_current_a is defined and s.discharge_current_a is not none else (((s.power_w if s.power_w is defined else 7170) / (nom_v if nom_v > 0 else 51.2)) | round(0))) }} A){% endif %}<br><sub>{{ s.label if s.label else ('Najtańsze Ładowanie' if s.grid_charge else ('Czuwanie Przed Szczytem' if s.target_soc >= 80 else 'Autokonsumpcja PV')) }}</sub> | {{ s.target_soc }}% | {{ '⚡' if s.grid_charge else '–' }} |
+              {% set a0 = s.time.split(':')[0] | int * 60 + s.time.split(':')[1] | int %}
+              {% set b0 = slots[(loop.index0 + 1) % 6].time.split(':')[0] | int * 60 + slots[(loop.index0 + 1) % 6].time.split(':')[1] | int %}
+              {% set span = (b0 - a0) % 1440 or 1440 %}
+              {% set ns = namespace(v=[]) %}
+              {% for r in plan_rows if (r.time.split(':')[0] | int * 60 + r.time.split(':')[1] | int - a0) % 1440 < span %}{% set ns.v = ns.v + [r.amps | int] %}{% endfor %}
+              {% set rng = (ns.v | min ~ '–' ~ ns.v | max if ns.v | min != ns.v | max else ns.v | min ~ '') if ns.v else '' %}
+              | `{{ s.time }}` | {% if s.grid_charge %}**⚡ Ładowanie: {% if rng %}{{ rng }} A{% else %}{{ s.target_charge_current_a if s.target_charge_current_a is defined and s.target_charge_current_a is not none else (s.charge_current_a if s.charge_current_a is defined and s.charge_current_a is not none else planned_a) }}{% if (s.target_charge_current_a if s.target_charge_current_a is defined and s.target_charge_current_a is not none else (s.charge_current_a if s.charge_current_a is defined and s.charge_current_a is not none else planned_a)) != '-' %} A{% endif %}{% endif %}**{% else %}Oddawanie: {{ s.display_power_w if s.display_power_w is defined and s.display_power_w is not none else (s.power_w if s.power_w is defined else 7170) }} W (~{{ s.display_current_a if s.display_current_a is defined and s.display_current_a is not none else (s.discharge_current_a if s.discharge_current_a is defined and s.discharge_current_a is not none else (((s.power_w if s.power_w is defined else 7170) / (nom_v if nom_v > 0 else 51.2)) | round(0))) }} A){% endif %}<br><sub>{{ s.label if s.label else ('Najtańsze Ładowanie' if s.grid_charge else ('Czuwanie Przed Szczytem' if s.target_soc >= 80 else 'Autokonsumpcja PV')) }}</sub> | {{ s.target_soc }}% | {{ '⚡' if s.grid_charge else '–' }} |
               {% endfor %}
 
               {% else -%}

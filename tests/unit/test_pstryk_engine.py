@@ -2906,6 +2906,7 @@ def test_no_slot_flagged_topup_and_badge_renders():
     body = src[i:src.index("icon:", i)]
     state_tpl = body.split("state: >", 1)[1].split("attributes:", 1)[0]
     env = jinja2.Environment()
+    env.globals["utcnow"] = lambda: datetime.now(timezone.utc)
     ctx = dict(state_attr=lambda e, a: slots if a == "deye_tou_schedule" else None,
                states=lambda e: "100")
     env.filters["int"] = lambda v, d=0: int(float(v)) if str(v).replace(".", "").isdigit() else d

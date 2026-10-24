@@ -1,4 +1,4 @@
-"""SPEC must keep the authoritative TOU requirements section with IDs R1..R7."""
+"""SPEC must keep the authoritative TOU requirements section with IDs R1..R17."""
 import re
 from pathlib import Path
 
@@ -10,5 +10,5 @@ def test_heading_present():
 
 
 def test_requirement_ids_present():
-    for i in range(1, 8):
+    for i in range(1, 18):
         assert re.search(rf"\*\*R{i} ", SPEC), f"R{i} missing"
