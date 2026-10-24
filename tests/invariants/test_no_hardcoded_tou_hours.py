@@ -191,6 +191,9 @@ TOU_FUNCTIONS = (
     "load_forecast",
     "build_load_profile",
     "plan_charge_hours",  # greedy cheapest-hour charge selection
+    "find_charge_window",  # price window per published day (seed/extension from env)
+    "charge_current_plan",  # price-weighted Reg 108 currents
+    "_priced_hours",
     "_soc_walk",
     "_tou_minute_rows",
     "_tou_row_at",

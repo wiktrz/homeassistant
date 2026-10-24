@@ -79,7 +79,7 @@ def test_live_fixture_saturday_block_ends_at_the_cheap_valley_not_in_the_dearer_
            pstryk_engine._iso_dt(e["end"]).astimezone(pstryk_engine.WARSAW_TZ))
           for e in res["plan_timeline"] if e["role"] == "charge"]
     midday = [c for c in ch if c[0].date() == sat and 11 <= c[0].hour < 16]
-    assert midday and min(c[0] for c in midday).strftime("%H:%M") == "11:10"
+    assert midday and min(c[0] for c in midday).strftime("%H:%M") == "12:00"  # R1: the price window charges whole hours
     assert max(c[1] for c in midday).strftime("%H:%M") == "14:00"
 
 

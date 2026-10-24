@@ -218,7 +218,10 @@ def test_one_day_nothing_beyond_published_hours():
 
 @pytest.mark.parametrize("name,frames,now,soc", CASES)
 def test_plan_rolling_tou_grid_charge_comes_from_plan_charge_hours(name, frames, now, soc):
-    _, _, res = _run(frames, now, soc)
+    # R1: the plan charges each published day's price window (find_charge_window), the greedy top-up only before it
+    hs = _hours(frames)
+    res = pstryk_engine.plan_charge_hours(hs, now, soc, _load_by_hour(hs, PROFILE), terminal_fill=False,
+                                          windows=pstryk_engine.find_charge_window(frames, now), **P)
     plan = _plan(frames, now, soc)
     assert _grid_hours(plan) == set(_starts(res))
     for e in plan["plan_timeline"]:  # the planned SOC never leaves [Min SOC, Max SOC] once inside it

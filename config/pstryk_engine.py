@@ -1655,6 +1655,85 @@ def _tou_table_slots(segs: List[Dict[str, Any]], *, min_soc: float, voltage: flo
     return out
 
 
+def _priced_hours(frames: Optional[List[Dict[str, Any]]]) -> List[Tuple[Any, ...]]:
+    """[(start, end, gross price, frame)] of the priced frames with aware starts, deduplicated, sorted by start."""
+    seen: Dict[datetime, Tuple[Any, ...]] = {}
+    for f in frames or []:
+        p = ((f.get("metrics") or {}).get("pricing") or {}) if isinstance(f, dict) else {}
+        a = _iso_dt(f.get("start")) if isinstance(f, dict) else None
+        if a is None or a.tzinfo is None or (p.get("price_gross") is None and p.get("price_net") is None):
+            continue
+        b = _iso_dt(f.get("end")) or a + timedelta(hours=1)
+        seen[a] = (a, b, retail_gross_price(f), f)
+    return [seen[k] for k in sorted(seen)]
+
+
+def find_charge_window(frames: List[Dict[str, Any]], now_dt: datetime) -> List[Dict[str, Any]]:
+    """
+    Grid-charge window of every PUBLISHED Warsaw price day from now_dt's day on (a day counts as published when
+    warsaw_day_covered; estimated hours never reach this function):
+      - seed: the cheapest contiguous CHARGE_WINDOW_SEED_HOURS hours of the day (earliest on a tie);
+      - extension: a neighbouring hour (cheaper neighbour first, earlier on a tie) joins while its gross price is
+        <= the window's current average + CHARGE_WINDOW_EXTEND_PRICE_DELTA; the average is recomputed after each add.
+    Contiguity is on UTC hour starts (23 h / 25 h DST days safe); a window never leaves its day.
+    Returns [{start, end (aware), hours [aware hour starts], prices, avg_price, day (ISO date)}] by day; [] without one.
+    """
+    now = now_dt if now_dt.tzinfo else now_dt.replace(tzinfo=WARSAW_TZ)
+    today = now.astimezone(WARSAW_TZ).date()
+    seed_n = max(1, int(energy_defaults.CHARGE_WINDOW_SEED_HOURS))
+    delta = float(energy_defaults.CHARGE_WINDOW_EXTEND_PRICE_DELTA)
+    by_day: Dict[Any, List[Tuple[Any, ...]]] = {}
+    for h in _priced_hours(frames):
+        by_day.setdefault(h[0].astimezone(WARSAW_TZ).date(), []).append(h)
+    out: List[Dict[str, Any]] = []
+    for day, hs in sorted(by_day.items()):
+        if day < today or not warsaw_day_covered([h[3] for h in hs], day):
+            continue
+        p = [h[2] for h in hs]
+        joined = lambda i: hs[i][1] == hs[i + 1][0]  # hour i runs straight into hour i + 1
+        seeds = [(math.fsum(p[i:i + seed_n]) / seed_n, i) for i in range(len(hs) - seed_n + 1)
+                 if all(joined(j) for j in range(i, i + seed_n - 1))]
+        if not seeds:
+            continue
+        lo = min(seeds)[1]
+        hi = lo + seed_n
+        while True:
+            avg = math.fsum(p[lo:hi]) / (hi - lo)
+            near = [(p[j], j) for j, ok in ((lo - 1, lo > 0 and joined(lo - 1)), (hi, hi < len(hs) and joined(hi - 1)))
+                    if ok and p[j] <= avg + delta]
+            if not near:
+                break
+            lo, hi = (near[0][1], hi) if min(near)[1] < lo else (lo, hi + 1)
+        out.append({"start": hs[lo][0], "end": hs[hi - 1][1], "hours": [h[0] for h in hs[lo:hi]], "prices": p[lo:hi],
+                    "avg_price": round(math.fsum(p[lo:hi]) / (hi - lo), 4), "day": day.isoformat()})
+    return out
+
+
+def charge_current_plan(window: Dict[str, Any], soc_start: float, max_soc: float, capacity_kwh: float,
+                        voltage: float, loss_pct: float, ceiling_a: float,
+                        now: Optional[datetime] = None) -> Dict[str, int]:
+    """
+    Price-weighted Reg 108 currents of one charge window: {UTC hour start ISO: A}.
+      - weight: the window's cheapest hour 1.0 down linearly to CHARGE_CURRENT_MIN_WEIGHT at its dearest hour;
+      - energy E = (max_soc - soc_start)/100 * capacity / (1 - loss%) * (1 + CHARGE_WINDOW_ENERGY_MARGIN_PCT/100);
+      - I_h = E * w_h / (V * sum(w)) over the hours still to run (now: the running hour and later ones), so a running
+        window re-sizes from the live SOC; clamped to [BATTERY_CHARGE_CURRENT_MIN_FLOOR_A, ceiling] (the floor wins).
+    """
+    lo, hi = min(window["prices"]), max(window["prices"])
+    low_w = float(energy_defaults.CHARGE_CURRENT_MIN_WEIGHT)
+    todo = [(a, 1.0 if hi <= lo else 1.0 - (1.0 - low_w) * (p - lo) / (hi - lo))
+            for a, p in zip(window["hours"], window["prices"]) if now is None or a + timedelta(hours=1) > now]
+    if not todo:
+        return {}
+    need_kwh = max(0.0, float(max_soc) - float(soc_start)) / 100.0 * float(capacity_kwh) / (1.0 - float(loss_pct) / 100.0) \
+        * (1.0 + float(energy_defaults.CHARGE_WINDOW_ENERGY_MARGIN_PCT) / 100.0)
+    per_weight_a = need_kwh / (float(voltage) / 1000.0) / math.fsum(w for _, w in todo)
+    top = min(float(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A), float(ceiling_a))
+    floor = float(energy_defaults.BATTERY_CHARGE_CURRENT_MIN_FLOOR_A)
+    return {_iso_z(a.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0)): int(round(max(floor, min(top, per_weight_a * w))))
+            for a, w in todo}
+
+
 _KWH_EPS = 1e-6  # kWh below this is float noise, not a shortfall
 
 
@@ -1692,6 +1771,7 @@ def plan_charge_hours(
     held: Optional[Dict[datetime, Tuple[datetime, datetime]]] = None,
     estimated_from: Optional[datetime] = None,
     terminal_fill: bool = True,
+    windows: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Greedy cheapest-hour grid charging (data only: prices, forecast load, SOC, battery parameters).
@@ -1711,6 +1791,10 @@ def plan_charge_hours(
         so one more demand "Max SOC at the horizon end" takes the cheapest published candidates whose
         price * (1 + loss%) <= the mean price of their own Warsaw day (analyse_day_price_profile), each up to its
         ceiling energy and the room to Max SOC from that hour on (same one-SOC-step minimum for a new hour).
+      - windows (find_charge_window): every hour of a window charges at the ceiling through the whole window (the SOC
+        walk caps it at Max SOC; a window whose start SOC is already within one TOU_FLOOR_SOC_STEP of Max is skipped).
+        On a day with a window the greedy top-up only uses hours BEFORE that window and the terminal fill is
+        superseded by it; days without a window keep the plain greedy behaviour.
       - held: {hour start: (start, end) of the grid-charge block the inverter already runs in that hour}; they stay
         while they store and serve any shortfall at all, and a partial hour keeps that block while it is long enough (Schmitt-trigger hysteresis: a charge hour is added at one SOC step, dropped only at zero),
         so SOC rounding noise around the step cannot flip the table hourly (flash wear).
@@ -1746,6 +1830,21 @@ def plan_charge_hours(
     peak = lambda tl, i, k=None: max([tl[i - 1][0] if i else float(current_soc)] + [x[0] for x in tl[i:k]])
 
     charges: Dict[int, float] = {}
+    fixed = set()  # window hours: whole hours at the ceiling, outside the need-sizing / hysteresis below
+    day_of = lambda t: t.astimezone(WARSAW_TZ).date()
+    window_start = {day_of(w["start"]): w["start"] for w in sorted(windows or [], key=lambda w: w["start"])}
+    for w in sorted(windows or [], key=lambda w: w["start"]):
+        idx = [i for i, h in enumerate(cand) if w["start"] <= h[0] < w["end"]]
+        if not idx:
+            continue
+        tl = walk(charges)
+        if (tl[idx[0] - 1][0] if idx[0] else float(current_soc)) > float(max_soc) - float(energy_defaults.TOU_FLOOR_SOC_STEP):
+            continue  # no maintenance trickle: the battery is already (nearly) full when the window opens
+        for i in idx:
+            charges[i] = max_kwh * frac[i]
+            fixed.add(i)
+    # greedy hours only before the window of their own day (no window on that day: any hour)
+    before_window = lambda i: day_of(cand[i][0]) not in window_start or cand[i][0] < window_start[day_of(cand[i][0])]
     skipped = set()
     for _ in range(len(cand) * len(cand)):
         tl = walk(charges)
@@ -1753,7 +1852,7 @@ def plan_charge_hours(
         if k is None:
             break
         opts = sorted((cand[i][2], i) for i in range(k)
-                      if charges.get(i, 0.0) < max_kwh * frac[i] - eps and published[i]
+                      if charges.get(i, 0.0) < max_kwh * frac[i] - eps and published[i] and before_window(i)
                       and cand[i][2] * (1.0 + float(loss_pct) / 100.0) < cand[k][2])
         for _, i in opts:
             # the shortfall this hour serves: from k up to the next hour at most as cheap (that one serves the rest)
@@ -1779,6 +1878,7 @@ def plan_charge_hours(
         day_mean = {d: analyse_day_price_profile(fs)["mean"] for d, fs in by_day.items()}
         tl = walk(charges)
         for _, i in sorted((cand[i][2], i) for i in range(len(cand)) if published[i]
+                           and day_of(cand[i][0]) not in window_start
                            and cand[i][2] * (1.0 + float(loss_pct) / 100.0)
                            <= day_mean.get(cand[i][0].astimezone(WARSAW_TZ).date(), 0.0)):
             e = min(max_kwh * frac[i] - charges.get(i, 0.0), (float(max_soc) - peak(tl, i)) / 100.0 * cap)
@@ -1791,6 +1891,9 @@ def plan_charge_hours(
     out = []
     for i, e in sorted(charges.items()):
         a, b = cand[i][0], cand[i][1]
+        if i in fixed:
+            out.append({"start": a, "end": b, "energy_kwh": e, "charge_a": int(round(ceiling)), "price": cand[i][2]})
+            continue
         span = step * math.ceil((e - _KWH_EPS) / max_kwh * 3600.0 / step.total_seconds())
         hb = held.get(a) if isinstance(held, dict) else None
         held_len = hb[1] - max(hb[0], now_dt) if hb is not None else None
@@ -1846,7 +1949,13 @@ def plan_rolling_tou(
       - Load: the hourly profile (build_load_profile) via load_forecast.
       - Floors in one SOC walk (project_soc_timeline, Deye floor semantics): charge -> top; worth-covering hour
         (price > cheapest * (1 + loss%)) -> Min SOC; other hours -> hold at the projected SOC (snapped down).
+    Charge windows (greedy plans): find_charge_window per published Warsaw day, charged through to the target (Max SOC,
+    100 only in calibration); the greedy shortfall top-up only runs before the window and the terminal fill is
+    superseded by it on those days. "charge_windows" lists the windows still ahead that are charged and
+    "charge_current_plan" holds their price-weighted Reg 108 currents (see charge_current_plan); table slots keep the
+    ceiling current, the sync writes the map (check_and_apply_charge_current_modulation).
     Returns {"plan_timeline": [{start, end (ISO Z), role, target_soc, soc_start, soc_end, charge_a, price}],
+             "charge_windows": [{start, end, avg_price, hours (ISO Z)}], "charge_current_plan": {UTC hour ISO Z: A},
              "deye_tou_schedule": 6 slots for 24 h from the start of the behaviour running now (the table repeats
                                   daily; beyond the published prices it repeats today's pattern; rewritten by the
                                   hourly re-sync only when it changes),
@@ -1857,15 +1966,7 @@ def plan_rolling_tou(
         never in the written table (which keeps today's pattern beyond the published prices).
     """
     now = now_dt if now_dt.tzinfo else now_dt.replace(tzinfo=WARSAW_TZ)
-    seen: Dict[datetime, Tuple[Any, ...]] = {}
-    for f in frames or []:
-        p = ((f.get("metrics") or {}).get("pricing") or {}) if isinstance(f, dict) else {}
-        a = _iso_dt(f.get("start")) if isinstance(f, dict) else None
-        if a is None or a.tzinfo is None or (p.get("price_gross") is None and p.get("price_net") is None):
-            continue
-        b = _iso_dt(f.get("end")) or a + timedelta(hours=1)
-        seen[a] = (a, b, retail_gross_price(f), f)
-    hours = [seen[k] for k in sorted(seen)]
+    hours = _priced_hours(frames)
     if not hours or hours[-1][1] <= now:
         return None
     horizon_end = hours[-1][1]
@@ -1914,8 +2015,12 @@ def plan_rolling_tou(
     # 2. grid charge hours: explicit windows, else greedy cheapest hours (plan_charge_hours); calibration or no load
     # profile fills to the top in the cheapest hours (price order)
     auto = charge_windows is None
+    # R1: one price window per published Warsaw day (published hours only: estimated ones are never in `hours`)
+    # (BMS calibration keeps the fill-to-100 % branch: a window may be too short to reach the top)
+    price_windows = find_charge_window(frames, now) if auto and not calibration_active else []
+    kept_windows: List[Dict[str, Any]] = []
     if auto:
-        if calibration_active or not has_load:
+        if (calibration_active or not has_load) and not price_windows:
             # fill to the top: cheapest hours first (full ceiling hours) until the SOC walk reaches the top
             full = ceiling * float(voltage) / 1000.0 * (1.0 - float(loss_pct) / 100.0)
             loads = {h[0]: rates.get(hour_key(h[0]), 0.0) for h in cand}
@@ -1946,7 +2051,9 @@ def plan_rolling_tou(
                                       {h[0]: rates.get(hour_key(h[0]), 0.0) for h in all_hours},
                                       min_soc=min_soc, max_soc=top, capacity_kwh=cap, voltage=voltage,
                                       ceiling_a=ceiling, loss_pct=loss_pct, held=held,
-                                      estimated_from=horizon_end if est else None, terminal_fill=terminal_fill)
+                                      estimated_from=horizon_end if est else None, terminal_fill=terminal_fill,
+                                      windows=price_windows)
+            kept_windows = [w for w in price_windows if w["end"] > now and any(p["start"] < w["end"] and p["end"] > w["start"] for p in picks)]
         floor_a = float(energy_defaults.BATTERY_CHARGE_CURRENT_MIN_FLOOR_A)
         charge_windows = [{"start": p["start"], "end": p["end"],
                            "charge_kw": p["energy_kwh"] / ((p["end"] - p["start"]).total_seconds() / 3600.0),
@@ -1999,6 +2106,15 @@ def plan_rolling_tou(
             proj.append(p)
     k_now = next(i for i, c in enumerate(cells) if c["end"] > now)
     past, cells = cells[:k_now], cells[k_now:]
+    # R4: price-weighted Reg 108 currents per window hour (the table keeps the ceiling; the sync writes this map);
+    # start SOC = the projected SOC when the window opens, a running window re-sizes from the live SOC
+    soc_at: Dict[datetime, float] = {}
+    for c, p in zip(cells, proj):
+        soc_at.setdefault(hour_key(c["start"]), p["soc_start"])
+    amps: Dict[str, int] = {}
+    for w in kept_windows:
+        amps.update(charge_current_plan(w, current_soc if w["start"] <= now else soc_at.get(hour_key(w["start"]), current_soc),
+                                        top, cap, voltage, loss_pct, ceiling, now=now))
     entries = _merge_timeline(cells, proj)
     day = one_day
     tail = [dict(e, start=e["start"] + day, end=e["end"] + day)
@@ -2056,7 +2172,10 @@ def plan_rolling_tou(
         "soc_start": round(e["soc_start"], 1), "soc_end": round(e["soc_end"], 1), "charge_a": e["charge_a"],
         "price": e["price"], "estimated": e["estimated"],
     } for e in entries]
-    return {"plan_timeline": timeline, "deye_tou_schedule": slots, "horizon_end": _iso_z(horizon_end)}
+    return {"plan_timeline": timeline, "deye_tou_schedule": slots, "horizon_end": _iso_z(horizon_end),
+            "charge_windows": [{"start": _iso_z(w["start"]), "end": _iso_z(w["end"]), "avg_price": w["avg_price"],
+                                "hours": [_iso_z(a) for a in w["hours"]]} for w in kept_windows],
+            "charge_current_plan": amps}
 
 
 def tou_base_power(capacity_kwh: float, voltage: float, max_discharge_current: Optional[float] = None,
@@ -2253,9 +2372,15 @@ def check_and_apply_charge_current_modulation(
     host: Optional[str] = None,
     port: Optional[int] = None,
     base_charge_current: Optional[float] = None,
+    charge_current_plan: Optional[Dict[str, int]] = None,
+    now: Optional[datetime] = None,
 ) -> Dict[str, Any]:
     """
-    Sets Register 108 (Max A Charge) for the current Warsaw time from the TOU grid-charge slots:
+    Sets Register 108 (Max A Charge) for the current Warsaw time.
+    With a non-empty charge_current_plan ({UTC hour ISO Z: A}, plan_rolling_tou) the map decides: the running hour's
+    value (the ceiling outside the map), except that the NEXT hour's value is written in advance when that hour starts
+    within one sync interval (TOU_SYNC_INTERVAL_MIN) and is not lower than the running one (the current is never
+    lowered early); otherwise it changes at the first sync after the boundary. Without a map, from the TOU slots:
     - Inside a grid-charge slot: that slot's target_charge_current_a (ceiling * min_h / T from the energy need).
     - Outside every grid-charge slot: the BATTERY_CHARGE_CURRENT_MAX_CEILING_A baseline (Rule 12: no pre-set of the
       next charge's current; a reduced-current charge may run up to one sync interval at the ceiling before the next
@@ -2263,10 +2388,23 @@ def check_and_apply_charge_current_modulation(
     Always clamped to [BATTERY_CHARGE_CURRENT_MIN_FLOOR_A, BATTERY_CHARGE_CURRENT_MAX_CEILING_A]; the live register
     value is never used as a base (no ratchet). Idempotent write via set_charge_current_with_fallback.
     """
-    now_warsaw = datetime.now(WARSAW_TZ)
+    now_warsaw = now.astimezone(WARSAW_TZ) if now is not None else datetime.now(WARSAW_TZ)
     now_m = now_warsaw.hour * 60 + now_warsaw.minute
     ceiling_curr = int(round(energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A))
     floor_curr = int(round(energy_defaults.BATTERY_CHARGE_CURRENT_MIN_FLOOR_A))
+    if charge_current_plan:
+        this_hour = now_warsaw.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0)
+        in_map = charge_current_plan.get(_iso_z(this_hour))
+        desired_a = ceiling_curr if in_map is None else int(in_map)
+        nxt = charge_current_plan.get(_iso_z(this_hour + timedelta(hours=1)))
+        if nxt is not None and this_hour + timedelta(hours=1) - now_warsaw <= timedelta(minutes=energy_defaults.TOU_SYNC_INTERVAL_MIN) \
+                and int(nxt) >= desired_a:
+            desired_a = int(nxt)
+        desired_a = max(floor_curr, min(ceiling_curr, desired_a))
+        mod_res = set_charge_current_with_fallback(host, port, desired_a)
+        mod_res["in_charging_window"] = in_map is not None
+        mod_res["desired_a"] = desired_a
+        return mod_res
 
     windows: List[Tuple[int, int, int]] = []  # (start_m, end_m, target_a); end_m > 1440 when it runs past midnight
     for idx, s in enumerate(slots):
@@ -2475,7 +2613,7 @@ def sync_deye_inverter_tou_schedule(
 
     # Reg 108: the active grid-charge slot's current, else the ceiling (Rule 12)
     charge_mod_res = check_and_apply_charge_current_modulation(
-        slots=slots, host=host, port=port)
+        slots=slots, host=host, port=port, charge_current_plan=plan.get("charge_current_plan"))
 
     # Idempotent diff check: verify if active inverter slots already match newly calculated schedule
     global _DISPATCH_CACHE
@@ -3077,6 +3215,7 @@ def rolling_plan_fields(
         active_slots=active_slots if active_slots is not None else _cached_active_slots(),
     ) or {}
     return {"plan_timeline": plan.get("plan_timeline", []), "deye_tou_schedule": plan.get("deye_tou_schedule", []),
+            "charge_windows": plan.get("charge_windows", []), "charge_current_plan": plan.get("charge_current_plan", {}),
             "horizon_end": plan.get("horizon_end"), "plan_source": plan.get("plan_source", "algorithm"),
             "fallback_reason": plan.get("fallback_reason"), "ai_last_call": plan.get("ai_last_call")}
 

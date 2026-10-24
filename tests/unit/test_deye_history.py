@@ -347,13 +347,12 @@ def _charges(tl):
 
 @pytest.mark.parametrize("k,soc", [(2, 30), (4, 45)])
 def test_user_scenario_greedy_night_charge_at_2300(k, soc):
-    """22:05, real profile x k: tonight's cheapest hour (23:00) is the first grid charge, a need-sized block of that
-    hour at the Reg 108 ceiling; the battery stays >= Min SOC; every charge hour is an hour of plan_charge_hours."""
+    """22:05, real profile x k. R1 (intentional change): 22.10's price window is over, so tonight's cheap 23:00 is not
+    charged; the first grid charge is on 23.10 (pre-window top-up or the 23.10 window) at the ceiling; SOC >= Min."""
     r = plan(NOW, soc, prof(k))
     ch = _charges(r["plan_timeline"])
-    h23 = datetime(2026, 10, 22, 23, 0, tzinfo=W).astimezone(timezone.utc)
-    assert ch and h23 <= iso(ch[0]["start"]) < h23 + timedelta(hours=1)
-    assert iso(ch[0]["end"]) - iso(ch[0]["start"]) <= timedelta(hours=1) and ch[0]["charge_a"] == 100
+    assert ch and iso(ch[0]["start"]) >= datetime(2026, 10, 23, 0, 0, tzinfo=W).astimezone(timezone.utc)
+    assert all(e["charge_a"] == int(round(pe.energy_defaults.BATTERY_CHARGE_CURRENT_MAX_CEILING_A)) for e in ch)
     for e in r["plan_timeline"]:
         assert e["soc_end"] >= 20 - 1e-6, e
 
@@ -366,5 +365,7 @@ def test_higher_soc_never_needs_more_charge_hours():
 def test_no_profile_fills_to_max_soc_in_the_cheapest_hours():
     r = plan(NOW, 30, None)
     assert not [e for e in r["plan_timeline"] if e["role"] == "topup"]
-    assert _charges(r["plan_timeline"])[-1]["soc_end"] >= 90 - 1e-6
+    # R1 (intentional change): the price window charges at the ceiling through its hours; its length is set by the
+    # prices, not by the need, so the top may be missed by up to one SOC step (no load forecast, no extra hours)
+    assert _charges(r["plan_timeline"])[-1]["soc_end"] >= 90 - pe.energy_defaults.TOU_FLOOR_SOC_STEP
     assert len(r["deye_tou_schedule"]) == 6

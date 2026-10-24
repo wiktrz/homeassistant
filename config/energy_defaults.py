@@ -125,6 +125,13 @@ BATTERY_CHARGE_CURRENT_MAX_CEILING_A = min(100.0, FALLBACK_BATTERY_MAX_CHARGE_CU
 BATTERY_CHARGE_CURRENT_MIN_FLOOR_A = get_default_float("BATTERY_CHARGE_CURRENT_MIN_FLOOR_A")
 # User minimum TOU grid-charge window length in hours (N = max(energy need, this))
 CHARGE_WINDOW_MIN_HOURS = get_default_int("CHARGE_WINDOW_MIN_HOURS")
+# Price-window charging: seed hours, extension price delta (PLN/kWh), energy margin (%), dearest-hour Reg 108 weight,
+# TOU sync interval (min)
+CHARGE_WINDOW_SEED_HOURS = get_default_int("CHARGE_WINDOW_SEED_HOURS")
+CHARGE_WINDOW_EXTEND_PRICE_DELTA = get_default_float("CHARGE_WINDOW_EXTEND_PRICE_DELTA")
+CHARGE_WINDOW_ENERGY_MARGIN_PCT = get_default_float("CHARGE_WINDOW_ENERGY_MARGIN_PCT")
+CHARGE_CURRENT_MIN_WEIGHT = get_default_float("CHARGE_CURRENT_MIN_WEIGHT")
+TOU_SYNC_INTERVAL_MIN = get_default_int("TOU_SYNC_INTERVAL_MIN")
 # Minute step the peak top-up start (ceil) and duration (round up) snap to
 TOU_SLOT_MINUTE_STEP = get_default_int("TOU_SLOT_MINUTE_STEP")
 # SOC step (%) computed TOU floors snap down to; also the non-charge target_soc diff tolerance (flash-wear hysteresis)
