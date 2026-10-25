@@ -1,159 +1,181 @@
 title: Dom
 views:
-  - title: Home
+  - title: Dół
     path: dol
-    cards:
-      - square: false
-        type: grid
+    icon: mdi:home
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
         cards:
-          - type: entities
-            entities:
-              - entity: sensor.local00_kuchnia_temperature_controller
-              - entity: sensor.local00_kuchnia_heating_state
-                icon: mdi:power
-            title: Kuchnia
-            show_header_toggle: true
-            footer:
-              type: graph
-              entity: sensor.local00_kuchnia_temperature_controller
-              hours_to_show: 12
-        columns: 1
-      - square: false
-        type: grid
-        cards:
+          - type: heading
+            heading: Salon
+            icon: mdi:sofa
           - type: entities
             entities:
               - entity: sensor.local00_salon_temperature
+                name: Temperatura
+                icon: mdi:thermometer
               - entity: sensor.local00_salon_heating_state
-                icon: mdi:power
-            title: Salon
-            show_header_toggle: true
+                name: Grzanie
+                icon: mdi:radiator
             footer:
               type: graph
               entity: sensor.local00_salon_temperature
               hours_to_show: 12
-        columns: 1
-      - square: false
-        type: grid
+      - type: grid
         cards:
+          - type: heading
+            heading: Kuchnia
+            icon: mdi:countertop
           - type: entities
             entities:
-              - entity: sensor.local00_malalazienka_temperature
-              - entity: sensor.local00_malalazienka_heating_state
-                icon: mdi:power
-            title: Mała Łazienka
-            show_header_toggle: true
+              - entity: sensor.local00_kuchnia_temperature_controller
+                name: Temperatura
+                icon: mdi:thermometer
+              - entity: sensor.local00_kuchnia_heating_state
+                name: Grzanie
+                icon: mdi:radiator
             footer:
               type: graph
-              entity: sensor.local00_malalazienka_temperature
+              entity: sensor.local00_kuchnia_temperature_controller
               hours_to_show: 12
-        columns: 1
-      - square: false
-        type: grid
+      - type: grid
         cards:
-          - type: entities
-            entities:
-              - entity: sensor.local00_wiatrolap_temperature
-              - entity: sensor.local00_wiatrolap_heating_state
-                icon: mdi:power
-            title: Wiatrołap
-            show_header_toggle: true
-            footer:
-              type: graph
-              entity: sensor.local00_wiatrolap_temperature
-              hours_to_show: 12
-        columns: 1
-      - square: false
-        type: grid
-        cards:
-          - type: entities
-            entities:
-              - entity: sensor.local00_gabinet_temperature
-              - entity: sensor.local00_gabinet_heating_state
-                icon: mdi:power
-            title: Gabinet
-            show_header_toggle: true
-            footer:
-              type: graph
-              entity: sensor.local00_gabinet_temperature
-              hours_to_show: 12
-        columns: 1
-      - square: false
-        type: grid
-        cards:
-          - type: entities
-            entities:
-              - entity: sensor.local00_holsypialnia_temperature
-              - entity: sensor.local00_holsypialnia_heating_state
-                icon: mdi:power
-            title: Hol Sypialnia
-            show_header_toggle: true
-            footer:
-              type: graph
-              entity: sensor.local00_holsypialnia_temperature
-              hours_to_show: 12
-        columns: 1
-      - square: false
-        type: grid
-        cards:
-          - type: entities
-            entities:
-              - entity: sensor.local00_holwejscie_temperature
-              - entity: sensor.local00_holwejscie_heating_state
-                icon: mdi:power
-            title: Hol Wejście
-            show_header_toggle: true
-            footer:
-              type: graph
-              entity: sensor.local00_holwejscie_temperature
-              hours_to_show: 12
-        columns: 1
-      - square: false
-        type: grid
-        cards:
-          - type: entities
-            entities:
-              - entity: sensor.local00_klara_temperature
-              - entity: sensor.local00_klara_heating_state
-                icon: mdi:power
-            title: Klara
-            show_header_toggle: true
-            footer:
-              type: graph
-              entity: sensor.local00_klara_temperature
-              hours_to_show: 12
-        columns: 1
-      - square: false
-        type: grid
-        cards:
+          - type: heading
+            heading: Sypialnia
+            icon: mdi:bed
           - type: entities
             entities:
               - entity: sensor.local00_sypialnia_temperature
+                name: Temperatura
+                icon: mdi:thermometer
               - entity: sensor.local00_sypialnia_heating_state
-                icon: mdi:power
-            title: Sypialnia
-            show_header_toggle: true
+                name: Grzanie
+                icon: mdi:radiator
             footer:
               type: graph
               entity: sensor.local00_sypialnia_temperature
               hours_to_show: 12
-        columns: 1
-      - square: false
-        type: grid
+      - type: grid
         cards:
+          - type: heading
+            heading: Mała Łazienka
+            icon: mdi:shower
+          - type: entities
+            entities:
+              - entity: sensor.local00_malalazienka_temperature
+                name: Temperatura
+                icon: mdi:thermometer
+              - entity: sensor.local00_malalazienka_heating_state
+                name: Grzanie
+                icon: mdi:radiator
+            footer:
+              type: graph
+              entity: sensor.local00_malalazienka_temperature
+              hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Pokój Klary
+            icon: mdi:teddy-bear
+          - type: entities
+            entities:
+              - entity: sensor.local00_klara_temperature
+                name: Temperatura
+                icon: mdi:thermometer
+              - entity: sensor.local00_klara_heating_state
+                name: Grzanie
+                icon: mdi:radiator
+            footer:
+              type: graph
+              entity: sensor.local00_klara_temperature
+              hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Pokój Nikoli
+            icon: mdi:toy-brick
           - type: entities
             entities:
               - entity: sensor.local00_nikola_temperature
+                name: Temperatura
+                icon: mdi:thermometer
               - entity: sensor.local00_nikola_heating_state
-                icon: mdi:power
-            title: Nikola
-            show_header_toggle: true
+                name: Grzanie
+                icon: mdi:radiator
             footer:
               type: graph
               entity: sensor.local00_nikola_temperature
               hours_to_show: 12
-        columns: 1
-    icon: mdi:home
+      - type: grid
+        cards:
+          - type: heading
+            heading: Gabinet
+            icon: mdi:desk
+          - type: entities
+            entities:
+              - entity: sensor.local00_gabinet_temperature
+                name: Temperatura
+                icon: mdi:thermometer
+              - entity: sensor.local00_gabinet_heating_state
+                name: Grzanie
+                icon: mdi:radiator
+            footer:
+              type: graph
+              entity: sensor.local00_gabinet_temperature
+              hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Wiatrołap
+            icon: mdi:door
+          - type: entities
+            entities:
+              - entity: sensor.local00_wiatrolap_temperature
+                name: Temperatura
+                icon: mdi:thermometer
+              - entity: sensor.local00_wiatrolap_heating_state
+                name: Grzanie
+                icon: mdi:radiator
+            footer:
+              type: graph
+              entity: sensor.local00_wiatrolap_temperature
+              hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Korytarz Wejściowy
+            icon: mdi:door-open
+          - type: entities
+            entities:
+              - entity: sensor.local00_holwejscie_temperature
+                name: Temperatura
+                icon: mdi:thermometer
+              - entity: sensor.local00_holwejscie_heating_state
+                name: Grzanie
+                icon: mdi:radiator
+            footer:
+              type: graph
+              entity: sensor.local00_holwejscie_temperature
+              hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Korytarz Sypialnie
+            icon: mdi:floor-plan
+          - type: entities
+            entities:
+              - entity: sensor.local00_holsypialnia_temperature
+                name: Temperatura
+                icon: mdi:thermometer
+              - entity: sensor.local00_holsypialnia_heating_state
+                name: Grzanie
+                icon: mdi:radiator
+            footer:
+              type: graph
+              entity: sensor.local00_holsypialnia_temperature
+              hours_to_show: 12
   - title: Wynajem
     path: all
     badges: []

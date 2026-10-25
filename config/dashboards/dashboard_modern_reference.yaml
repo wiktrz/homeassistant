@@ -215,269 +215,373 @@ views:
   - title: Klimat
     path: klimat
     icon: mdi:thermometer
-    cards:
+    type: sections
+    max_columns: 3
+    sections:
       - type: grid
-        columns: 2
-        square: false
         cards:
+          - type: heading
+            heading: Salon
+            icon: mdi:sofa
           - type: entities
-            title: Kuchnia
-            entities:
-              - entity: sensor.local00_kuchnia_temperature_controller
-                name: Temperatura
-              - entity: sensor.local00_kuchnia_heating_state
-                name: Grzanie
-            footer:
-              type: graph
-              entity: sensor.local00_kuchnia_temperature_controller
-              hours_to_show: 12
-          - type: entities
-            title: Salon
             entities:
               - entity: sensor.local00_salon_temperature
                 name: Temperatura
+                icon: mdi:thermometer
               - entity: sensor.local00_salon_heating_state
                 name: Grzanie
+                icon: mdi:radiator
             footer:
               type: graph
               entity: sensor.local00_salon_temperature
               hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Kuchnia
+            icon: mdi:countertop
           - type: entities
-            title: Sypialnia
+            entities:
+              - entity: sensor.local00_kuchnia_temperature_controller
+                name: Temperatura
+                icon: mdi:thermometer
+              - entity: sensor.local00_kuchnia_heating_state
+                name: Grzanie
+                icon: mdi:radiator
+            footer:
+              type: graph
+              entity: sensor.local00_kuchnia_temperature_controller
+              hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Sypialnia
+            icon: mdi:bed
+          - type: entities
             entities:
               - entity: sensor.local00_sypialnia_temperature
                 name: Temperatura
+                icon: mdi:thermometer
               - entity: sensor.local00_sypialnia_heating_state
                 name: Grzanie
+                icon: mdi:radiator
             footer:
               type: graph
               entity: sensor.local00_sypialnia_temperature
               hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Mała Łazienka
+            icon: mdi:shower
           - type: entities
-            title: Mała Łazienka
             entities:
               - entity: sensor.local00_malalazienka_temperature
                 name: Temperatura
+                icon: mdi:thermometer
               - entity: sensor.local00_malalazienka_heating_state
                 name: Grzanie
+                icon: mdi:radiator
             footer:
               type: graph
               entity: sensor.local00_malalazienka_temperature
               hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Duża Łazienka
+            icon: mdi:bathtub
           - type: entities
-            title: Łazienka Duża
             entities:
               - entity: sensor.local00_lazienka_temperature
                 name: Temperatura
+                icon: mdi:thermometer
               - entity: sensor.local00_lazienka_heating_state
                 name: Grzanie
+                icon: mdi:radiator
             footer:
               type: graph
               entity: sensor.local00_lazienka_temperature
               hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Pokój Klary
+            icon: mdi:teddy-bear
           - type: entities
-            title: Gabinet
-            entities:
-              - entity: sensor.local00_gabinet_temperature
-                name: Temperatura
-              - entity: sensor.local00_gabinet_heating_state
-                name: Grzanie
-            footer:
-              type: graph
-              entity: sensor.local00_gabinet_temperature
-              hours_to_show: 12
-          - type: entities
-            title: Klara
             entities:
               - entity: sensor.local00_klara_temperature
                 name: Temperatura
+                icon: mdi:thermometer
               - entity: sensor.local00_klara_heating_state
                 name: Grzanie
+                icon: mdi:radiator
             footer:
               type: graph
               entity: sensor.local00_klara_temperature
               hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Pokój Nikoli
+            icon: mdi:toy-brick
           - type: entities
-            title: Nikola
             entities:
               - entity: sensor.local00_nikola_temperature
                 name: Temperatura
+                icon: mdi:thermometer
               - entity: sensor.local00_nikola_heating_state
                 name: Grzanie
+                icon: mdi:radiator
             footer:
               type: graph
               entity: sensor.local00_nikola_temperature
               hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Gabinet
+            icon: mdi:desk
           - type: entities
-            title: Wiatrołap
             entities:
-              - entity: sensor.local00_wiatrolap_temperature
+              - entity: sensor.local00_gabinet_temperature
                 name: Temperatura
-              - entity: sensor.local00_wiatrolap_heating_state
+                icon: mdi:thermometer
+              - entity: sensor.local00_gabinet_heating_state
                 name: Grzanie
+                icon: mdi:radiator
             footer:
               type: graph
-              entity: sensor.local00_wiatrolap_temperature
+              entity: sensor.local00_gabinet_temperature
               hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Gospodarcze
+            icon: mdi:tools
           - type: entities
-            title: Hol Wejście
-            entities:
-              - entity: sensor.local00_holwejscie_temperature
-                name: Temperatura
-              - entity: sensor.local00_holwejscie_heating_state
-                name: Grzanie
-            footer:
-              type: graph
-              entity: sensor.local00_holwejscie_temperature
-              hours_to_show: 12
-          - type: entities
-            title: Hol Sypialnia
-            entities:
-              - entity: sensor.local00_holsypialnia_temperature
-                name: Temperatura
-              - entity: sensor.local00_holsypialnia_heating_state
-                name: Grzanie
-            footer:
-              type: graph
-              entity: sensor.local00_holsypialnia_temperature
-              hours_to_show: 12
-          - type: entities
-            title: Gospodarcze
             entities:
               - entity: sensor.local00_gospodarcze_temperature
                 name: Temperatura
+                icon: mdi:thermometer
               - entity: sensor.local00_gospodarcze_heating_state
                 name: Grzanie
+                icon: mdi:radiator
             footer:
               type: graph
               entity: sensor.local00_gospodarcze_temperature
               hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Wiatrołap
+            icon: mdi:door
+          - type: entities
+            entities:
+              - entity: sensor.local00_wiatrolap_temperature
+                name: Temperatura
+                icon: mdi:thermometer
+              - entity: sensor.local00_wiatrolap_heating_state
+                name: Grzanie
+                icon: mdi:radiator
+            footer:
+              type: graph
+              entity: sensor.local00_wiatrolap_temperature
+              hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Korytarz Wejściowy
+            icon: mdi:door-open
+          - type: entities
+            entities:
+              - entity: sensor.local00_holwejscie_temperature
+                name: Temperatura
+                icon: mdi:thermometer
+              - entity: sensor.local00_holwejscie_heating_state
+                name: Grzanie
+                icon: mdi:radiator
+            footer:
+              type: graph
+              entity: sensor.local00_holwejscie_temperature
+              hours_to_show: 12
+      - type: grid
+        cards:
+          - type: heading
+            heading: Korytarz Sypialnie
+            icon: mdi:floor-plan
+          - type: entities
+            entities:
+              - entity: sensor.local00_holsypialnia_temperature
+                name: Temperatura
+                icon: mdi:thermometer
+              - entity: sensor.local00_holsypialnia_heating_state
+                name: Grzanie
+                icon: mdi:radiator
+            footer:
+              type: graph
+              entity: sensor.local00_holsypialnia_temperature
+              hours_to_show: 12
   - title: Oświetlenie
     path: oswietlenie
     icon: mdi:lightbulb-group
-    cards:
+    type: sections
+    max_columns: 3
+    sections:
       - type: grid
-        columns: 2
-        square: false
         cards:
+          - type: heading
+            heading: Salon
+            icon: mdi:sofa
           - type: light
             entity: light.salon_mqtt
-            name: Salon Główne
+            name: Główne
           - type: light
             entity: light.boneio_32_l_07_new_light_18
-            name: Zasilanie Salon Dodatkowe
+            name: Zasilanie Dodatkowe
             icon: mdi:power-socket-eu
           - type: light
             entity: light.shellyrgbw2_salon
-            name: Salon LED
+            name: LED RGBW
           - type: light
             entity: light.shellyplusrgbwpm_9451dc0a83b4_light_0
-            name: Salon LED Ch1
+            name: LED Kanał 1
+          - type: entities
+            title: Atmosfera LED
+            entities:
+              - entity: input_select.shelly_mode
+                name: Tryb
+              - entity: input_number.shelly_brightness
+                name: Jasność
+              - entity: input_number.kolor_bialy_salon
+                name: Kanał Biały
+              - entity: input_number.kolor_czerwony_salon
+                name: Kanał Czerwony
+            state_color: true
       - type: grid
-        columns: 2
-        square: false
         cards:
+          - type: heading
+            heading: Kuchnia
+            icon: mdi:countertop
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_04
+            name: Główne
+          - type: light
+            entity: light.boneio_32_l_07_new_light_05
+            name: Wyspa
+          - type: light
+            entity: light.shellyrgbw2_814843
+            name: LED
+      - type: grid
+        cards:
+          - type: heading
+            heading: Sypialnia
+            icon: mdi:bed
           - type: light
             entity: light.boneio_32_l_07_new_light_17
-            name: Sypialnia Główne
+            name: Główne
           - type: light
             entity: light.boneio_32_l_07_new_light_08
-            name: Sypialnia Dekoracyjne
+            name: Dekoracyjne
           - type: light
             entity: light.boneio_32_l_07_new_light_07
-            name: Zasilanie Sypialnia Garderoba
+            name: Zasilanie Garderoba
             icon: mdi:power-socket-eu
       - type: grid
-        columns: 2
-        square: false
         cards:
+          - type: heading
+            heading: Mała Łazienka
+            icon: mdi:shower
           - type: light
             entity: light.boneio_dr_8ch_03_2c7fbc_chr_02
-            name: Łazienka M. Dekor.
+            name: Dekoracyjne
           - type: light
             entity: light.boneio_32_l_07_new_light_20
-            name: Zasilanie Mała Łazienka
+            name: Zasilanie
             icon: mdi:power-socket-eu
           - type: light
             entity: light.shellyrgbw2_c8c9a3399f35
-            name: LED Łazienka Ch1
+            name: LED Kanał 1
           - type: light
             entity: light.shellyrgbw2_c8c9a3399f35_channel_2
-            name: LED Łazienka Ch2
+            name: LED Kanał 2
       - type: grid
-        columns: 2
-        square: false
         cards:
+          - type: heading
+            heading: Duża Łazienka
+            icon: mdi:bathtub
           - type: light
-            entity: light.boneio_dr_8ch_03_2c7fbc_chl_04
-            name: Kuchnia Główne
-          - type: light
-            entity: light.boneio_32_l_07_new_light_05
-            name: Kuchnia Wyspa
-          - type: light
-            entity: light.shellyrgbw2_814843
-            name: LED Kuchnia
+            entity: light.boneio_32_l_07_new_light_10
+            name: Główne
       - type: grid
-        columns: 2
-        square: false
         cards:
+          - type: heading
+            heading: Pokój Klary
+            icon: mdi:teddy-bear
+          - type: light
+            entity: light.boneio_32_l_07_new_light_16
+            name: Główne
+      - type: grid
+        cards:
+          - type: heading
+            heading: Pokój Nikoli
+            icon: mdi:toy-brick
+          - type: light
+            entity: light.boneio_32_l_07_new_light_14
+            name: Główne
+      - type: grid
+        cards:
+          - type: heading
+            heading: Gabinet
+            icon: mdi:desk
+          - type: light
+            entity: light.boneio_32_l_07_new_light_19
+            name: Nocne
+      - type: grid
+        cards:
+          - type: heading
+            heading: Pralnia
+            icon: mdi:washing-machine
+          - type: light
+            entity: light.boneio_32_l_07_new_light_09
+            name: Główne
+      - type: grid
+        cards:
+          - type: heading
+            heading: Korytarz Wejściowy
+            icon: mdi:door-open
           - type: light
             entity: light.boneio_dr_8ch_03_2c7fbc_chl_01
-            name: Korytarz Wejście
+            name: Główne
           - type: light
             entity: light.boneio_dr_8ch_03_2c7fbc_chr_04
             name: Lustro
+      - type: grid
+        cards:
+          - type: heading
+            heading: Korytarz Sypialnie
+            icon: mdi:floor-plan
           - type: light
             entity: light.boneio_dr_8ch_03_2c7fbc_chl_02
-            name: Korytarz Sypialnia
+            name: Główne
           - type: light
             entity: light.boneio_dr_8ch_03_2c7fbc_chr_01
-            name: Korytarz Ściana
+            name: Ściana
       - type: grid
-        columns: 2
-        square: false
         cards:
+          - type: heading
+            heading: Taras
+            icon: mdi:tree
           - type: light
             entity: light.bulb_1
-            name: Taras Strona 1
+            name: Lampa Lewa
           - type: light
             entity: light.bulb_2
-            name: Taras Strona 2
+            name: Lampa Prawa
           - type: light
             entity: light.boneio_32_l_07_new_light_11
-            name: Zasilanie Taras
+            name: Zasilanie
             icon: mdi:power-socket-eu
-      - type: grid
-        columns: 2
-        square: false
-        cards:
-          - type: light
-            entity: light.boneio_32_l_07_new_light_16
-            name: Klara Główne
-          - type: light
-            entity: light.boneio_32_l_07_new_light_14
-            name: Nikola Główne
-          - type: light
-            entity: light.boneio_32_l_07_new_light_10
-            name: Łazienka Duża
-          - type: light
-            entity: light.boneio_32_l_07_new_light_09
-            name: Pralnia
-          - type: light
-            entity: light.boneio_32_l_07_new_light_19
-            name: Gabinet Nocne
-      - type: entities
-        title: Atmosfera LED
-        entities:
-          - entity: input_select.shelly_mode
-            name: Tryb
-          - entity: input_number.shelly_brightness
-            name: Jasność
-          - entity: input_number.kolor_bialy_salon
-            name: Kanał Biały
-          - entity: input_number.kolor_czerwony_salon
-            name: Kanał Czerwony
-        state_color: true
   - title: Energia
     path: energia
     icon: mdi:transmission-tower

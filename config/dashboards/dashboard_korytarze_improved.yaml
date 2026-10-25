@@ -3,167 +3,167 @@ views:
   - title: Korytarze i Pokoje
     path: korytarze
     icon: mdi:lightbulb-group
-    cards:
-      # --- SALON ---
-      - type: markdown
-        content: "## 🛋️ Salon"
+    type: sections
+    max_columns: 3
+    sections:
       - type: grid
-        columns: 2
-        square: false
         cards:
+          - type: heading
+            heading: Salon
+            icon: mdi:sofa
           - type: light
             entity: light.salon_mqtt
-            name: Salon Główne
+            name: Główne
           - type: light
             entity: light.boneio_32_l_07_new_light_18
-            name: Zasilanie Salon Dodatkowe
+            name: Zasilanie Dodatkowe
             icon: mdi:power-socket-eu
           - type: light
             entity: light.shellyrgbw2_salon
-            name: Salon LED
+            name: LED
           - type: light
             entity: light.shellyplusrgbwpm_9451dc0a83b4_light_0
-            name: Salon LED Ch1
-
-      # --- SYPIALNIA ---
-      - type: markdown
-        content: "## 🛌 Sypialnia"
+            name: LED Kanał 1
       - type: grid
-        columns: 2
-        square: false
         cards:
+          - type: heading
+            heading: Kuchnia
+            icon: mdi:countertop
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_04
+            name: Główne
+          - type: light
+            entity: light.boneio_32_l_07_new_light_05
+            name: Wyspa
+          - type: light
+            entity: light.shellyrgbw2_814843
+            name: LED
+      - type: grid
+        cards:
+          - type: heading
+            heading: Sypialnia
+            icon: mdi:bed
           - type: light
             entity: light.boneio_32_l_07_new_light_17
-            name: Sypialnia Główne
+            name: Główne
           - type: light
             entity: light.boneio_32_l_07_new_light_08
-            name: Sypialnia Dekoracyjne
+            name: Dekoracyjne
           - type: light
             entity: light.boneio_32_l_07_new_light_07
-            name: Zasilanie Sypialnia Garderoba
+            name: Zasilanie Garderoba
             icon: mdi:power-socket-eu
-
-      # --- ŁAZIENKA MAŁA ---
-      - type: markdown
-        content: "## 🛁 Łazienka Mała"
       - type: grid
-        columns: 2
-        square: false
         cards:
+          - type: heading
+            heading: Mała Łazienka
+            icon: mdi:shower
           - type: light
             entity: light.boneio_dr_8ch_03_2c7fbc_chr_02
-            name: Łazienka Mała Dekor.
+            name: Dekoracyjne
           - type: light
             entity: light.boneio_32_l_07_new_light_20
-            name: Zasilanie Mała Łazienka
+            name: Zasilanie
             icon: mdi:power-socket-eu
           - type: light
             entity: light.shellyrgbw2_c8c9a3399f35
-            name: LED Łazienka Ch1
+            name: LED Kanał 1
           - type: light
             entity: light.shellyrgbw2_c8c9a3399f35_channel_2
-            name: LED Łazienka Ch2
-
-      # --- KUCHNIA ---
-      - type: markdown
-        content: "## 🍳 Kuchnia"
+            name: LED Kanał 2
       - type: grid
-        columns: 2
-        square: false
         cards:
-          - type: light
-            entity: light.boneio_dr_8ch_03_2c7fbc_chl_04
-            name: Kuchnia Główne
-          - type: light
-            entity: light.boneio_32_l_07_new_light_05
-            name: Kuchnia Wyspa
-          - type: light
-            entity: light.shellyrgbw2_814843
-            name: LED Kuchnia
-
-      # --- TARAS ---
-      - type: markdown
-        content: "## 🌲 Taras"
-      - type: grid
-        columns: 2
-        square: false
-        cards:
-          - type: light
-            entity: light.bulb_1
-            name: Taras Strona 1
-          - type: light
-            entity: light.bulb_2
-            name: Taras Strona 2
-          - type: light
-            entity: light.boneio_32_l_07_new_light_11
-            name: Zasilanie Taras
-            icon: mdi:power-socket-eu
-
-      # --- KORYTARZE ---
-      - type: markdown
-        content: "## 🚪 Korytarze"
-      - type: grid
-        columns: 2
-        square: false
-        cards:
-          - type: light
-            entity: light.boneio_dr_8ch_03_2c7fbc_chl_01
-            name: Korytarz Wejście
-          - type: light
-            entity: light.boneio_dr_8ch_03_2c7fbc_chl_02
-            name: Korytarz Sypialnia
-          - type: light
-            entity: light.boneio_dr_8ch_03_2c7fbc_chr_01
-            name: Korytarz Ściana
-
-      # --- POKOJE DZIECIĘCE ---
-      - type: markdown
-        content: "## 👧 Pokoje Dziecięce"
-      - type: grid
-        columns: 2
-        square: false
-        cards:
-          - type: light
-            entity: light.boneio_32_l_07_new_light_16
-            name: Klara Główne
-          - type: light
-            entity: light.boneio_32_l_07_new_light_14
-            name: Nikola Główne
-
-      # --- GOSPODARCZE ---
-      - type: markdown
-        content: "## 🧺 Gospodarcze"
-      - type: grid
-        columns: 2
-        square: false
-        cards:
+          - type: heading
+            heading: Duża Łazienka
+            icon: mdi:bathtub
           - type: light
             entity: light.boneio_32_l_07_new_light_10
-            name: Łazienka Duża
+            name: Główne
+      - type: grid
+        cards:
+          - type: heading
+            heading: Pokój Klary
+            icon: mdi:teddy-bear
           - type: light
-            entity: light.boneio_32_l_07_new_light_09
-            name: Pralnia
+            entity: light.boneio_32_l_07_new_light_16
+            name: Główne
+      - type: grid
+        cards:
+          - type: heading
+            heading: Pokój Nikoli
+            icon: mdi:toy-brick
+          - type: light
+            entity: light.boneio_32_l_07_new_light_14
+            name: Główne
+      - type: grid
+        cards:
+          - type: heading
+            heading: Gabinet
+            icon: mdi:desk
           - type: light
             entity: light.boneio_32_l_07_new_light_19
-            name: Gabinet Nocne
-
-      # --- STEROWANIE ---
-      - type: markdown
-        content: "## ✨ Atmosfera Salon"
-      - type: vertical-stack
+            name: Nocne
+      - type: grid
         cards:
-          - type: entities
-            entities:
-              - entity: input_select.shelly_mode
-                name: Tryb
-              - entity: input_number.shelly_brightness
-                name: Jasność
-          - type: conditional
-            conditions:
-              - entity: input_select.shelly_mode
-                state: Animation
-            card:
-              type: entities
-              entities:
-                - entity: input_select.shelly_animation_type
-                  name: Typ Animacji
+          - type: heading
+            heading: Pralnia
+            icon: mdi:washing-machine
+          - type: light
+            entity: light.boneio_32_l_07_new_light_09
+            name: Główne
+      - type: grid
+        cards:
+          - type: heading
+            heading: Korytarz Wejściowy
+            icon: mdi:door-open
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_01
+            name: Główne
+      - type: grid
+        cards:
+          - type: heading
+            heading: Korytarz Sypialnie
+            icon: mdi:floor-plan
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chl_02
+            name: Główne
+          - type: light
+            entity: light.boneio_dr_8ch_03_2c7fbc_chr_01
+            name: Ściana
+      - type: grid
+        cards:
+          - type: heading
+            heading: Taras
+            icon: mdi:tree
+          - type: light
+            entity: light.bulb_1
+            name: Lampa Lewa
+          - type: light
+            entity: light.bulb_2
+            name: Lampa Prawa
+          - type: light
+            entity: light.boneio_32_l_07_new_light_11
+            name: Zasilanie
+            icon: mdi:power-socket-eu
+      - type: grid
+        cards:
+          - type: heading
+            heading: Atmosfera LED
+            icon: mdi:led-strip-variant
+          - type: vertical-stack
+            cards:
+              - type: entities
+                entities:
+                  - entity: input_select.shelly_mode
+                    name: Tryb
+                  - entity: input_number.shelly_brightness
+                    name: Jasność
+              - type: conditional
+                conditions:
+                  - entity: input_select.shelly_mode
+                    state: Animation
+                card:
+                  type: entities
+                  entities:
+                    - entity: input_select.shelly_animation_type
+                      name: Typ Animacji

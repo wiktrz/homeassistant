@@ -140,6 +140,7 @@ Before reviewing individual places, the following hardware platforms and safety 
 - **Voice Intents (PL):** *"włącz tryb kino"*, *"wyłącz tryb kino"*, *"włącz [netflix/youtube/disney/max/spotify/prime] na telewizorze"*, *"głośniej/ciszej/wycisz telewizor"*, *"pokaż [kamerę] na telewizorze"*, *"zamknij podgląd kamery"*.
 - **Voice Intents (EN):** *"cinema mode"*, *"open [app] on tv"*, *"volume up/down/mute tv"*, *"show [camera] on tv"*, *"stop camera on tv"*.
 - **Dashboard Views:** `/dashboard-home` (overview), `/dashboard-home/media` (TV & app launcher grid, D-pad remote, cameras), `/dashboard-home/oswietlenie`.
+- **Room Views Layout:** Klimat and Oświetlenie (`dashboard_modern_reference.yaml`), Korytarze (`dashboard_korytarze_improved.yaml`) and Dół (`path: dol`, `dashboard_heating.yaml`) are responsive `type: sections` views (max_columns 3, one section per room with heading card and room icon); `Hol Wejście`/`Hol Sypialnia` are shown as `Korytarz Wejściowy`/`Korytarz Sypialnie`.
 
 ---
 

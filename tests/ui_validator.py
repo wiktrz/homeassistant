@@ -84,7 +84,10 @@ def validate_dashboard(filename: str) -> Tuple[bool, List[str], Set[str]]:
     for idx, view in enumerate(views):
         v_title = view.get("title", f"view_{idx}")
         v_path = view.get("path", f"path_{idx}")
-        cards = view.get("cards", [])
+        cards = list(view.get("cards") or [])
+        for section in view.get("sections") or []:
+            cards += section.get("cards") or [] if isinstance(section, dict) else [section]
+        cards += [b for b in view.get("badges") or [] if isinstance(b, dict)]
         total_cards += len(cards)
 
         for card in cards:

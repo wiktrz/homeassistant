@@ -66,7 +66,8 @@ config/
 ├── views.yaml            # View definitions
 ├── dashboard_modern_reference.yaml # Dom iPad Modern dashboard (/dashboard-home)
 ├── dashboard_improved.yaml       # Main dashboard
-├── dashboard_korytarze_improved.yaml  # Hallways dashboard
+├── dashboard_korytarze_improved.yaml  # Hallways dashboard (sections view, one section per room)
+├── dashboards/dashboard_heating.yaml  # Dół heating view (/dol, sections layout)
 ├── blueprints/           # HA blueprint templates
 │   ├── automation/
 │   │   ├── motion_light.yaml
