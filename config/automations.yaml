@@ -675,8 +675,8 @@
   description: ''
   triggers:
   - type: turned_on
-    device_id: d8e2df1faca63578472e0677273680e2
-    entity_id: cfd71bd4dfde649c02233583749e9a79
+    device_id: 75837d45d9b143e290f659844e9f5da0
+    entity_id: cde16bc1ac4b51c812d0cb7582f697ae
     domain: binary_sensor
     trigger: device
     for:
@@ -772,8 +772,8 @@
   description: ''
   triggers:
   - type: motion
-    device_id: d8e2df1faca63578472e0677273680e2
-    entity_id: bd4d7a2422a677e41730fde8ee5ea955
+    device_id: 75837d45d9b143e290f659844e9f5da0
+    entity_id: 202ab6ff09c9a1b9b88a467810490ef6
     domain: binary_sensor
     trigger: device
   conditions:
@@ -1421,8 +1421,8 @@
   description: ''
   triggers:
   - type: turned_off
-    device_id: d8e2df1faca63578472e0677273680e2
-    entity_id: cfd71bd4dfde649c02233583749e9a79
+    device_id: 75837d45d9b143e290f659844e9f5da0
+    entity_id: cde16bc1ac4b51c812d0cb7582f697ae
     domain: binary_sensor
     trigger: device
     for:
@@ -1552,8 +1552,8 @@
       message: Ktoś jest w domu
       title: Alarm
   - type: turn_on
-    device_id: d8e2df1faca63578472e0677273680e2
-    entity_id: 95f979b4b804ddc3a4b5b895915ad5e9
+    device_id: 75837d45d9b143e290f659844e9f5da0
+    entity_id: a14cc5f85d423641432f3f79eeb7b4bf
     domain: switch
   - delay:
       hours: 0
@@ -1571,7 +1571,7 @@
       metadata: {}
       data: {}
       target:
-        entity_id: siren.reolink_duo_floodlight_poe_syrena
+        entity_id: siren.duo_series_p750_syrena
   mode: single
 - id: '1746970911150'
   alias: Reed_Small_Bathroom_OFF

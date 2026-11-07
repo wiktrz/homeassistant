@@ -69,8 +69,8 @@ LIGHT_RULES = [
         "aliases": ["pasek led multi", "taśma led multi", "kontroler led", "pasek led"]
     },
     {
-        "id_contains": ["reolink_duo_floodlight"],
-        "name_contains": ["reolink duo floodlight", "reflektor poe"],
+        "id_contains": ["reolink_duo_floodlight", "duo_series_p750"],
+        "name_contains": ["reolink duo floodlight", "duo series p750", "reflektor poe"],
         "clean_name": "Reflektor Kamera Wejście",
         "aliases": ["reflektor kamera wejście", "reflektor przy wejściu", "reflektor wejście", "floodlight"]
     },

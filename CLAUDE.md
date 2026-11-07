@@ -191,7 +191,7 @@ homeassistant:
   - Combines `light.bulb_1` (*Taras Lampa Lewa*) and `light.bulb_2` (*Taras Lampa Prawa*) into a unified light group toggled together from dashboard and voice.
 
 ### Security/Alarm Automations
-- Alarm trigger on door/windows breach (`siren.reolink_duo_floodlight_poe_syrena`)
+- Alarm trigger on door/windows breach (`siren.duo_series_p750_syrena`)
 - Tag-based door access (RFID tags) with presence verification and auto-disarm
 - Door/window reed sensor controls
 - Electric strike lock (`lock.rygiel_drzwi_wejsciowych_lock`, `input_button.btn_entrance_door`)

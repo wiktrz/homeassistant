@@ -454,8 +454,8 @@ flowchart TD
 | Driveway Floodlight | `light.boneio_32_l_07_new_light_12` | BoneIO 32x10 Relay 12 | 230V driveway lighting fixture |
 | Sliding Entrance Gate | `cover.brama_wynajem_zaslona` | Cover Actuator | Motorized sliding gate (open/close/stop) |
 | Front Camera IR Light | `light.520a_infra_red_lights_in_night_mode` | Reolink Camera Entity | Front camera night-vision infrared array |
-| Security Siren | `siren.reolink_duo_floodlight_poe_syrena` | Reolink POE Siren | High-decibel perimeter audible alarm siren |
-| Camera: Podwórze | `camera.reolink_duo_floodlight_poe_plynny_2` | Reolink Duo Floodlight POE | Dual-lens wide-angle backyard surveillance |
+| Security Siren | `siren.duo_series_p750_syrena` | Reolink Duo P750 siren | High-decibel perimeter audible alarm siren |
+| Camera: Podwórze | `camera.duo_series_p750_niska_rozdzielczosc` | Reolink Duo Series P750 (replaced Duo Floodlight PoE 2026-11-07) | Dual-lens wide-angle backyard surveillance |
 | Camera: Wejście | `camera.rlc_822a_plynny` | Reolink RLC-822A POE | 4K optical zoom front entrance camera |
 | Camera: Taras | `camera.taras_plynny` | Reolink POE | High-definition patio/terrace camera |
 | Camera: Ogród | `camera.rlc_820a_niska_rozdzielczosc` | Reolink RLC-820A POE | Rear garden perimeter camera |
@@ -483,10 +483,11 @@ flowchart TD
    - *"zamknij bramę"* commands cover to close.
 3. **Terrace & Driveway Motion Lighting (`Motion Taras ON` / `OFF`, `Light 12 Motion Off`):**
    - Motion detected on the patio after dusk turns on terrace lamps; automatically turns off after 30s of inactivity.
+   - Driveway light 12 (`Light 12 motion on` / `Light 12 Motion Off`): `binary_sensor.duo_series_p750_intrusion_ogrodek_person` (P750 "ogrodek" intrusion zone). Light 13 (`light 13 on new`): `binary_sensor.duo_series_p750_ruch`. Camera swapped from Duo Floodlight PoE to Duo Series P750 on 2026-11-07.
 4. **Intrusion Alarm System (`Alarm`, `id: 1746389025737`):**
    - *Triggers:* State change on entrance door reed (`in_25`), living room PIR (`in_27`), entrance PIR (`in_26`), kitchen PIR (`in_28`), small bath PIR (`in_29`), or bedroom hall PIR (`in_31`).
    - *Condition:* `alarm_control_panel.alarm` is in state `armed_away` or `armed_custom_bypass`.
-   - *Actions:* Dispatches critical push notification (*"Ktoś jest w domu"*), starts a 60-second verification delay, and if still not disarmed, triggers high-decibel perimeter siren `siren.reolink_duo_floodlight_poe_syrena`.
+   - *Actions:* Dispatches critical push notification (*"Ktoś jest w domu"*), starts a 60-second verification delay, and if still not disarmed, triggers high-decibel perimeter siren `siren.duo_series_p750_syrena`.
 5. **Live Camera Streaming to Living Room TV (`script.tv_show_camera`):**
    - Routes HLS live video streams directly to the Chromecast receiver on the TCL Google TV (`media_player.googletv8897_2`).
    - Voice command *"pokaż podwórze/wejście/taras/ogród/front na telewizorze"* turns on TV if off and begins casting.
@@ -494,7 +495,7 @@ flowchart TD
 6. **Future Camera AI Vision Engine: Face Recognition & ALPR Engine (`CAMERA_AI_FACE_RECOGNITION_PROPOSAL.md`):**
    - **Generic Decoupled Engine (`script.camera_ai_analyze`):** The core vision script acts strictly as an image capture and AI inference processor (Gemini Multimodal API). It performs zero hardcoded physical actions; instead, it broadcasts `event: camera_ai_analysis_complete` and populates telemetry sensors (`sensor.camera_ai_last_plate`, `sensor.camera_ai_last_result`).
    - **Biometric Face Recognition (`task_type: face_recognition`):** Operates on `camera.taras_plynny` (Phase 1) or future entrance cameras, matching against `/config/known_faces/`.
-   - **Automatic License Plate Recognition (`task_type: plate_recognition`):** Operates on `camera.520a_plynny` and `camera.reolink_duo_floodlight_poe_plynny_2`, extracting plate text and vehicle attributes (make/model/color) for dual-factor anti-spoofing against `/config/known_plates.yaml`.
+   - **Automatic License Plate Recognition (`task_type: plate_recognition`):** Operates on `camera.520a_plynny` and `camera.duo_series_p750_niska_rozdzielczosc`, extracting plate text and vehicle attributes (make/model/color) for dual-factor anti-spoofing against `/config/known_plates.yaml`.
    - **Modular Use-Case Proposals Catalog (User-Configured):** Downstream automations are modular proposals for the user to select and configure:
      - *Access & Gate Control:* Automated sliding gate opening (`cover.brama_wynajem_zaslona`) with 180s debounce cooldown, rental guest temporary access (`valid_until`), and front door strike unlocking (`input_button.btn_entrance_door`).
      - *Convenience & Ambient:* Driveway night lighting (`light.boneio_32_l_07_new_light_12`), Voice PE spoken arrival greetings (`media_player.home_assistant_voice_0a9bfd_media_player`), and living room TV camera pop-up banner.
@@ -808,5 +809,5 @@ flowchart TD
 | **Wiatrołap & Hol Wejście** | `light.boneio_32_l_07_new_light_01`, `light.boneio_dr_8ch_03_2c7fbc_chl_01`, `chr_04` | `sensor.local00_wiatrolap_*`, `sensor.local00_holwejscie_*` | `binary_sensor...in_25_reed_entrance`, `...in_26_pir_entrance` | `media_player.home_assistant_voice_0a9bfd...`, `lock.rygiel_drzwi_wejsciowych_lock`, `input_button.btn_entrance_door` |
 | **Korytarz Sypialnie & Klatki** | `light.boneio_dr_8ch_03_2c7fbc_chl_02`, `chr_01` | `climate.local00_klatka1p_termostat`, `_klatka2p_termostat` | `binary_sensor...in_31_pir_hall_bedroom`, `sensor.local00_holsypialnia_*` | Automatic night dimming |
 | **Pokoje Dziecięce & Gabinet** | `light.boneio_32_l_07_new_light_14`, `_16`, `_19` | `climate.local00_klara_termostat`, `_nikola_termostat`, `_gabinet_termostat` | `sensor.local00_klara_*`, `_nikola_*`, `_gabinet_*` | Independent heating routines |
-| **Taras, Ogród & Podjazd** | `light.taras_lampy` (`bulb_1` + `bulb_2`), `light.boneio_32_l_07_new_light_12` | N/A | Terrace PIR, Garden Reed, Paczkomat MAR13M Air & Weather (7 REST sensors) | `cover.brama_wynajem_zaslona`, `siren.reolink_duo_floodlight_poe_syrena`, 5 Reolink Cameras |
+| **Taras, Ogród & Podjazd** | `light.taras_lampy` (`bulb_1` + `bulb_2`), `light.boneio_32_l_07_new_light_12` | N/A | Terrace PIR, Garden Reed, Paczkomat MAR13M Air & Weather (7 REST sensors) | `cover.brama_wynajem_zaslona`, `siren.duo_series_p750_syrena`, 5 Reolink Cameras |
 | **Lokale Wynajem (01-06)** | Controlled via apartments | 18 Climates: `climate.local01_glowny`..`local06_sypialnia` | 18 Temperature & Setpoint Sensors | 18 Routine Helpers: `input_select.local0X_*_heating_routine`, 18 Routine Read Sensors: `sensor.local0X_{glowny,lazienka,sypialnia}_routine` (live MQTT from controllers, loop-guarded bidirectional sync to input_select), TTGO T4 Displays |

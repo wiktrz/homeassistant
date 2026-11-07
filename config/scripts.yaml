@@ -1090,7 +1090,7 @@ tv_show_camera:
   sequence:
     - variables:
         cam_map:
-          podworko: camera.reolink_duo_floodlight_poe_plynny_2
+          podworko: camera.duo_series_p750_niska_rozdzielczosc
           wejscie: camera.rlc_822a_plynny
           taras: camera.taras_plynny
           ogrod: camera.rlc_820a_niska_rozdzielczosc

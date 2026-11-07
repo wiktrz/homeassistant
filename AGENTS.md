@@ -211,7 +211,7 @@ homeassistant:
 - **Cast Target:** `media_player.googletv8897_2` (Google Cast integration for camera streaming)
 - **Streaming Apps:** Netflix (`com.netflix.ninja`), YouTube (`https://www.youtube.com`), Disney+ (`com.disney.disneyplus`), Max (`https://play.max.com`), Spotify (`spotify://`), Prime Video (`https://app.primevideo.com`)
 - **Camera Streaming (5 cameras):**
-  - Podwórze: `camera.reolink_duo_floodlight_poe_plynny_2`
+  - Podwórze: `camera.duo_series_p750_niska_rozdzielczosc`
   - Wejście: `camera.rlc_822a_plynny`
   - Taras: `camera.taras_plynny`
   - Ogród: `camera.rlc_820a_niska_rozdzielczosc`

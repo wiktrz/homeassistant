@@ -172,7 +172,7 @@ views:
             camera_view: auto
             fit_mode: cover
             type: picture-entity
-            entity: camera.reolink_duo_floodlight_poe_plynny_2
+            entity: camera.duo_series_p750_niska_rozdzielczosc
             name: Podwórze
           - show_state: true
             show_name: true
@@ -1574,7 +1574,7 @@ views:
         cards:
           - type: picture-glance
             title: Podwórze
-            camera_image: camera.reolink_duo_floodlight_poe_plynny_2
+            camera_image: camera.duo_series_p750_niska_rozdzielczosc
             camera_view: live
             entities:
               - entity: media_player.googletv8897_2
