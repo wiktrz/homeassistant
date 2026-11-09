@@ -1,0 +1,1093 @@
+# Configure a default setup of Home Assistant (frontend, api, etc)
+default_config:
+
+homeassistant:
+  # server_port: 8124
+  # Name of the location where Home Assistant is running
+  name: Dom
+  legacy_templates: true
+  # external_url: https://w6w7009jc5z6slxn1p84j4a2u3mf4dy1.ui.nabu.casa/
+  auth_providers:
+    - type: homeassistant
+    # - type: trusted_networks
+      # trusted_networks:
+      #   - 10.20.2.0/24
+    #     - 131.96.253.0/24
+    # - type: legacy_api_password
+    #   api_password: !secret http_password
+  # Omitted values in this section will be auto detected using freegeoip.io
+
+  # Location required to calculate the time the sun rises and sets
+  latitude: !secret latitude_home
+  longitude: !secret longitude_home
+  elevation: 322
+  # C for Celcius, F for Fahrenheit
+  temperature_unit: C
+  # Pick yours from here: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+  time_zone: Europe/Warsaw
+  unit_system: metric
+  customize: !include customize.yaml
+  # customize_glob: !include customize_glob.yaml
+  # packages: !include_dir_named packages
+  allowlist_external_dirs:
+    - /tmp
+    - /config/media
+    - /config/media/morning_music
+  media_dirs:
+    local: /config/media
+    morning_music: /config/media/morning_music
+  
+# sensor: !include sensor.yaml
+automation: !include automations.yaml
+# automations: !include automations.yaml
+
+mqtt: !include mqtt.yaml
+scene: !include scenes.yaml
+script: !include scripts.yaml
+template: !include templates.yaml
+rest: !include rest.yaml
+
+shell_command:
+  save_deye_inverter_config: >-
+    python3 /config/solarman_v5_client.py --set-config --host {{ states('input_text.deye_inverter_ip') }} --port {{ states('input_number.deye_inverter_port') | int(8899) }}
+  scan_deye_inverter_ip: >-
+    python3 /config/solarman_v5_client.py --scan --save-discovered
+  apply_deye_battery_safety_limits: >-
+    python3 /config/pstryk_engine.py --apply-battery-safety-limits {% if states('input_text.deye_inverter_ip') not in ['unknown', 'unavailable', ''] %}--inverter-host {{ states('input_text.deye_inverter_ip') }}{% endif %} {% if states('input_number.deye_inverter_port') not in ['unknown', 'unavailable', ''] and states('input_number.deye_inverter_port') | int(0) > 1 %}--inverter-port {{ states('input_number.deye_inverter_port') | int }}{% endif %} --min-soc {{ states('input_number.deye_battery_min_discharge_soc') | default('20', true) | int(20) }} --shutdown-soc {{ states('input_number.deye_battery_shutdown_soc') | default('5', true) | int(5) }}
+  sync_deye_inverter_tou: >-
+    python3 /config/pstryk_engine.py --sync-deye-tou {% if states('input_text.deye_inverter_ip') not in ['unknown', 'unavailable', ''] %}--inverter-host {{ states('input_text.deye_inverter_ip') }}{% endif %} {% if states('input_number.deye_inverter_port') not in ['unknown', 'unavailable', ''] and states('input_number.deye_inverter_port') | int(0) > 1 %}--inverter-port {{ states('input_number.deye_inverter_port') | int }}{% endif %} {% if calibration is defined and (calibration | bool) %}--calibration{% endif %} {% if force is defined and (force | bool) %}--force{% endif %} {% if states('sensor.deye_battery_soc') not in ['unknown', 'unavailable', ''] and states('sensor.deye_battery_soc') | int(0) > 0 %}--current-soc {{ states('sensor.deye_battery_soc') | int }}{% endif %} {% if states('input_number.deye_battery_max_charge_soc') not in ['unknown', 'unavailable', ''] %}--max-soc {{ states('input_number.deye_battery_max_charge_soc') | int }}{% endif %} {% if states('input_number.deye_battery_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('input_number.deye_battery_min_discharge_soc') | int }}{% elif states('sensor.deye_inverter_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('sensor.deye_inverter_min_discharge_soc') | int }}{% endif %} {% if states('input_number.deye_battery_shutdown_soc') not in ['unknown', 'unavailable', ''] %}--shutdown-soc {{ states('input_number.deye_battery_shutdown_soc') | int }}{% elif states('sensor.deye_inverter_shutdown_soc') not in ['unknown', 'unavailable', ''] %}--shutdown-soc {{ states('sensor.deye_inverter_shutdown_soc') | int }}{% endif %} {% if states('sensor.deye_inverter_max_discharge_current') | float(0) > 0 %}--max-discharge-current {{ states('sensor.deye_inverter_max_discharge_current') | float }}{% endif %} {% if states('sensor.powerbank_total_capacity_kwh') | float(0) > 0 %}--battery-capacity {{ states('sensor.powerbank_total_capacity_kwh') | float }}{% endif %} {% if states('sensor.powerbank_voltage_v') | float(0) > 0 %}--nominal-voltage {{ states('sensor.powerbank_voltage_v') | float }}{% endif %} --sell-target-hours "{{ states('input_select.battery_discharge_target_hours') }}" --ev-target-hours "{{ states('input_select.ev_charging_target_hours') }}"
+  sync_deye_manual_tou: >-
+    python3 /config/pstryk_engine.py --sync-manual-tou '{{ manual_slots_json }}' {% if is_state('input_boolean.deye_tou_auto_sync', 'off') %}--auto-sync-off{% endif %} {% if states('input_text.deye_inverter_ip') not in ['unknown', 'unavailable', ''] %}--inverter-host {{ states('input_text.deye_inverter_ip') }}{% endif %} {% if states('input_number.deye_inverter_port') not in ['unknown', 'unavailable', ''] and states('input_number.deye_inverter_port') | int(0) > 1 %}--inverter-port {{ states('input_number.deye_inverter_port') | int }}{% endif %} {% if states('sensor.deye_battery_soc') not in ['unknown', 'unavailable', ''] and states('sensor.deye_battery_soc') | int(0) > 0 %}--current-soc {{ states('sensor.deye_battery_soc') | int }}{% endif %} {% if states('input_number.deye_battery_max_charge_soc') not in ['unknown', 'unavailable', ''] %}--max-soc {{ states('input_number.deye_battery_max_charge_soc') | int }}{% endif %} {% if states('input_number.deye_battery_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('input_number.deye_battery_min_discharge_soc') | int }}{% elif states('sensor.deye_inverter_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('sensor.deye_inverter_min_discharge_soc') | int }}{% endif %} {% if states('input_number.deye_battery_shutdown_soc') not in ['unknown', 'unavailable', ''] %}--shutdown-soc {{ states('input_number.deye_battery_shutdown_soc') | int }}{% elif states('sensor.deye_inverter_shutdown_soc') not in ['unknown', 'unavailable', ''] %}--shutdown-soc {{ states('sensor.deye_inverter_shutdown_soc') | int }}{% endif %} {% if states('sensor.deye_inverter_max_discharge_current') | float(0) > 0 %}--max-discharge-current {{ states('sensor.deye_inverter_max_discharge_current') | float }}{% endif %} {% if states('sensor.powerbank_total_capacity_kwh') | float(0) > 0 %}--battery-capacity {{ states('sensor.powerbank_total_capacity_kwh') | float }}{% endif %} {% if states('sensor.powerbank_voltage_v') | float(0) > 0 %}--nominal-voltage {{ states('sensor.powerbank_voltage_v') | float }}{% endif %} 
+  restore_deye_charge_current: >-
+    python3 /config/pstryk_engine.py --restore-charge-current {% if states('input_text.deye_inverter_ip') not in ['unknown', 'unavailable', ''] %}--inverter-host {{ states('input_text.deye_inverter_ip') }}{% endif %} {% if states('input_number.deye_inverter_port') not in ['unknown', 'unavailable', ''] and states('input_number.deye_inverter_port') | int(0) > 1 %}--inverter-port {{ states('input_number.deye_inverter_port') | int }}{% endif %}
+  fetch_deye_load_history: >-
+    python3 /config/deye_cloud_client.py --fetch-history
+  force_refresh_deye_inverter_status: >-
+    python3 /config/solarman_v5_client.py --read-all --force-refresh
+
+light:
+  - platform: group
+    name: "Taras Lampy"
+    unique_id: taras_lampy_group
+    entities:
+      - light.bulb_1
+      - light.bulb_2
+command_line:
+  # Installation: dół (lower/ground floor)
+  - sensor:
+      name: Pstryk Price Meter Dol
+      unique_id: pstryk_price_meter_dol_v1
+      command: >-
+        python3 /config/pstryk_engine.py --json --installation dol
+        {% if is_state('input_boolean.deye_battery_calibration_in_progress', 'on') %}--calibration{% endif %}
+        {% if states('input_number.deye_battery_max_charge_soc') not in ['unknown', 'unavailable', ''] %}--max-soc {{ states('input_number.deye_battery_max_charge_soc') | int }}{% endif %}
+        {% if states('input_number.deye_battery_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('input_number.deye_battery_min_discharge_soc') | int }}{% elif states('sensor.deye_inverter_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('sensor.deye_inverter_min_discharge_soc') | int }}{% endif %}
+        {% if states('sensor.powerbank_total_capacity_kwh') | float(0) > 0 %}--battery-capacity {{ states('sensor.powerbank_total_capacity_kwh') | float }}{% endif %}
+        {% if states('sensor.powerbank_voltage_v') | float(0) > 0 %}--nominal-voltage {{ states('sensor.powerbank_voltage_v') | float }}{% endif %} --sell-target-hours "{{ states('input_select.battery_discharge_target_hours') }}" --ev-target-hours "{{ states('input_select.ev_charging_target_hours') }}"
+      scan_interval: 900
+      command_timeout: 45
+      unit_of_measurement: "PLN/kWh"
+      value_template: >
+        {% if value_json.current_price is defined and value_json.current_price is not none %}
+          {{ value_json.current_price }}
+        {% else %}
+          0.0
+        {% endif %}
+      json_attributes:
+        - all_prices
+        - debug
+        - start
+        - end
+        - duration_hours
+        - average_price
+        - display
+        - net
+        - gross
+        - error
+        - current
+        - today
+        - month
+        - year
+        - installation
+        - ev_best_window
+        - powerbank_best_window
+        - best_sell_window
+        - deye_tou_schedule
+        - ev_best_window_today
+        - powerbank_best_window_today
+        - best_sell_window_today
+        - plan_timeline
+        - horizon_end
+        - ev_best_window_tomorrow
+        - powerbank_best_window_tomorrow
+        - best_sell_window_tomorrow
+        - has_tomorrow_pricing
+        - battery_model
+        - charge_current_plan
+        - charge_windows
+        - charge_taper_source
+  # Installation: góra (upper floor)
+  - sensor:
+      name: Pstryk Price Meter Gora
+      unique_id: pstryk_price_meter_gora_v1
+      command: >-
+        python3 /config/pstryk_engine.py --json --installation gora
+        {% if is_state('input_boolean.deye_battery_calibration_in_progress', 'on') %}--calibration{% endif %}
+        {% if states('input_number.deye_battery_max_charge_soc') not in ['unknown', 'unavailable', ''] %}--max-soc {{ states('input_number.deye_battery_max_charge_soc') | int }}{% endif %}
+        {% if states('input_number.deye_battery_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('input_number.deye_battery_min_discharge_soc') | int }}{% elif states('sensor.deye_inverter_min_discharge_soc') not in ['unknown', 'unavailable', ''] %}--min-soc {{ states('sensor.deye_inverter_min_discharge_soc') | int }}{% endif %}
+        {% if states('sensor.powerbank_total_capacity_kwh') | float(0) > 0 %}--battery-capacity {{ states('sensor.powerbank_total_capacity_kwh') | float }}{% endif %}
+        {% if states('sensor.powerbank_voltage_v') | float(0) > 0 %}--nominal-voltage {{ states('sensor.powerbank_voltage_v') | float }}{% endif %} --sell-target-hours "{{ states('input_select.battery_discharge_target_hours') }}" --ev-target-hours "{{ states('input_select.ev_charging_target_hours') }}"
+      scan_interval: 900
+      command_timeout: 45
+      unit_of_measurement: "PLN/kWh"
+      value_template: >
+        {% if value_json.current_price is defined and value_json.current_price is not none %}
+          {{ value_json.current_price }}
+        {% else %}
+          0.0
+        {% endif %}
+      json_attributes:
+        - all_prices
+        - debug
+        - start
+        - end
+        - duration_hours
+        - average_price
+        - display
+        - net
+        - gross
+        - error
+        - current
+        - today
+        - month
+        - year
+        - installation
+        - ev_best_window
+        - powerbank_best_window
+        - best_sell_window
+        - deye_tou_schedule
+        - ev_best_window_today
+        - powerbank_best_window_today
+        - best_sell_window_today
+        - plan_timeline
+        - horizon_end
+        - ev_best_window_tomorrow
+        - powerbank_best_window_tomorrow
+        - best_sell_window_tomorrow
+        - has_tomorrow_pricing
+        - battery_model
+  # Deye Inverter & Battery Telemetry / Configuration Ingestion (Read-Only)
+  - sensor:
+      name: Deye Inverter Status
+      unique_id: deye_inverter_status_v1
+      command: "python3 /config/solarman_v5_client.py --read-all"
+      scan_interval: 300
+      command_timeout: 60
+      value_template: >
+        {% if value_json.success is defined and value_json.success %}
+          online
+        {% else %}
+          offline
+        {% endif %}
+      json_attributes:
+        - config
+        - telemetry
+        - active_tou
+        - timestamp
+        - host
+        - port
+        - error
+  # Deye Inverter Auto-Discovery Scanner
+  - sensor:
+      name: Deye Inverter Discovered IP
+      unique_id: deye_inverter_discovered_ip_v1
+      command: "python3 /config/solarman_v5_client.py --scan"
+      scan_interval: 86400
+      command_timeout: 60
+      value_template: >
+        {% if value_json.found is defined and value_json.found %}
+          {{ value_json.ip }}
+        {% else %}
+          unknown
+        {% endif %}
+      json_attributes:
+        - found
+        - ip
+        - port
+        - scanned_subnet
+        - devices
+        - duration_seconds
+  # Deye TOU Last Sync Status (reads /config/.deye_tou_last_sync.json)
+  - sensor:
+      name: Deye TOU Last Sync
+      unique_id: deye_tou_last_sync_v1
+      command: "cat /config/.deye_tou_last_sync.json 2>/dev/null || echo '{\"success\": false, \"message\": \"Brak danych\"}'"
+      scan_interval: 300
+      value_template: >
+        {% if value_json.success is defined and value_json.success %}
+          {% if value_json.unchanged is defined and value_json.unchanged %}
+            unchanged
+          {% else %}
+            success
+          {% endif %}
+        {% else %}
+          error
+        {% endif %}
+      json_attributes:
+        - success
+        - unchanged
+        - timestamp
+        - host
+        - port
+        - calibration_active
+        - soc_limits
+        - charge_current_modulation
+        - slots
+        - error
+        - message
+
+api:
+
+system_log:
+  max_entries: 400
+
+sensor:
+  - platform: folder
+    folder: /config/media/morning_music
+  - platform: group
+    name: Local 01 Sensors
+    type: mean
+    entities:
+      # - climate.local01_glowny_termostat
+      # - input_select.local01_main_heating_routine
+      - sensor.local01_glowny_temperature_controller
+      - sensor.local01_glowny_heating_state
+      - sensor.local01_glowny_setpoint
+      - sensor.local01_glowny_temperature
+      - sensor.local01_sypialnia_heating_state
+      - sensor.local01_sypialnia_setpoint
+      - sensor.local01_sypialnia_temperature
+      - sensor.local01_lazienka_heating_state
+      - sensor.local01_lazienka_setpoint
+      - sensor.local01_lazienka_temperature
+
+notify:
+  - name: ALL_DEVICES
+    platform: group
+    services: []
+
+input_boolean:
+  deye_tou_auto_sync:
+    name: "Automatyczne przeliczanie TOU"
+    icon: mdi:robot
+  deye_manual_tou_grid_charge_1:
+    name: "Ręczne TOU slot 1: Ładowanie z sieci"
+    icon: mdi:transmission-tower-import
+  deye_manual_tou_grid_charge_2:
+    name: "Ręczne TOU slot 2: Ładowanie z sieci"
+    icon: mdi:transmission-tower-import
+  deye_manual_tou_grid_charge_3:
+    name: "Ręczne TOU slot 3: Ładowanie z sieci"
+    icon: mdi:transmission-tower-import
+  deye_manual_tou_grid_charge_4:
+    name: "Ręczne TOU slot 4: Ładowanie z sieci"
+    icon: mdi:transmission-tower-import
+  deye_manual_tou_grid_charge_5:
+    name: "Ręczne TOU slot 5: Ładowanie z sieci"
+    icon: mdi:transmission-tower-import
+  deye_manual_tou_grid_charge_6:
+    name: "Ręczne TOU slot 6: Ładowanie z sieci"
+    icon: mdi:transmission-tower-import
+  motion_lights_disabled:
+    name: Motion Lights Disabled
+    icon: mdi:motion-sensor-off
+  kitchen_helper:
+    name: Kitchen Helper
+  hall_entrance_input_manual:
+    name: Hall Entrance Input Manual
+  deye_battery_calibration_in_progress:
+    name: Trwa Kalibracja Magazynu (Tryb 100%)
+    initial: off
+    icon: mdi:battery-sync
+  deye_battery_installed:
+    name: Magazyn Energii Zainstalowany
+    icon: mdi:battery-plus-variant
+
+input_select:
+  ev_charging_target_hours:
+    name: Czas Ładowania EV
+    options:
+      - "Auto (2h Pn-Pt / 4h Sb-Nd)"
+      - "Auto (2h Pn-Pt / 6h Sb-Nd)"
+      - "2h (Stałe 2 godziny)"
+      - "3h (Stałe 3 godziny)"
+      - "4h (Stałe 4 godziny)"
+      - "6h (Stałe 6 godzin)"
+    icon: mdi:car-electric
+
+  battery_discharge_target_hours:
+    name: Czas Rozładowania / Sprzedaży
+    options:
+      - "3h (Optymalny szczyt 3h)"
+      - "4h (Rozszerzony szczyt 4h)"
+      - "5h (Pełne okno szczytowe 5h)"
+      - "2h (Kompaktowy szczyt 2h)"
+      - "1h (Tylko pik cenowy 1h)"
+    icon: mdi:battery-arrow-up
+
+  deye_battery_calibration_frequency:
+    name: Częstotliwość Kalibracji 100% (BMS Health)
+    options:
+      - "Co 14 dni (Częste cykle)"
+      - "Co 30 dni (Zalecane raz w miesiącu)"
+      - "Co 60 dni"
+      - "Wyłączone (Tylko ręcznie)"
+    icon: mdi:calendar-sync
+
+  last_radio_station:
+    name: Ostatnia Stacja Radiowa
+    options:
+      - eska_rock
+      - rmf_fm
+      - radio_zet
+      - antyradio
+      - radio_357
+      - tok_fm
+      - vox_fm
+      - trojka
+    initial: eska_rock
+    icon: mdi:radio
+  local01_main_heating_routine:
+    name: Heating Routine Local01 Main
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local01_bathroom_heating_routine:
+    name: Heating Routine Local01 Bathroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local01_bedroom_heating_routine:
+    name: Heating Routine Local01 Bedroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local02_main_heating_routine:
+    name: Heating Routine Local02 Main
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local02_bathroom_heating_routine:
+    name: Heating Routine Local02 Bathroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local02_bedroom_heating_routine:
+    name: Heating Routine Local02 Bedroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+
+  local03_main_heating_routine:
+    name: Heating Routine Local03 Main
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local03_bathroom_heating_routine:
+    name: Heating Routine Local03 Bathroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local03_bedroom_heating_routine:
+    name: Heating Routine Local03 Bedroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local04_main_heating_routine:
+    name: Heating Routine Local04 Main
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local04_bathroom_heating_routine:
+    name: Heating Routine Local04 Bathroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local04_bedroom_heating_routine:
+    name: Heating Routine Local04 Bedroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local05_main_heating_routine:
+    name: Heating Routine Local05 Main
+    options:
+      - default
+      - 'off'
+      - offWinter
+  local05_bathroom_heating_routine:
+    name: Heating Routine Local05 Bathroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local05_bedroom_heating_routine:
+    name: Heating Routine Local05 Bedroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local06_main_heating_routine:
+    name: Heating Routine Local06 Main
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local06_bathroom_heating_routine:
+    name: Heating Routine Local06 Bathroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  local06_bedroom_heating_routine:
+    name: Heating Routine Local06 Bedroom
+    options:
+      - default
+      - defaultBathroom
+      - defaultBedroom
+      - 'off'
+      - offWinter
+      - staircase
+      - testMain
+      - testBathroom
+      - testBedroom
+  shelly_mode:
+    name: Shelly Mode
+    options:
+      - 'Off'
+      - 'ON'
+      - Animation
+    initial: 'Off'
+  shelly_animation_type:
+    name: Shelly Animation Type
+    options:
+      - script_1
+      - script_2
+      - script_3
+      - script_4
+      - script_5
+    initial: script_1
+  salon_kolor_wybor:
+    name: Salon Wybór Koloru
+    options:
+      - script.light_salon_color_1
+      - script.light_salon_color_2
+      - script.light_salon_white_red_loop_20
+      - script.light_salon_white_off
+    initial: script.light_salon_color_1
+
+input_datetime:
+  deye_manual_tou_time_1:
+    name: "Ręczne TOU slot 1: Godzina"
+    has_date: false
+    has_time: true
+    icon: mdi:clock-outline
+  deye_manual_tou_time_2:
+    name: "Ręczne TOU slot 2: Godzina"
+    has_date: false
+    has_time: true
+    icon: mdi:clock-outline
+  deye_manual_tou_time_3:
+    name: "Ręczne TOU slot 3: Godzina"
+    has_date: false
+    has_time: true
+    icon: mdi:clock-outline
+  deye_manual_tou_time_4:
+    name: "Ręczne TOU slot 4: Godzina"
+    has_date: false
+    has_time: true
+    icon: mdi:clock-outline
+  deye_manual_tou_time_5:
+    name: "Ręczne TOU slot 5: Godzina"
+    has_date: false
+    has_time: true
+    icon: mdi:clock-outline
+  deye_manual_tou_time_6:
+    name: "Ręczne TOU slot 6: Godzina"
+    has_date: false
+    has_time: true
+    icon: mdi:clock-outline
+  pora_nocna:
+    name: Pora Nocna
+    has_date: false
+    has_time: true
+    initial: "22:30:00"
+  pora_pobudka:
+    name: Pora Pobudka
+    has_date: false
+    has_time: true
+    initial: "07:00:00"
+  pora_pobudka_weekend:
+    name: Pora Pobudka Weekend
+    has_date: false
+    has_time: true
+    initial: "08:15:00"
+
+  # --- Dynamic Solar References ---
+  dynamic_dawn:
+    name: Dynamiczna Pora Świtu
+    has_date: false
+    has_time: true
+    initial: "06:00:00"
+    icon: mdi:weather-sunset-up
+  dynamic_sunrise:
+    name: Dynamiczna Pora Wschodu
+    has_date: false
+    has_time: true
+    initial: "06:30:00"
+    icon: mdi:weather-sunset-up
+  dynamic_sunset:
+    name: Dynamiczna Pora Zmroku
+    has_date: false
+    has_time: true
+    initial: "18:00:00"
+    icon: mdi:weather-sunset-down
+  dynamic_outdoor_dusk:
+    name: Dynamiczna Pora Zmroku na Zewnątrz
+    has_date: false
+    has_time: true
+    initial: "17:30:00"
+    icon: mdi:weather-sunset-down
+  deye_battery_last_calibration_date:
+    name: Data Ostatniej Kalibracji 100%
+    has_date: true
+    has_time: true
+    icon: mdi:history
+  deye_tou_last_synced_date:
+    name: Data Ostatniej Synchronizacji TOU
+    has_date: true
+    has_time: true
+    icon: mdi:calendar-sync
+
+input_number:
+  deye_manual_tou_soc_1:
+    name: "Ręczne TOU slot 1: Docelowy SOC"
+    min: 10
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    icon: mdi:battery-charging-medium
+  deye_manual_tou_soc_2:
+    name: "Ręczne TOU slot 2: Docelowy SOC"
+    min: 10
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    icon: mdi:battery-charging-medium
+  deye_manual_tou_soc_3:
+    name: "Ręczne TOU slot 3: Docelowy SOC"
+    min: 10
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    icon: mdi:battery-charging-medium
+  deye_manual_tou_soc_4:
+    name: "Ręczne TOU slot 4: Docelowy SOC"
+    min: 10
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    icon: mdi:battery-charging-medium
+  deye_manual_tou_soc_5:
+    name: "Ręczne TOU slot 5: Docelowy SOC"
+    min: 10
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    icon: mdi:battery-charging-medium
+  deye_manual_tou_soc_6:
+    name: "Ręczne TOU slot 6: Docelowy SOC"
+    min: 10
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    icon: mdi:battery-charging-medium
+  deye_tou_stale_sync_hours:
+    name: "Alarm: Maks. Wiek Synchronizacji TOU (h, 0 = wyłączony)"
+    min: 0
+    max: 72
+    step: 1
+    mode: box
+    unit_of_measurement: h
+    icon: mdi:calendar-alert
+  shelly_brightness:
+    name: Shelly Brightness
+    min: 1
+    max: 100
+    step: 1
+    initial: 50
+  kolor_bialy_salon:
+    name: Kolor Biały Salon
+    min: 0
+    max: 255
+    step: 5
+    initial: 120
+  kolor_czerwony_salon:
+    name: Kolor Czerwony Salon
+    min: 0
+    max: 255
+    step: 5
+    initial: 120
+  deye_battery_max_charge_soc:
+    name: "Deye: Max SOC (Ładowanie)"
+    min: 50
+    max: 100
+    step: 1
+    mode: slider
+    unit_of_measurement: "%"
+    icon: mdi:battery-arrow-up
+  deye_battery_min_discharge_soc:
+    name: "Deye: Min SOC (Praca w sieci)"
+    min: 10
+    max: 50
+    step: 1
+    mode: slider
+    unit_of_measurement: "%"
+    icon: mdi:battery-arrow-down
+  deye_battery_shutdown_soc:
+    name: "Deye: Shutdown SOC (Blackout)"
+    min: 0
+    max: 15
+    step: 1
+    mode: slider
+    unit_of_measurement: "%"
+    icon: mdi:battery-alert
+  deye_inverter_port:
+    name: "Port Falownika Deye (Solarman V5)"
+    min: 1
+    max: 65535
+    step: 1
+    mode: box
+    unit_of_measurement: "TCP"
+    icon: mdi:ethernet
+
+input_button:
+  btn_entrance_door:
+    name: Przycisk Drzwi Wejściowe
+    icon: mdi:door-open
+  roleta_sypialnia_up:
+    name: Roleta Sypialnia Góra
+  roleta_sypialnia_down:
+    name: Roleta Sypialnia Dół
+  shelly_animation_toggle:
+    name: Shelly Animation Toggle
+  sync_deye_inverter_soc:
+    name: Synchronizuj z Falownikiem Deye
+    icon: mdi:sync
+  trigger_deye_battery_calibration:
+    name: Rozpocznij Kalibrację 100% (Balansowanie Ogniw)
+    icon: mdi:battery-charging-100
+  scan_deye_inverter_ip:
+    name: Skanuj Sieć i Wykryj Falownik Deye
+    icon: mdi:radar
+
+input_text:
+  deye_load_history_status:
+    name: "Status Pobierania Historii Zużycia Deye"
+    min: 0
+    max: 32
+    icon: mdi:database-sync
+  deye_inverter_ip:
+    name: "Adres IP Falownika Deye"
+    min: 7
+    max: 15
+    icon: mdi:ip-network
+    mode: text
+  pending_ui_operations:
+    name: "Oczekujące Operacje UI"
+    initial: "[]"
+    min: 2
+    max: 255
+    icon: mdi:progress-clock
+    mode: text
+
+
+
+# camera:
+#   - platform: mjpeg
+#     name: Sance Camera
+#     # still_image_url: http://10.20.100.245:18706/snapshot.htm
+#     mjpeg_url: http://100.100.10.180:18706/videostream.cgi?loginuse=WktrAdmin&loginpas=Boryson68
+
+  # - platform: onvif
+  #   host: 100.100.10.194
+  #   username: admin
+  #   password: L25CD6A5
+  #   name: "Wejście"
+  #   port: 80
+  
+  # - platform: generic
+  #   name: Wejście2
+  #   still_image_url: http://admin:L25CD6A5@100.100.10.195/cgi-bin/snapshot.cgi?1
+  #   stream_source: rtsp://admin:L25CD6A5@100.100.10.195/cam/realmonitor?channel=1&subtype=00&authbasic=YWRtaW46TDI1Q0Q2QTU=
+    # verify_ssl: true
+
+  # - platform: generic
+  #   scan_interval: 1
+  #   name: Front-Reolink520A
+  #   still_image_url: !secret Camera_URL
+  #   stream_source: !secret CameraFront_Source 
+
+intent_script:
+  OtworzRygiel:
+    speech:
+      text: "Otwieram rygiel drzwi wejściowych"
+    action:
+      - action: input_button.press
+        target:
+          entity_id: input_button.btn_entrance_door
+
+  OtworzBrame:
+    speech:
+      text: "Otwieram bramę wjazdową"
+    action:
+      - action: cover.open_cover
+        target:
+          entity_id: cover.brama_wynajem_zaslona
+
+  ZamknijBrame:
+    speech:
+      text: "Zamykam bramę wjazdową"
+    action:
+      - action: cover.close_cover
+        target:
+          entity_id: cover.brama_wynajem_zaslona
+
+  UchylRoleteSypialnia:
+    speech:
+      text: "Uchylam roletę w sypialni"
+    action:
+      - action: script.roller_bedroom_up_1_5
+
+  OtworzRoleteSypialnia:
+    speech:
+      text: "Otwieram roletę w sypialni"
+    action:
+      - action: script.roller_bedroom_on
+
+  ZamknijRoleteSypialnia:
+    speech:
+      text: "Zasłaniam roletę w sypialni"
+    action:
+      - action: script.roller_bedroom_down
+
+  ZatrzymajRoleteSypialnia:
+    speech:
+      text: "Zatrzymuję roletę w sypialni"
+    action:
+      - action: script.turn_off
+        target:
+          entity_id:
+            - script.roller_bedroom_on
+            - script.roller_bedroom_down
+            - script.roller_bedroom_down_almost
+            - script.roller_bedroom_up_1_3
+            - script.roller_bedroom_up_1_5
+
+  ZapytajTaniPrad:
+    speech:
+      text: >
+        {% set best = states('sensor.pstryk_best_window_dol') %}
+        {% set price = states('sensor.pstryk_price_meter_dol') %}
+        {% if best not in ['unavailable', 'unknown', 'None'] %}
+          Najtańszy prąd będzie w godzinach {{ best }}. Aktualna cena wynosi {{ price }} zł za kilowatogodzinę.
+        {% else %}
+          Aktualna cena prądu wynosi {{ price }} zł za kilowatogodzinę.
+        {% endif %}
+
+  ZapytajSmieci:
+    speech:
+      text: >
+        {% set next_waste = states('sensor.nastepny_wywoz_odpadow') %}
+        {% set days = state_attr('sensor.nastepny_wywoz_odpadow', 'dni_pozostalo') %}
+        {% if next_waste not in ['unavailable', 'unknown', 'Brak danych'] %}
+          Najbliższy odbiór to {{ next_waste }}, za {{ days }} dni.
+        {% else %}
+          Brak informacji o najbliższym wywozie śmieci.
+        {% endif %}
+
+  TrybDobranoc:
+    speech:
+      text: "Dobranoc. Gaszę światła i opuszczam roletę w sypialni."
+    action:
+      - action: script.all_lights_off
+      - action: script.roller_bedroom_down_almost
+
+  TrybDzienDobry:
+    speech:
+      text: "Dzień dobry. Podnoszę roletę w sypialni."
+    action:
+      - action: script.roller_bedroom_on
+
+  TrybWychodze:
+    speech:
+      text: "Wszystkie światła zostały wyłączone. Do zobaczenia."
+    action:
+      - action: script.all_lights_off
+
+  WlaczRadio:
+    speech:
+      text: >-
+        {% set station_names = {
+          'eska_rock': 'radio Eska Rock',
+          'rmf_fm': 'radio RMF FM',
+          'radio_zet': 'Radio ZET',
+          'antyradio': 'Antyradio',
+          'radio_357': 'Radio 357',
+          'tok_fm': 'radio TOK FM',
+          'vox_fm': 'radio VOX FM',
+          'trojka': 'Polskie Radio Trójka'
+        } %}
+        {% if radio_station is defined and radio_station in station_names %}
+          {% if is_state('media_player.home_assistant_voice_0a9bfd_media_player', 'playing') %}
+            Przełączam na {{ station_names[radio_station] }}
+          {% else %}
+            Włączam {{ station_names[radio_station] }}
+          {% endif %}
+        {% else %}
+          {% set last = states('input_select.last_radio_station') %}
+          {% set sel = last if last in station_names else 'eska_rock' %}
+          Wznawiam {{ station_names[sel] }}
+        {% endif %}
+    action:
+      - action: script.play_radio
+        data:
+          station: "{{ radio_station | default('') }}"
+
+  ZatrzymajRadio:
+    speech:
+      text: "Zatrzymuję radio"
+    action:
+      - action: script.stop_radio
+
+  GlosniejRadio:
+    speech:
+      text: "Zgłaśniam radio"
+    action:
+      - action: script.radio_volume_up
+
+  CiszejRadio:
+    speech:
+      text: "Ściszam radio"
+    action:
+      - action: script.radio_volume_down
+
+  WlaczAplikacjeTV:
+    speech:
+      text: >-
+        {% set app_names = {
+          'netflix': 'Netflix',
+          'youtube': 'YouTube',
+          'disney': 'Disney Plus',
+          'max': 'Max',
+          'spotify': 'Spotify',
+          'prime_video': 'Prime Video'
+        } %}
+        {% if streaming_app is defined and streaming_app in app_names %}
+          Włączam {{ app_names[streaming_app] }} na telewizorze
+        {% else %}
+          Uruchamiam aplikację na telewizorze
+        {% endif %}
+    action:
+      - action: script.tv_launch_app
+        data:
+          app: "{{ streaming_app | default('netflix') }}"
+
+  GlosniejTV:
+    speech:
+      text: "Zgłaśniam telewizor"
+    action:
+      - action: remote.send_command
+        target:
+          entity_id: remote.salon_2
+        data:
+          command: VOLUME_UP
+
+  CiszejTV:
+    speech:
+      text: "Ściszam telewizor"
+    action:
+      - action: remote.send_command
+        target:
+          entity_id: remote.salon_2
+        data:
+          command: VOLUME_DOWN
+
+  WyciszTV:
+    speech:
+      text: "Wyciszam telewizor"
+    action:
+      - action: remote.send_command
+        target:
+          entity_id: remote.salon_2
+        data:
+          command: MUTE
+
+  PokazKamereTV:
+    speech:
+      text: >-
+        {% set cam_names = {
+          'podworko': 'podwórza',
+          'wejscie': 'wejścia',
+          'taras': 'tarasu',
+          'ogrod': 'ogrodu',
+          'front': 'frontu'
+        } %}
+        {% if camera_target is defined and camera_target in cam_names %}
+          Wyświetlam kamerę {{ cam_names[camera_target] }} na telewizorze
+        {% else %}
+          Wyświetlam kamerę na telewizorze
+        {% endif %}
+    action:
+      - action: script.tv_show_camera
+        data:
+          camera: "{{ camera_target | default('podworko') }}"
+
+  ZatrzymajKamereTV:
+    speech:
+      text: "Zamykam podgląd kamery na telewizorze"
+    action:
+      - action: script.tv_show_camera
+        data:
+          camera: stop
+
+  TrybKinoSalon:
+    speech:
+      text: "Uruchamiam tryb kino w salonie. Przyjemnego seansu!"
+    action:
+      - action: script.salon_cinema_mode
+        data:
+          action_type: "on"
+
+  ZatrzymajKinoSalon:
+    speech:
+      text: "Wyłączam tryb kino"
+    action:
+      - action: script.salon_cinema_mode
+        data:
+          action_type: "off"
+
+

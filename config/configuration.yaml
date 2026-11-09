@@ -1091,3 +1091,6 @@ intent_script:
           action_type: "off"
 
 
+recorder:
+  commit_interval: 30
+  purge_keep_days: 7
